@@ -16,8 +16,8 @@ contract CounterTest is Test {
   }
 
   function testFuzz_Inc(uint8 x) public {
-    for (uint8 i = 0; i < x; i++) {
-      counter.inc();
+    if (x > 0) {
+        counter.incBy(x);
     }
     require(counter.x() == x, "Value after calling inc x times should be x");
   }
