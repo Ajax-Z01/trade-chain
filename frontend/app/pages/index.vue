@@ -1,21 +1,18 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
-import { useWallets } from '~/composables/useWallets'
 import { useDashboard } from '~/composables/useDashboard'
 
-const { wallets, loading, fetchWallets } = useWallets()
-
-const totalWallets = computed(() => wallets.value.length)
-
 const {
+  wallets,
+  totalWallets,
   deployedContracts,
   recentTxs,
+  loading,
   totalContracts,
   totalRecentTxs,
   fetchDashboard,
 } = useDashboard()
 
-onMounted(() => fetchWallets())
 onMounted(() => {
   fetchDashboard()
 })
@@ -31,7 +28,7 @@ onMounted(() => {
     <div>
       <button
         class="bg-white text-indigo-600 px-4 py-2 rounded shadow hover:bg-indigo-50 transition-all duration-200"
-        @click="fetchWallets"
+        @click="fetchDashboard"
         :disabled="loading"
       >
         {{ loading ? 'Refreshing...' : 'Refresh Data' }}

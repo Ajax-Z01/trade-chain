@@ -1,4 +1,4 @@
-import { createWalletClient, http, type Chain, parseEther } from 'viem';
+import { createWalletClient, createPublicClient, http, type Chain, parseEther } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import fs from 'fs';
 import path from 'path';
@@ -17,13 +17,18 @@ const localChain: Chain = {
   testnet: true,
 };
 
-// --- Wallet client
+// --- Wallet & Public client
 const walletClient = createWalletClient({
   chain: localChain,
   transport: http(localChain.rpcUrls.default.http[0]),
   account: privateKeyToAccount(
     '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'
   ),
+});
+
+const publicClient = createPublicClient({
+  chain: localChain,
+  transport: http(localChain.rpcUrls.default.http[0]),
 });
 
 // --- Load artifact
@@ -37,20 +42,25 @@ const bytecode = artifact.bytecode;
 
 async function main() {
   try {
-    const _exporter = '0x70997970c51812dc3a010c7d01b50e0d17dc79c8'; // ganti dengan address exporter
+    const _exporter = '0x70997970c51812dc3a010c7d01b50e0d17dc79c8';
     const _amount = parseEther('0.01');
 
-    // --- Deploy contract
-    const address = await walletClient.deployContract({
+    // --- Deploy contract (mengembalikan hash transaksi)
+    const txHash = await walletClient.deployContract({
       abi,
       bytecode,
       account: walletClient.account,
       args: [_exporter, _amount],
-      value: _amount,   // kontrak dapat ETH untuk payout
+      value: _amount,
       gas: 2_000_000n,
     });
 
-    console.log('Contract deployed at:', address);
+    console.log('Deployment tx hash:', txHash);
+
+    // --- Tunggu receipt untuk mendapatkan contractAddress
+    const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
+    console.log('Contract deployed at:', receipt.contractAddress);
+
   } catch (err) {
     console.error('Deployment error:', err);
   }

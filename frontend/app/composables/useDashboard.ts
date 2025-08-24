@@ -1,6 +1,5 @@
-// composables/useDashboard.ts
 import { ref, computed } from 'vue'
-import { createPublicClient, http, type Chain } from 'viem'
+import { createPublicClient, http, type Chain, formatEther, type BlockTag } from 'viem'
 
 // --- Wallet type
 interface Wallet {
@@ -8,7 +7,7 @@ interface Wallet {
   balance: number
 }
 
-// --- Transaction type (event log)
+// --- Transaction type
 interface RecentTx {
   from: `0x${string}`
   to: `0x${string}`
@@ -17,26 +16,11 @@ interface RecentTx {
 }
 
 export const useDashboard = () => {
-  // --- State
   const wallets = ref<Wallet[]>([])
   const deployedContracts = ref<`0x${string}`[]>([])
   const recentTxs = ref<RecentTx[]>([])
   const loading = ref(false)
 
-  // --- Addresses / contracts (dummy, bisa diubah live)
-  const walletAddresses: `0x${string}`[] = [
-    '0xf39Fd6e51aad88f6f4ce6aB8827279cffFb92266',
-    '0xc113755CDBf5D3831B0784A6FD26EB098c601B36',
-    '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC',
-    '0x8b054a90237e01Abb8D7333a873f5fc919790eA4',
-  ]
-
-  const contractAddresses: `0x${string}`[] = [
-    '0x1234567890abcdef1234567890abcdef12345678', // ganti live
-    '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
-  ]
-
-  // --- Hardhat local chain
   const localChain: Chain = {
     id: 31337,
     name: 'Hardhat Local',
@@ -50,52 +34,77 @@ export const useDashboard = () => {
     transport: http(localChain.rpcUrls.default.http[0]),
   })
 
-  // --- Computed
   const totalWallets = computed(() => wallets.value.length)
   const totalContracts = computed(() => deployedContracts.value.length)
   const totalRecentTxs = computed(() => recentTxs.value.length)
 
-  // --- Fetch wallets balances
-  const fetchWallets = async () => {
-    wallets.value = await Promise.all(
-      walletAddresses.map(async (address) => {
-        const balance = await client.getBalance({ address })
-        return { address, balance: Number(balance) / 1e18 }
-      })
-    )
-  }
-
-  // --- Fetch deployed contracts
-  const fetchContracts = async () => {
-    // Jika pakai factory contract + event logs bisa diganti ini
-    deployedContracts.value = contractAddresses
-  }
-
-  // --- Fetch recent transactions
-  const fetchRecentTxs = async () => {
-    const block = await client.getBlock({ blockTag: 'latest' })
-    const txs: RecentTx[] = []
-
-    for (const hash of block.transactions.slice(-5)) { // ambil 5 terakhir
-        const tx = await client.getTransaction({ hash })
-        if (tx) {
-        txs.push({
-            from: tx.from,
-            to: tx.to ?? '0x0',
-            value: Number(tx.value) / 1e18,
-            hash: tx.hash,
-        })
-        }
-    }
-
-    recentTxs.value = txs
-    }
-
-  // --- Fetch all
   const fetchDashboard = async () => {
     loading.value = true
     try {
-      await Promise.all([fetchWallets(), fetchContracts(), fetchRecentTxs()])
+      // Ambil block terakhir
+      const latestBlock = await client.getBlock({ blockTag: 'latest' })
+      if (!latestBlock?.number) throw new Error('Cannot fetch latest block number')
+
+      const lastBlockNumber = latestBlock.number
+      const allAddresses = new Set<`0x${string}`>()
+      const contractsSet = new Set<`0x${string}`>()
+      const allTxs: RecentTx[] = []
+
+      // Scan semua block dari 0 sampai latest
+      for (let i = 0; i <= lastBlockNumber; i++) {
+        const block = await client.getBlock({
+          blockTag: i as unknown as BlockTag,
+          includeTransactions: true,
+        })
+        if (!block) continue
+
+        for (const tx of block.transactions) {
+          // Simpan transaksi
+          allTxs.push({
+            from: tx.from,
+            to: (tx.to ?? '0x0') as `0x${string}`,
+            value: Number(tx.value) / 1e18,
+            hash: tx.hash,
+          })
+
+          // Simpan alamat pengirim
+          allAddresses.add(tx.from)
+
+          if (tx.to) {
+            // Alamat tujuan normal
+            allAddresses.add(tx.to as `0x${string}`)
+          } else {
+            // Deployment contract
+            const receipt = await client.getTransactionReceipt({ hash: tx.hash })
+            if (receipt?.contractAddress) {
+              contractsSet.add(receipt.contractAddress as `0x${string}`)
+              // jangan tambahkan ke wallet
+            }
+          }
+        }
+      }
+
+      // Ambil wallet balances, hanya untuk EOA (bukan contract)
+      const walletResults: Wallet[] = []
+      for (const addr of allAddresses) {
+        const code = await client.getBytecode({ address: addr })
+        if (code && code !== '0x') {
+          // Ini contract, masukin ke contractsSet tapi bukan wallet
+          contractsSet.add(addr)
+          continue
+        }
+
+        // Alamat EOA
+        const bal = await client.getBalance({ address: addr })
+        walletResults.push({ address: addr, balance: Number(formatEther(bal)) })
+      }
+
+      // Simpan ke reactive state
+      wallets.value = walletResults
+      deployedContracts.value = Array.from(contractsSet)
+      recentTxs.value = allTxs.slice(-5) // 5 transaksi terakhir
+    } catch (err) {
+      console.error('Error fetching dashboard:', err)
     } finally {
       loading.value = false
     }
