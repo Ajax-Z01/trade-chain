@@ -1,0 +1,108 @@
+<script setup lang="ts">
+import { ref, watchEffect } from 'vue'
+import { createPublicClient, http } from 'viem'
+import Button from '~/components/ui/Button.vue'
+import { Wallet, PlugZap, Loader2, LogOut } from 'lucide-vue-next'
+import { useWallet } from '~/composables/useWallets'
+
+const { account, connectWallet, disconnectWallet } = useWallet()
+const balance = ref<number | null>(null)
+const loadingConnect = ref(false)
+
+const client = createPublicClient({
+  chain: {
+    id: 31337,
+    name: 'Hardhat Local',
+    nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+    rpcUrls: { default: { http: ['http://127.0.0.1:8545'] } },
+  },
+  transport: http('http://127.0.0.1:8545'),
+})
+
+// Fetch balance whenever account changes
+const fetchBalance = async () => {
+  if (!account.value) {
+    balance.value = null
+    return
+  }
+  const bal = await client.getBalance({ address: account.value as `0x${string}` })
+  balance.value = Number(bal) / 1e18
+}
+
+watchEffect(() => {
+  if (account.value) fetchBalance()
+})
+
+const handleConnect = async () => {
+  try {
+    loadingConnect.value = true
+    await connectWallet()
+    await fetchBalance()
+  } catch (e) {
+    console.error(e)
+  } finally {
+    loadingConnect.value = false
+  }
+}
+
+const handleDisconnect = () => {
+  disconnectWallet()
+  balance.value = null
+}
+</script>
+
+<template>
+  <div class="p-6 max-w-md mx-auto">
+    <div class="flex items-center gap-3 mb-6">
+      <Wallet class="w-7 h-7 text-indigo-600" />
+      <h1 class="text-2xl font-bold">Wallet</h1>
+    </div>
+
+    <div class="bg-white rounded-3xl border shadow-lg p-6 transition hover:shadow-2xl">
+      <!-- Connected State -->
+      <div v-if="account" class="space-y-4">
+        <p class="text-gray-700 font-medium">Connected Account</p>
+        <code class="block p-2 rounded-lg bg-gray-100 text-sm font-mono truncate">
+          {{ account }}
+        </code>
+
+        <div class="flex items-center gap-2">
+          <span class="text-gray-700 font-medium">Balance:</span>
+          <span v-if="balance !== null" class="text-indigo-600 font-semibold flex items-center gap-1">
+            {{ balance.toFixed(4) }} ETH
+          </span>
+          <Loader2 v-else class="w-4 h-4 animate-spin text-gray-400" />
+        </div>
+
+        <Button
+          class="flex items-center justify-center gap-2 w-full px-4 py-2 rounded-xl bg-red-600 text-white hover:bg-red-700 active:bg-red-800 transition"
+          @click="handleDisconnect"
+        >
+          <LogOut class="w-5 h-5" /> Disconnect
+        </Button>
+      </div>
+
+      <!-- Not Connected State -->
+      <div v-else class="space-y-4 text-center">
+        <p class="text-gray-500">No wallet connected.</p>
+        <Button
+          class="flex items-center justify-center gap-2 w-full px-4 py-2 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 active:bg-indigo-800 transition"
+          @click="handleConnect"
+          :disabled="loadingConnect"
+        >
+          <PlugZap class="w-5 h-5" />
+          <span v-if="!loadingConnect">Connect Wallet</span>
+          <span v-else class="flex items-center gap-2">
+            <Loader2 class="w-4 h-4 animate-spin" /> Connecting...
+          </span>
+        </Button>
+      </div>
+    </div>
+  </div>
+</template>
+
+<style scoped>
+code {
+  word-break: break-all;
+}
+</style>
