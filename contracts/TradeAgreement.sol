@@ -13,15 +13,10 @@ contract TradeAgreement {
     event Approved(address indexed by);
     event Finalized(address indexed to, uint256 amount);
 
-    constructor(address _exporter) {
-        importer = msg.sender;
+    constructor(address _importer, address _exporter, uint256 _requiredAmount) {
+        importer = _importer;
         exporter = _exporter;
-        requiredAmount = 0;
-    }
-
-    function setRequiredAmount(uint256 _amount) external {
-        require(msg.sender == importer, "Only importer can set amount");
-        requiredAmount = _amount;
+        requiredAmount = _requiredAmount;
     }
 
     function deposit() external payable {

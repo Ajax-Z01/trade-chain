@@ -42,46 +42,38 @@ export function useContractActions() {
     }
   }
 
-  // --- Deploy kontrak tanpa ETH
-  const deployContract = async (exporter: string) => {
-    if (!walletClient.value || !account.value) throw new Error('Wallet not connected')
+  // --- Deploy kontrak dengan importer, exporter, requiredAmount
+  const deployContract = async (
+  importer: `0x${string}`,
+  exporter: `0x${string}`,
+  requiredAmount: bigint
+) => {
+  if (!walletClient.value || !account.value) throw new Error('Wallet not connected')
 
-    const txHash = await walletClient.value.writeContract({
-      address: factoryAddress,
-      abi: factoryAbiFull,
-      functionName: 'deployTradeAgreement',
-      args: [exporter],
-      account: account.value as `0x${string}`,
-      chain: Chain,
-      value: 0n,
-    })
-    console.log('[DEBUG] Transaction hash:', txHash)
+  // Deploy kontrak melalui factory
+  const txHash = await walletClient.value.writeContract({
+    address: factoryAddress,
+    abi: factoryAbiFull,
+    functionName: 'deployTradeAgreement',
+    args: [importer, exporter, requiredAmount],
+    account: account.value as `0x${string}`,
+    chain: Chain,
+    value: 0n,
+  })
+  console.log('[DEBUG] Transaction hash:', txHash)
 
-    const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash as `0x${string}` })
-    console.log('[DEBUG] Transaction receipt:', receipt)
+  // Tunggu receipt
+  const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash as `0x${string}` })
+  console.log('[DEBUG] Transaction receipt:', receipt)
 
-    // --- Ambil event ContractDeployed
-    const log = receipt.logs.find(
-      l => l.topics[0] === '0x33c981baba081f8fd2c52ac6ad1ea95b6814b4376640f55689051f6584729688'
-    )
+  // Ambil kontrak terbaru dari factory
+  await fetchDeployedContracts()
+  const newContractAddress = deployedContracts.value[deployedContracts.value.length - 1]
+  console.log('[DEBUG] New contract deployed at:', newContractAddress)
 
-    if (!log) throw new Error('ContractDeployed event not found')
+  return newContractAddress
+}
 
-    // topic[1] adalah address kontrak baru (indexed)
-    let newContractAddress: `0x${string}` | undefined;
-
-    if (log.topics && log.topics[1]) {
-      newContractAddress = `0x${log.topics[1].slice(26)}` as `0x${string}`;
-    } else {
-      console.warn("No contract address found in log topics");
-    }
-
-    if (newContractAddress) {
-      deployedContracts.value.push(newContractAddress)
-      console.log('[DEBUG] New contract deployed at:', newContractAddress)
-    }
-    return newContractAddress
-  }
 
   // --- Deposit ETH
   const depositToContract = async (contractAddress: `0x${string}`, amount: bigint) => {
@@ -154,6 +146,36 @@ export function useContractActions() {
     return await publicClient.waitForTransactionReceipt({ hash: txHash })
   }
   
+  const getRequiredAmount = async (contractAddress: `0x${string}`) => {
+    try {
+      const amount = await publicClient.readContract({
+        address: contractAddress,
+        abi: tradeAgreementAbi,
+        functionName: 'getRequiredAmount',
+        args: [],
+      })
+      console.log('Required amount:', amount)
+      return amount as bigint
+    } catch (err) {
+      console.error('Failed to read requiredAmount:', err)
+    }
+  }
+
+  const getExporter = async (contractAddress: `0x${string}`) => {
+    try {
+      const exporter = await publicClient.readContract({
+        address: contractAddress,
+        abi: tradeAgreementAbi,
+        functionName: 'getExporter',
+        args: [],
+      })
+      console.log('Exporter address:', exporter)
+      return exporter as `0x${string}`
+    } catch (err) {
+      console.error('Failed to read exporter:', err)
+    }
+  }
+  
   const getImporter = async (contractAddress: `0x${string}`) => {
     if (!account.value) return
     try {
@@ -178,6 +200,8 @@ export function useContractActions() {
     approveAsImporter,
     approveAsExporter,
     finalizeContract,
+    getRequiredAmount,
+    getExporter,
     getImporter,
   }
 }

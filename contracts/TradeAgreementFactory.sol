@@ -6,12 +6,17 @@ import "./TradeAgreement.sol";
 contract TradeAgreementFactory {
     address[] public deployedContracts;
 
-    event ContractDeployed(address indexed contractAddress, address indexed exporter);
+    event ContractDeployed(
+        address indexed contractAddress,
+        address importer,
+        address exporter,
+        uint256 requiredAmount
+    );
 
-    function deployTradeAgreement(address _exporter) external returns (address) {
-        TradeAgreement newContract = new TradeAgreement(_exporter);
+    function deployTradeAgreement(address _importer, address _exporter, uint256 _requiredAmount) external returns (address) {
+        TradeAgreement newContract = new TradeAgreement(_importer, _exporter, _requiredAmount);
         deployedContracts.push(address(newContract));
-        emit ContractDeployed(address(newContract), _exporter);
+        emit ContractDeployed(address(newContract), _importer, _exporter, _requiredAmount);
         return address(newContract);
     }
 
