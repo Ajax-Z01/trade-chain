@@ -1,33 +1,14 @@
 import { ref, computed } from 'vue'
-import { createPublicClient, http, type Chain, formatEther, type BlockTag } from 'viem'
-
-// --- Wallet type
-interface Wallet {
-  address: `0x${string}`
-  balance: number
-}
-
-// --- Transaction type
-interface RecentTx {
-  from: `0x${string}`
-  to: `0x${string}`
-  value: number
-  hash: string
-}
+import { createPublicClient, http, formatEther, type BlockTag } from 'viem'
+import { Chain as localChain } from '../config/chain'
+import type { Wallet } from '~/types/Wallet'
+import type { RecentTx } from '~/types/Transaction'
 
 export const useDashboard = () => {
   const wallets = ref<Wallet[]>([])
   const deployedContracts = ref<`0x${string}`[]>([])
   const recentTxs = ref<RecentTx[]>([])
   const loading = ref(false)
-
-  const localChain: Chain = {
-    id: 31337,
-    name: 'Hardhat Local',
-    nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
-    rpcUrls: { default: { http: ['http://127.0.0.1:8545'] } },
-    testnet: true,
-  }
 
   const client = createPublicClient({
     chain: localChain,

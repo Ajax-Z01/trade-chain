@@ -1,10 +1,13 @@
 import { ref, readonly } from 'vue'
+import { Chain } from '~/config/chain'
 
 const account = ref<string | null>(null)
 const walletClient = ref<any>(null)
 const listenersAttached = ref(false)
 
 export async function connectWallet() {
+  const { $apiBase } = useNuxtApp()
+  
   if (!window.ethereum) throw new Error('MetaMask not installed')
 
   const accounts: string[] = await window.ethereum.request({ method: 'eth_requestAccounts' })
@@ -14,13 +17,7 @@ export async function connectWallet() {
     const { createWalletClient, custom } = await import('viem')
     walletClient.value = createWalletClient({
       transport: custom(window.ethereum),
-      chain: {
-        id: 31337,
-        name: 'Hardhat Local',
-        nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
-        rpcUrls: { default: { http: ['http://127.0.0.1:8545'] } },
-        testnet: true,
-      },
+      chain: Chain
     })
   }
 
@@ -29,10 +26,37 @@ export async function connectWallet() {
     listenersAttached.value = true
   }
 
+  // Log login ke backend
+  if (account.value) {
+    try {
+      await fetch(`${$apiBase}/wallet/log-login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ account: account.value })
+      })
+    } catch (err) {
+      console.warn('Failed to log wallet login', err)
+    }
+  }
+
   return account.value
 }
 
-export function disconnectWallet() {
+export async function disconnectWallet() {
+  const { $apiBase } = useNuxtApp()
+  
+  if (account.value) {
+    try {
+      await fetch(`${$apiBase}/wallet/log-disconnect`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ account: account.value })
+      })
+    } catch (err) {
+      console.warn('Failed to log wallet disconnect', err)
+    }
+  }
+
   account.value = null
   walletClient.value = null
 }

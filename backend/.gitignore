@@ -40,3 +40,6 @@ Thumbs.db
 
 # Optional: pnpm store (jika mau exclude)
 .pnpm-store/
+
+# Firebase
+.src/firebaseServiceAccountKey.json

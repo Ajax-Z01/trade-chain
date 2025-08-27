@@ -1,19 +1,12 @@
 import express from 'express'
 import cors from 'cors'
 import dotenv from 'dotenv'
-import admin from 'firebase-admin'
-import path from 'path'
 import morgan from 'morgan'
+import contractRoutes from './routes/contractRoutes.js'
+import walletRoutes from './routes/walletRoutes.js'
 
 dotenv.config()
 
-const serviceAccountPath = path.resolve('./src/firebaseServiceAccount.json')
-
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccountPath)
-})
-
-const db = admin.firestore()
 const app = express()
 
 // Middleware
@@ -24,17 +17,10 @@ app.use(morgan('dev'))
 // Routes
 app.get('/', (req, res) => res.send('Backend is running'))
 
-app.get('/contracts', async (req, res) => {
-  try {
-    const snapshot = await db.collection('contracts').get()
-    const contracts: any[] = []
-    snapshot.forEach(doc => contracts.push({ id: doc.id, ...doc.data() }))
-    res.json(contracts)
-  } catch (err) {
-    console.error(err)
-    res.status(500).json({ error: 'Failed to fetch contracts' })
-  }
-})
+app.use('/api/contract', contractRoutes)
+app.use('/api/wallet', walletRoutes)
 
-const PORT = process.env.PORT || 4000
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`))
+const PORT = process.env.PORT || 5000
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`)
+})

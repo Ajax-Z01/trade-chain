@@ -1,18 +1,11 @@
 import { ref } from 'vue'
 import { useWallet } from './useWallets'
-import { createPublicClient, http, decodeEventLog } from 'viem'
+import { createPublicClient, http } from 'viem'
 import tradeAgreementArtifact from '../../../artifacts/contracts/TradeAgreement.sol/TradeAgreement.json'
 import factoryArtifact from '../../../artifacts/contracts/TradeAgreementFactory.sol/TradeAgreementFactory.json'
+import { Chain } from '../config/chain'
 
 export const deployedContracts = ref<`0x${string}`[]>([])
-
-const Chain = {
-  id: 31337,
-  name: 'Hardhat Local',
-  nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
-  rpcUrls: { default: { http: ['http://127.0.0.1:8545'] } },
-  testnet: true,
-}
 
 const publicClient = createPublicClient({
   chain: Chain,
@@ -44,36 +37,35 @@ export function useContractActions() {
 
   // --- Deploy kontrak dengan importer, exporter, requiredAmount
   const deployContract = async (
-  importer: `0x${string}`,
-  exporter: `0x${string}`,
-  requiredAmount: bigint
-) => {
-  if (!walletClient.value || !account.value) throw new Error('Wallet not connected')
+    importer: `0x${string}`,
+    exporter: `0x${string}`,
+    requiredAmount: bigint
+  ) => {
+    if (!walletClient.value || !account.value) throw new Error('Wallet not connected')
 
-  // Deploy kontrak melalui factory
-  const txHash = await walletClient.value.writeContract({
-    address: factoryAddress,
-    abi: factoryAbiFull,
-    functionName: 'deployTradeAgreement',
-    args: [importer, exporter, requiredAmount],
-    account: account.value as `0x${string}`,
-    chain: Chain,
-    value: 0n,
-  })
-  console.log('[DEBUG] Transaction hash:', txHash)
+    // Deploy kontrak melalui factory
+    const txHash = await walletClient.value.writeContract({
+      address: factoryAddress,
+      abi: factoryAbiFull,
+      functionName: 'deployTradeAgreement',
+      args: [importer, exporter, requiredAmount],
+      account: account.value as `0x${string}`,
+      chain: Chain,
+      value: 0n,
+    })
+    console.log('[DEBUG] Transaction hash:', txHash)
 
-  // Tunggu receipt
-  const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash as `0x${string}` })
-  console.log('[DEBUG] Transaction receipt:', receipt)
+    // Tunggu receipt
+    const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash as `0x${string}` })
+    console.log('[DEBUG] Transaction receipt:', receipt)
 
-  // Ambil kontrak terbaru dari factory
-  await fetchDeployedContracts()
-  const newContractAddress = deployedContracts.value[deployedContracts.value.length - 1]
-  console.log('[DEBUG] New contract deployed at:', newContractAddress)
+    // Ambil kontrak terbaru dari factory
+    await fetchDeployedContracts()
+    const newContractAddress = deployedContracts.value[deployedContracts.value.length - 1]
+    console.log('[DEBUG] New contract deployed at:', newContractAddress)
 
-  return newContractAddress
-}
-
+    return newContractAddress
+  }
 
   // --- Deposit ETH
   const depositToContract = async (contractAddress: `0x${string}`, amount: bigint) => {
