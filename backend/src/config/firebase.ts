@@ -9,5 +9,8 @@ if (!admin.apps.length) {
   })
 }
 
-export const db = admin.firestore()
+const db = admin.firestore()
+db.settings({ ignoreUndefinedProperties: true });
+
+export { db }
 export default admin

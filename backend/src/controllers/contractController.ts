@@ -1,42 +1,37 @@
 import { Request, Response } from 'express';
-import admin from 'firebase-admin';
 import { createPublicClient, http } from 'viem';
 import { Chain } from '../config/chain.js';
 import ContractLogDTO from '../dtos/contractDTO.js';
-import { db } from '../config/firebase.js'
+import { addContractLog, getAllContracts, getContractById, getContractStepStatus } from '../models/contractModel.js';
 
-const collection = db.collection('contractLogs');
-
-// Public client untuk optional verifikasi
+// Public client untuk query blockchain
 const publicClient = createPublicClient({
   chain: Chain,
   transport: http(Chain.rpcUrls.default.http[0]),
 });
 
-// --- Firestore log helper ---
-export const addContractLog = async (data: Partial<ContractLogDTO>) => {
-  const dto = new ContractLogDTO(data as any);
-  dto.validate();
+// --- Helper verify on-chain ---
+const verifyTransaction = async (txHash: string) => {
+  try {
+    const receipt = await publicClient.getTransactionReceipt({ hash: txHash as `0x${string}` });
+    if (!receipt || receipt.blockNumber === undefined) return undefined;
 
-  const docRef = collection.doc(dto.contractAddress);
-  const doc = await docRef.get();
-
-  if (doc.exists) {
-    await docRef.update({
-      history: admin.firestore.FieldValue.arrayUnion(dto.toJSON()),
-    });
-  } else {
-    await docRef.set({ contractAddress: dto.contractAddress, history: [dto.toJSON()] });
+    const latestBlock = await publicClient.getBlockNumber();
+    return {
+      status: receipt.status ?? 'unknown',
+      blockNumber: Number(receipt.blockNumber),
+      confirmations: Number(latestBlock - receipt.blockNumber + 1n),
+    };
+  } catch (err) {
+    console.warn('Failed to verify on-chain:', err);
+    return undefined;
   }
 };
-
-// --- Controller Endpoints ---
 
 // GET /contracts
 export const fetchDeployedContracts = async (_req: Request, res: Response) => {
   try {
-    const snapshot = await collection.get();
-    const contracts = snapshot.docs.map((doc) => doc.id);
+    const contracts = await getAllContracts();
     res.json({ contracts });
   } catch (err) {
     res.status(500).json({ error: (err as Error).message });
@@ -46,48 +41,44 @@ export const fetchDeployedContracts = async (_req: Request, res: Response) => {
 // POST /contracts/log
 export const logContractAction = async (req: Request, res: Response) => {
   try {
-    const { contractAddress, action, txHash, account, extra, verifyOnChain } = req.body;
+    const {
+      contractAddress,
+      action,
+      txHash,
+      account,
+      exporter,
+      requiredAmount,
+      extra,
+      verifyOnChain,
+    } = req.body;
+
     if (!contractAddress || !action || !txHash || !account) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    let onChainInfo: { status: string | number; blockNumber?: number; confirmations?: number } | undefined;
-
+    let onChainInfo;
     if (verifyOnChain) {
-      try {
-        const receipt = await publicClient.getTransactionReceipt({ hash: txHash });
-        let confirmations: number | undefined;
-        let blockNumber: number | undefined;
-
-        if (receipt?.blockNumber != null) {
-          blockNumber = Number(receipt.blockNumber);
-          const latestBlock = await publicClient.getBlockNumber();
-          confirmations = Number(latestBlock - receipt.blockNumber + 1n);
-        }
-
-        onChainInfo = {
-          status: receipt?.status ?? 'unknown',
-          blockNumber,
-          confirmations,
-        };
-      } catch (err) {
-        console.warn('Failed to verify on-chain:', err);
-      }
+      onChainInfo = await verifyTransaction(txHash);
     }
+
+    const logExtra = {
+      ...extra,
+      ...(exporter ? { exporter } : {}),
+      ...(requiredAmount ? { requiredAmount } : {}),
+    };
 
     const dto = new ContractLogDTO({
       contractAddress,
       action,
       txHash,
       account,
-      extra,
+      extra: logExtra,
       timestamp: Date.now(),
       onChainInfo,
     });
-    dto.validate();
 
-    await addContractLog(dto);
-    res.json({ success: true, log: dto.toJSON() });
+    const saved = await addContractLog(dto);
+    res.json({ success: true, log: saved });
   } catch (err) {
     res.status(500).json({ error: (err as Error).message });
   }
@@ -96,13 +87,23 @@ export const logContractAction = async (req: Request, res: Response) => {
 // GET /contracts/:address/details
 export const getContractDetails = async (req: Request, res: Response) => {
   try {
-    const { address } = req.params;
-    const doc = await collection.doc(address).get();
-    if (!doc.exists) return res.status(404).json({ error: 'Contract not found' });
-
-    const log = doc.data();
-    res.json(log);
+    const contract = await getContractById(req.params.address);
+    if (!contract) return res.status(404).json({ error: 'Contract not found' });
+    res.json(contract);
   } catch (err) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+};
+
+// GET /contracts/:address/step
+export const getContractStep = async (req: Request, res: Response) => {
+  try {
+    const { address } = req.params;
+    const result = await getContractStepStatus(address);
+    if (!result) return res.status(404).json({ error: 'Contract not found' });
+    res.json(result);
+  } catch (err) {
+    console.error('Fetch contract step error:', err);
     res.status(500).json({ error: (err as Error).message });
   }
 };

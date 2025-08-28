@@ -1,11 +1,15 @@
-import { ContractLogEntry } from '../types/Contract.js';
+import type { ContractLogEntry, OnChainInfo } from '../types/Contract.js';
 
 export default class ContractLogDTO {
   contractAddress!: string;
   action!: string;
   txHash!: string;
   account!: string;
+  exporter?: string;
+  requiredAmount?: string;
   extra?: any;
+  timestamp!: number;
+  onChainInfo?: OnChainInfo;
 
   constructor(data: Partial<ContractLogEntry> & { contractAddress: string }) {
     Object.assign(this, data);
@@ -23,8 +27,11 @@ export default class ContractLogDTO {
       action: this.action,
       txHash: this.txHash,
       account: this.account,
+      exporter: this.exporter,
+      requiredAmount: this.requiredAmount,
       extra: this.extra,
-      timestamp: Date.now(),
+      timestamp: this.timestamp ?? Date.now(),
+      onChainInfo: this.onChainInfo,
     };
   }
 }
