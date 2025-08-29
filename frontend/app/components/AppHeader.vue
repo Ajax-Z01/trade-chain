@@ -43,6 +43,20 @@ const handleConnect = async () => {
             >Contracts</NuxtLink
           >
         </li>
+        <li>
+          <NuxtLink
+            to="/logs/wallet"
+            class="px-2 py-1 rounded hover:bg-indigo-50 hover:text-indigo-600 transition"
+            >Wallet Logs</NuxtLink
+          >
+        </li>
+        <li>
+          <NuxtLink
+            to="/logs/contract"
+            class="px-2 py-1 rounded hover:bg-indigo-50 hover:text-indigo-600 transition"
+            >Contract Logs</NuxtLink
+          >
+        </li>
       </ul>
     </nav>
 
