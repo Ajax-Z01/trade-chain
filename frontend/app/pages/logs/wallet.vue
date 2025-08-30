@@ -23,7 +23,7 @@ watch(account, () => {
   <div class="p-6">
     <h1 class="text-2xl font-bold mb-6">Wallet Logs</h1>
 
-    <!-- Loading State -->
+    <!-- Loading -->
     <div v-if="loading" class="flex justify-center items-center py-10">
       <svg
         class="animate-spin h-6 w-6 text-gray-500"
@@ -38,49 +38,55 @@ watch(account, () => {
           r="10"
           stroke="currentColor"
           stroke-width="4"
-        ></circle>
+        />
         <path
           class="opacity-75"
           fill="currentColor"
           d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
-        ></path>
+        />
       </svg>
     </div>
 
-    <!-- Empty State -->
+    <!-- Empty -->
     <div v-else-if="logs.length === 0" class="text-center text-gray-500 py-10">
       No wallet logs found.
     </div>
 
-    <!-- Logs List -->
-    <ul v-else class="space-y-4">
-      <li
-        v-for="(log, i) in logs"
-        :key="i"
-        class="p-4 border rounded-xl shadow-sm bg-white"
-      >
-        <div class="flex justify-between items-center mb-2">
-          <p class="font-semibold text-gray-800">
-            {{ log.account }}
-          </p>
-          <span
-            class="px-2 py-1 text-xs rounded-full"
-            :class="log.onChainInfo?.status === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'"
+    <!-- Logs Table -->
+    <div v-else class="overflow-x-auto">
+      <table class="min-w-full border border-gray-200 rounded-lg overflow-hidden">
+        <thead class="bg-gray-50">
+          <tr>
+            <th class="px-4 py-2 text-left border-b text-sm font-semibold text-gray-700">Date</th>
+            <th class="px-4 py-2 text-left border-b text-sm font-semibold text-gray-700">Account</th>
+            <th class="px-4 py-2 text-left border-b text-sm font-semibold text-gray-700">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr 
+            v-for="(log, i) in logs" 
+            :key="i" 
+            class="odd:bg-white even:bg-gray-50 hover:bg-indigo-50 transition"
           >
-            {{ log.onChainInfo?.status || 'unknown' }}
-          </span>
-        </div>
-
-        <p><b>Action:</b> {{ log.action }}</p>
-        <p v-if="log.extra?.amount"><b>Amount:</b> {{ log.extra.amount }}</p>
-        <p v-if="log.txHash" class="truncate">
-          <b>Tx Hash:</b> {{ log.txHash }}
-        </p>
-
-        <p class="text-sm text-gray-500 mt-2">
-          {{ log.onChainInfo?.timestamp ? new Date(log.onChainInfo.timestamp).toLocaleString() : 'No timestamp' }}
-        </p>
-      </li>
-    </ul>
+            <td class="px-4 py-2 border-b text-sm text-gray-600">
+              {{ new Date(log.timestamp).toLocaleString() }}
+            </td>
+            <td class="px-4 py-2 border-b text-sm font-mono truncate max-w-xs">
+              {{ log.account }}
+            </td>
+            <td class="px-4 py-2 border-b">
+              <span
+                class="px-2 py-1 text-xs rounded-full"
+                :class="log.action === 'connect' 
+                  ? 'bg-green-100 text-green-700' 
+                  : 'bg-red-100 text-red-700'"
+              >
+                {{ log.action }}
+              </span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 </template>

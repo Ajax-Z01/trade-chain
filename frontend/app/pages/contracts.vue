@@ -210,15 +210,44 @@ const handleFinalize = async () => {
     loadingButton.value = null
   }
 }
+
+const handleNewContract = () => {
+  selectedContract.value = null
+  latestContract.value = null
+
+  exporterAddress.value = ''
+  requiredAmount.value = ''
+  backendExporter.value = ''
+  backendRequiredAmount.value = ''
+
+  step.value = 'idle'
+  loadingButton.value = null
+  for (const key in stepStatus) {
+    stepStatus[key as StepKey] = false
+  }
+
+  addToast('Ready to create a new contract', 'info')
+}
 </script>
 
 <template>
   <div class="p-6 max-w-3xl mx-auto space-y-6">
-    <h1 class="text-2xl font-semibold text-gray-800">Contract Full Flow</h1>
+    <div class="flex items-center justify-between">
+      <h1 class="text-2xl font-semibold text-gray-800">
+        Contract Full Flow
+      </h1>
 
-    <!-- Contract Dropdown -->
-    <div>
-      <label class="block text-gray-700 mb-1">Select Existing Contract</label>
+      <Button
+        @click="handleNewContract"
+        class="bg-indigo-600 hover:bg-indigo-700 text-white rounded py-2 px-4 flex items-center gap-2 shadow"
+      >
+        <span>New Contract</span>
+      </Button>
+    </div>
+
+    <!-- Contract Selection -->
+    <div class="space-y-2">
+      <label class="block text-gray-700">Select Existing Contract</label>
       <select v-model="selectedContract" class="w-full p-3 border rounded focus:ring-2 focus:ring-indigo-400 outline-none">
         <option disabled value="">-- Select Contract --</option>
         <option v-for="c in deployedContracts" :key="c" :value="c">{{ c }}</option>
@@ -226,29 +255,41 @@ const handleFinalize = async () => {
     </div>
 
     <!-- Deploy Inputs -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-      <input 
-        v-model="exporterValue" 
-        placeholder="Exporter address (0x...)" 
-        :disabled="isAutoFilled"
-        class="w-full p-3 border rounded focus:ring-2 focus:ring-indigo-400 outline-none"
-      />
-      <input 
-        v-model="requiredAmountValue" 
-        placeholder="Required Amount (ETH)" 
-        type="number" step="0.0001" 
-        :disabled="isAutoFilled"
-        class="w-full p-3 border rounded focus:ring-2 focus:ring-indigo-400 outline-none"
-      />
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-gray-50 p-4 rounded shadow">
+      <div class="flex flex-col">
+        <label class="text-sm font-medium text-gray-700 mb-1">Exporter Address</label>
+        <input 
+          v-model="exporterValue" 
+          placeholder="0x..." 
+          :disabled="isAutoFilled"
+          class="w-full p-3 border rounded focus:ring-2 focus:ring-indigo-400 outline-none"
+        />
+      </div>
+
+      <div class="flex flex-col">
+        <label class="text-sm font-medium text-gray-700 mb-1">Required Amount (ETH)</label>
+        <input 
+          v-model="requiredAmountValue" 
+          placeholder="e.g. 0.5" 
+          type="number" step="0.0001" 
+          :disabled="isAutoFilled"
+          class="w-full p-3 border rounded focus:ring-2 focus:ring-indigo-400 outline-none"
+        />
+      </div>
     </div>
 
-    <!-- Step Status -->
-    <div class="space-y-2 mt-4">
-      <div class="flex items-center gap-2" v-for="label in labels" :key="label.key">
-        <Check v-if="stepStatus[label.key]" class="w-5 h-5 text-green-400"/>
-        <Loader2 v-else-if="loadingButton===label.key" class="w-5 h-5 animate-spin"/>
-        <span :class="{'text-gray-400': !stepStatus[label.key] && loadingButton !== label.key}">{{ label.text }}</span>
-      </div>
+    <!-- Step Status (Horizontal badges) -->
+    <div class="flex flex-wrap gap-2 mt-4">
+      <span 
+        v-for="label in labels" 
+        :key="label.key" 
+        :class="[
+          'px-3 py-1 rounded-full text-sm font-medium',
+          stepStatus[label.key] ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+        ]"
+      >
+        {{ label.text }}
+      </span>
     </div>
 
     <!-- Action Buttons -->

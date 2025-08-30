@@ -1,13 +1,39 @@
-import { ref, readonly } from 'vue'
+import { ref, readonly, onMounted } from 'vue'
 import { Chain } from '~/config/chain'
 
 const account = ref<string | null>(null)
 const walletClient = ref<any>(null)
 const listenersAttached = ref(false)
 
+async function initWallet() {
+  if (!window.ethereum) return
+
+  try {
+    const accounts: string[] = await window.ethereum.request({ method: 'eth_accounts' })
+    if (accounts.length > 0) {
+      account.value = accounts[0] as string
+
+      if (!walletClient.value) {
+        const { createWalletClient, custom } = await import('viem')
+        walletClient.value = createWalletClient({
+          transport: custom(window.ethereum),
+          chain: Chain
+        })
+      }
+    }
+  } catch (err) {
+    console.warn('Failed to check wallet accounts', err)
+  }
+
+  if (!listenersAttached.value) {
+    window.ethereum.on('accountsChanged', handleAccountsChanged)
+    listenersAttached.value = true
+  }
+}
+
 export async function connectWallet() {
   const { $apiBase } = useNuxtApp()
-  
+
   if (!window.ethereum) throw new Error('MetaMask not installed')
 
   const accounts: string[] = await window.ethereum.request({ method: 'eth_requestAccounts' })
@@ -26,7 +52,7 @@ export async function connectWallet() {
     listenersAttached.value = true
   }
 
-  // Log login ke backend
+  // log ke backend
   if (account.value) {
     try {
       await fetch(`${$apiBase}/wallet/log-login`, {
@@ -44,7 +70,7 @@ export async function connectWallet() {
 
 export async function disconnectWallet() {
   const { $apiBase } = useNuxtApp()
-  
+
   if (account.value) {
     try {
       await fetch(`${$apiBase}/wallet/log-disconnect`, {
@@ -66,6 +92,10 @@ const handleAccountsChanged = (accounts: string[]) => {
 }
 
 export function useWallet() {
+  onMounted(() => {
+    initWallet()
+  })
+
   return {
     account: readonly(account),
     walletClient,
