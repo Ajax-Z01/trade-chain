@@ -11,12 +11,12 @@ const __dirname = path.dirname(__filename)
 // --- Load artifact
 const artifactPath = path.resolve(
   __dirname,
-  '../artifacts/contracts/TradeAgreementFactory.sol/TradeAgreementFactory.json'
+  '../artifacts/contracts/DocumentRegistry.sol/DocumentRegistry.json'
 )
 const artifact = JSON.parse(fs.readFileSync(artifactPath, 'utf-8'))
 const { abi, bytecode } = artifact
 
-// --- Setup chain
+// --- Setup local Hardhat chain
 const chain = {
   id: 31337,
   name: 'Hardhat Local',
@@ -26,34 +26,37 @@ const chain = {
 }
 
 // --- Public & Wallet clients
-const publicClient = createPublicClient({ chain, transport: http(chain.rpcUrls.default.http[0]) })
+const publicClient = createPublicClient({
+  chain,
+  transport: http(chain.rpcUrls.default.http[0]),
+})
 
 const walletClient = createWalletClient({
   chain,
   transport: http(chain.rpcUrls.default.http[0]),
-  account: privateKeyToAccount('0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80')
+  account: privateKeyToAccount(
+    '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' // Hardhat default account 1
+  ),
 })
 
-// --- Registry address (deployed in deployRegistry.ts)
-const registryAddress = '0x5fbdb2315678afecb367f032d93f642f64180aa3'
-
-// --- Deploy factory
-async function deployFactory() {
+// --- Deploy DocumentRegistry
+async function deployRegistry() {
   try {
     const deployer = walletClient.account.address
-    console.log('Deploying TradeAgreementFactory from:', deployer)
+    console.log('Deploying DocumentRegistry from:', deployer)
 
     const txHash = await walletClient.deployContract({
       abi,
       bytecode: `0x${bytecode.replace(/^0x/, '')}` as `0x${string}`,
       account: deployer,
-      args: [registryAddress],
-      gas: 3_000_000n
+      args: [deployer], // initialOwner
+      gas: 5_000_000n,
     })
 
     console.log('Transaction hash:', txHash)
+
     const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash })
-    console.log('Factory deployed at:', receipt.contractAddress)
+    console.log('DocumentRegistry deployed at:', receipt.contractAddress)
     return receipt.contractAddress
   } catch (err) {
     console.error('Deploy error:', err)
@@ -61,4 +64,4 @@ async function deployFactory() {
   }
 }
 
-deployFactory()
+deployRegistry()

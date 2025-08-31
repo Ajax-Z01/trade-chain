@@ -3,6 +3,7 @@ import { useWallet } from './useWallets'
 import { createPublicClient, http } from 'viem'
 import tradeAgreementArtifact from '../../../artifacts/contracts/TradeAgreement.sol/TradeAgreement.json'
 import factoryArtifact from '../../../artifacts/contracts/TradeAgreementFactory.sol/TradeAgreementFactory.json'
+import registryArtifact from '../../../artifacts/contracts/DocumentRegistry.sol/DocumentRegistry.json'
 import { Chain } from '../config/chain'
 
 export const deployedContracts = ref<`0x${string}`[]>([])
@@ -12,14 +13,16 @@ const publicClient = createPublicClient({
   transport: http('http://127.0.0.1:8545'),
 })
 
-const factoryAddress = '0x5fbdb2315678afecb367f032d93f642f64180aa3' as `0x${string}`
+const factoryAddress = '0xe7f1725e7734ce288f8367e1bb143e90bb3f0512' as `0x${string}`
 const factoryAbiFull = factoryArtifact.abi
 const tradeAgreementAbi = tradeAgreementArtifact.abi
 
+const registryAddress = '0x5fbdb2315678afecb367f032d93f642f64180aa3' as `0x${string}`
+const registryAbi = registryArtifact.abi
+
 export function useContractActions() {
   const { account, walletClient } = useWallet()
-  
-  // reactive untuk status step contract
+
   const stepStatus = reactive({
     deploy: false,
     deposit: false,
@@ -28,7 +31,6 @@ export function useContractActions() {
     finalize: false,
   })
 
-  // --- Helper untuk POST log ke backend ---
   const postLog = async (data: any) => {
     const { $apiBase } = useNuxtApp()
     try {
@@ -42,8 +44,43 @@ export function useContractActions() {
     }
   }
 
+  // ----------------
+  // DocumentRegistry
+  // ----------------
+  const mintDocument = async (
+    owner: `0x${string}`,
+    fileHash: string,
+    tokenURI: string
+  ) => {
+    if (!walletClient.value || !account.value) throw new Error('Wallet not connected')
+
+    const txHash = await walletClient.value.writeContract({
+      address: registryAddress,
+      abi: registryAbi,
+      functionName: 'verifyAndMint',
+      args: [owner, fileHash, tokenURI],
+      account: account.value as `0x${string}`,
+      chain: Chain,
+    })
+
+    const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash as `0x${string}` })
+
+    // Ambil tokenId dari event log
+    const logs = receipt.logs
+    const verifiedLog = logs.find(l => l.address.toLowerCase() === registryAddress.toLowerCase())
+    let tokenId: bigint | undefined
+    if (verifiedLog) {
+      // viem decode bisa dipakai untuk parsing event, tapi sementara pakai simple BigInt
+      tokenId = BigInt('0x' + verifiedLog.data.slice(2))
+    }
+
+    return { txHash, receipt, tokenId }
+  }
+
+  // ----------------
+  // Factory / TradeAgreement
+  // ----------------
   const fetchDeployedContracts = async () => {
-    const { $apiBase } = useNuxtApp()
     if (!account.value) return
     try {
       const contracts = await publicClient.readContract({
@@ -53,33 +90,17 @@ export function useContractActions() {
         args: [],
       })
       deployedContracts.value = contracts as `0x${string}`[]
-
-      // Optional log fetch
-      await fetch(`${$apiBase}/contract`, { method: 'GET' })
     } catch (err) {
       console.error(err)
       deployedContracts.value = []
     }
   }
-  
-  // fetch step status dari backend
-  const fetchContractStep = async (contractAddress: `0x${string}`) => {
-    const { $apiBase } = useNuxtApp()
-    try {
-      const res = await fetch(`${$apiBase}/contract/${contractAddress}/step`)
-      if (!res.ok) throw new Error('Failed to fetch contract step')
-      const data = await res.json()
-      // update reactive stepStatus
-      Object.assign(stepStatus, data.stepStatus)
-      return data
-    } catch (err) {
-      console.error('Fetch contract step error:', err)
-    }
-  }
 
-  const deployContract = async (
+  const deployContractWithDocs = async (
     importer: `0x${string}`,
     exporter: `0x${string}`,
+    importerDocId: bigint,
+    exporterDocId: bigint,
     requiredAmount: bigint
   ) => {
     if (!walletClient.value || !account.value) throw new Error('Wallet not connected')
@@ -88,10 +109,9 @@ export function useContractActions() {
       address: factoryAddress,
       abi: factoryAbiFull,
       functionName: 'deployTradeAgreement',
-      args: [importer, exporter, requiredAmount],
+      args: [importer, exporter, requiredAmount, importerDocId, exporterDocId],
       account: account.value as `0x${string}`,
       chain: Chain,
-      value: 0n,
     })
 
     const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash as `0x${string}` })
@@ -105,11 +125,16 @@ export function useContractActions() {
       contractAddress: newContractAddress,
       exporter,
       requiredAmount: requiredAmount.toString(),
+      importerDocId: importerDocId.toString(),
+      exporterDocId: exporterDocId.toString(),
     })
 
     return newContractAddress
   }
 
+  // ----------------
+  // TradeAgreement steps
+  // ----------------
   const depositToContract = async (contractAddress: `0x${string}`, amount: bigint) => {
     if (!walletClient.value || !account.value) throw new Error('Wallet not connected')
 
@@ -130,8 +155,6 @@ export function useContractActions() {
       account: account.value,
       txHash,
       contractAddress,
-      exporter: await getExporter(contractAddress),
-      requiredAmount: await getRequiredAmount(contractAddress),
       amount: amount.toString(),
     })
 
@@ -140,7 +163,6 @@ export function useContractActions() {
 
   const approveAsImporter = async (contractAddress: `0x${string}`) => {
     if (!walletClient.value || !account.value) throw new Error("Wallet not connected")
-
     const txHash = await walletClient.value.writeContract({
       address: contractAddress,
       abi: tradeAgreementAbi,
@@ -149,24 +171,13 @@ export function useContractActions() {
       account: account.value as `0x${string}`,
       chain: Chain,
     })
-
     const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash as `0x${string}` })
-
-    await postLog({
-      action: 'approveImporter',
-      account: account.value,
-      txHash,
-      contractAddress,
-      exporter: await getExporter(contractAddress),
-      requiredAmount: await getRequiredAmount(contractAddress),
-    })
-
+    await postLog({ action: 'approveImporter', account: account.value, txHash, contractAddress })
     return receipt
   }
 
   const approveAsExporter = async (contractAddress: `0x${string}`) => {
     if (!walletClient.value || !account.value) throw new Error('Wallet not connected')
-
     const txHash = await walletClient.value.writeContract({
       address: contractAddress,
       abi: tradeAgreementAbi,
@@ -175,24 +186,13 @@ export function useContractActions() {
       account: account.value as `0x${string}`,
       chain: Chain,
     })
-
     const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash as `0x${string}` })
-
-    await postLog({
-      action: 'approveExporter',
-      account: account.value,
-      txHash,
-      contractAddress,
-      exporter: await getExporter(contractAddress),
-      requiredAmount: await getRequiredAmount(contractAddress),
-    })
-
+    await postLog({ action: 'approveExporter', account: account.value, txHash, contractAddress })
     return receipt
   }
 
   const finalizeContract = async (contractAddress: `0x${string}`) => {
     if (!walletClient.value || !account.value) throw new Error('Wallet not connected')
-
     const txHash = await walletClient.value.writeContract({
       address: contractAddress,
       abi: tradeAgreementAbi,
@@ -201,73 +201,20 @@ export function useContractActions() {
       account: account.value as `0x${string}`,
       chain: Chain,
     })
-
     const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash as `0x${string}` })
-
-    await postLog({
-      action: 'finalize',
-      account: account.value,
-      txHash,
-      contractAddress,
-      exporter: await getExporter(contractAddress),
-      requiredAmount: await getRequiredAmount(contractAddress),
-    })
-
+    await postLog({ action: 'finalize', account: account.value, txHash, contractAddress })
     return receipt
-  }
-
-  const getRequiredAmount = async (contractAddress: `0x${string}`) => {
-    try {
-      const amount = await publicClient.readContract({
-        address: contractAddress,
-        abi: tradeAgreementAbi,
-        functionName: 'getRequiredAmount',
-        args: [],
-      })
-      return amount as bigint
-    } catch (err) {
-      console.error('Failed to read requiredAmount:', err)
-    }
-  }
-
-  const getExporter = async (contractAddress: `0x${string}`) => {
-    try {
-      return await publicClient.readContract({
-        address: contractAddress,
-        abi: tradeAgreementAbi,
-        functionName: 'getExporter',
-        args: [],
-      }) as `0x${string}`
-    } catch (err) {
-      console.error('Failed to read exporter:', err)
-    }
-  }
-
-  const getImporter = async (contractAddress: `0x${string}`) => {
-    try {
-      return await publicClient.readContract({
-        address: contractAddress,
-        abi: tradeAgreementAbi,
-        functionName: 'importer',
-        args: [],
-      }) as `0x${string}`
-    } catch (err) {
-      console.error('Failed to read importer:', err)
-    }
   }
 
   return {
     deployedContracts,
     fetchDeployedContracts,
     stepStatus,
-    fetchContractStep,
-    deployContract,
+    mintDocument,
+    deployContractWithDocs,
     depositToContract,
     approveAsImporter,
     approveAsExporter,
     finalizeContract,
-    getRequiredAmount,
-    getExporter,
-    getImporter,
   }
 }
