@@ -1,7 +1,8 @@
 import { ref } from 'vue'
-import { createPublicClient, http } from 'viem'
+import { createPublicClient, http, decodeEventLog } from 'viem'
 import registryArtifact from '../../../artifacts/contracts/DocumentRegistry.sol/DocumentRegistry.json'
 import { Chain } from '../config/chain'
+import { useWallet } from '~/composables/useWallets'
 
 const registryAddress = '0x5fbdb2315678afecb367f032d93f642f64180aa3' as `0x${string}`
 const { abi } = registryArtifact
@@ -10,6 +11,11 @@ const publicClient = createPublicClient({
   chain: Chain,
   transport: http(Chain.rpcUrls.default.http[0]),
 })
+
+interface MintResult {
+  receipt: any
+  tokenId: bigint
+}
 
 export function useRegistry() {
   const { account, walletClient } = useWallet()
@@ -30,11 +36,25 @@ export function useRegistry() {
     }
   }
 
-  const mintDocument = async (to: `0x${string}`, fileHash: string, tokenURI: string) => {
+  const mintDocument = async (to: `0x${string}`, file: File): Promise<MintResult> => {
     if (!walletClient.value || !account.value) throw new Error('Wallet not connected')
-
     minting.value = true
+
     try {
+      const arrayBuffer = await file.arrayBuffer()
+      const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer)
+      const hashArray = Array.from(new Uint8Array(hashBuffer))
+      const fileHash = '0x' + hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+
+      const imageUrl = 'https://res.cloudinary.com/ajaxtreon/image/upload/v1756638229/hueegaotkhngaoof6edu.png'
+      const metadata = {
+        name: file.name,
+        description: `Verified document ${file.name}`,
+        image: imageUrl,
+        attributes: [{ trait_type: "Hash", value: fileHash }],
+      }
+      const tokenURI = `data:application/json;base64,${btoa(JSON.stringify(metadata))}`
+
       const txHash = await walletClient.value.writeContract({
         address: registryAddress,
         abi,
@@ -42,12 +62,30 @@ export function useRegistry() {
         args: [to, fileHash, tokenURI],
         account: account.value as `0x${string}`,
         chain: Chain,
-        value: 0n,
       })
 
       const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash as `0x${string}` })
+
+      // --- Ambil DocumentVerified event
+      const eventLog = receipt.logs.find(log => log.address.toLowerCase() === registryAddress.toLowerCase())
+      if (!eventLog) throw new Error('No DocumentVerified event found')
+
+      const decodedRaw = decodeEventLog({
+        abi,
+        data: eventLog.data,
+        topics: eventLog.topics,
+      }) as unknown
+
+      const decodedArgs = (decodedRaw as { args: any }).args as {
+        owner: `0x${string}`
+        tokenId: bigint
+        fileHash: string
+      }
+
+      const tokenId = decodedArgs.tokenId
+
       minting.value = false
-      return receipt
+      return { receipt, tokenId }
     } catch (err) {
       minting.value = false
       console.error('Minting error:', err)
@@ -57,45 +95,65 @@ export function useRegistry() {
 
   const addMinter = async (newMinter: `0x${string}`) => {
     if (!walletClient.value || !account.value) throw new Error('Wallet not connected')
-
-    try {
-      const txHash = await walletClient.value.writeContract({
-        address: registryAddress,
-        abi,
-        functionName: 'addMinter',
-        args: [newMinter],
-        account: account.value as `0x${string}`,
-        chain: Chain,
-      })
-
-      const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash as `0x${string}` })
-      return receipt
-    } catch (err) {
-      console.error('Add minter error:', err)
-      throw err
-    }
+    const txHash = await walletClient.value.writeContract({
+      address: registryAddress,
+      abi,
+      functionName: 'addMinter',
+      args: [newMinter],
+      account: account.value as `0x${string}`,
+      chain: Chain,
+    })
+    return publicClient.waitForTransactionReceipt({ hash: txHash as `0x${string}` })
   }
 
   const removeMinter = async (minter: `0x${string}`) => {
     if (!walletClient.value || !account.value) throw new Error('Wallet not connected')
+    const txHash = await walletClient.value.writeContract({
+      address: registryAddress,
+      abi,
+      functionName: 'removeMinter',
+      args: [minter],
+      account: account.value as `0x${string}`,
+      chain: Chain,
+    })
+    return publicClient.waitForTransactionReceipt({ hash: txHash as `0x${string}` })
+  }
 
+  const isMinter = async (address: `0x${string}`): Promise<boolean> => {
     try {
-      const txHash = await walletClient.value.writeContract({
+      const result = await publicClient.readContract({
         address: registryAddress,
         abi,
-        functionName: 'removeMinter',
-        args: [minter],
-        account: account.value as `0x${string}`,
-        chain: Chain,
+        functionName: 'approvedMinters',
+        args: [address],
       })
-
-      const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash as `0x${string}` })
-      return receipt
+      return result as boolean
     } catch (err) {
-      console.error('Remove minter error:', err)
-      throw err
+      console.error('Failed to check minter status:', err)
+      return false
     }
   }
 
-  return { mintDocument, getTokenIdByHash, minting, addMinter, removeMinter }
+  const quickCheckNFT = async (tokenId: bigint) => {
+    try {
+      const owner = await publicClient.readContract({
+        address: registryAddress,
+        abi,
+        functionName: 'ownerOf',
+        args: [tokenId],
+      })
+      const tokenURI = await publicClient.readContract({
+        address: registryAddress,
+        abi,
+        functionName: 'tokenURI',
+        args: [tokenId],
+      })
+      return { owner, metadata: tokenURI }
+    } catch (err) {
+      console.error('Quick check NFT failed:', err)
+      return null
+    }
+  }
+
+  return { mintDocument, getTokenIdByHash, minting, addMinter, removeMinter, isMinter, quickCheckNFT }
 }

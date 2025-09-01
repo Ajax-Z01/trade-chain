@@ -2,6 +2,7 @@
 import { ref, computed, watch } from 'vue'
 import Button from '~/components/ui/Button.vue'
 import { Rocket, Loader2, Check } from 'lucide-vue-next'
+import { useRegistry } from '~/composables/useRegistry'
 import { useContractActions } from '~/composables/useContractActions'
 import { useWallet } from '~/composables/useWallets'
 import { useToast } from '~/composables/useToast'
@@ -10,13 +11,16 @@ import { useToast } from '~/composables/useToast'
 const { account } = useWallet()
 const { addToast } = useToast()
 
+// Registry composable
+const { getTokenIdByHash } = useRegistry()
+
 // Contract actions composable
 const {
   deployedContracts,
   fetchDeployedContracts,
   stepStatus,
   fetchContractStep,
-  deployContract,
+  deployContractWithDocs,
   depositToContract,
   approveAsImporter,
   approveAsExporter,
@@ -121,28 +125,52 @@ const isAutoFilled = computed(() => !!backendExporter.value && !exporterAddress.
 
 // --- Handlers ---
 const handleDeploy = async () => {
-  if (!account.value) { addToast('Connect wallet first', 'error'); return }
-  if (!exporterAddress.value || !requiredAmount.value) {
-    addToast('Exporter and required amount are required', 'error'); return
+  if (!account.value) {
+    addToast('Connect wallet first', 'error')
+    return
   }
+
+  if (!exporterAddress.value || !requiredAmount.value) {
+    addToast('Exporter and required amount are required', 'error')
+    return
+  }
+
   try {
     loadingButton.value = 'deploy'
+
     const weiAmount = BigInt(Math.floor(parseFloat(requiredAmount.value) * 1e18))
-    const contractAddress = await deployContract(
+    console.log('DEBUG: weiAmount =', weiAmount)
+
+    // --- Ambil tokenId Importer
+    const importerTokenId = 11n // await getTokenIdByHash(account.value as `0x${string}`)
+    console.log('DEBUG: importerTokenId =', importerTokenId)
+
+    // --- Ambil tokenId Exporter
+    const exporterTokenId = 8n // await getTokenIdByHash(exporterAddress.value)
+    console.log('DEBUG: exporterTokenId =', exporterTokenId)
+
+    // --- Deploy contract
+    const contractAddress = await deployContractWithDocs(
       account.value as `0x${string}`,
       exporterAddress.value as `0x${string}`,
+      importerTokenId,
+      exporterTokenId,
       weiAmount
     )
-    selectedContract.value = contractAddress as string
-    latestContract.value = contractAddress as string
+
+    console.log('DEBUG: contractAddress =', contractAddress)
+    selectedContract.value = latestContract.value = contractAddress as string
     stepStatus.deploy = true
     addToast(`Contract deployed at ${contractAddress}`, 'success')
 
     const importer = await getImporter(contractAddress as `0x${string}`)
+    console.log('DEBUG: importer =', importer)
     addToast(`Importer is ${importer}`, 'info')
+
     step.value = 'depositing'
-  } catch (e: any) {
-    addToast(e?.message || 'Deploy failed', 'error')
+  } catch (err: any) {
+    console.error('DEPLOY ERROR:', err)
+    addToast(err?.message || 'Deploy failed', 'error')
   } finally {
     loadingButton.value = null
   }

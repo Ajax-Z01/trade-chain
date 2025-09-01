@@ -43,40 +43,20 @@ export function useContractActions() {
       console.warn('Failed to post contract log:', err)
     }
   }
-
-  // ----------------
-  // DocumentRegistry
-  // ----------------
-  const mintDocument = async (
-    owner: `0x${string}`,
-    fileHash: string,
-    tokenURI: string
-  ) => {
-    if (!walletClient.value || !account.value) throw new Error('Wallet not connected')
-
-    const txHash = await walletClient.value.writeContract({
-      address: registryAddress,
-      abi: registryAbi,
-      functionName: 'verifyAndMint',
-      args: [owner, fileHash, tokenURI],
-      account: account.value as `0x${string}`,
-      chain: Chain,
-    })
-
-    const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash as `0x${string}` })
-
-    // Ambil tokenId dari event log
-    const logs = receipt.logs
-    const verifiedLog = logs.find(l => l.address.toLowerCase() === registryAddress.toLowerCase())
-    let tokenId: bigint | undefined
-    if (verifiedLog) {
-      // viem decode bisa dipakai untuk parsing event, tapi sementara pakai simple BigInt
-      tokenId = BigInt('0x' + verifiedLog.data.slice(2))
+  
+  const fetchContractStep = async (contractAddress: `0x${string}`) => {
+    const { $apiBase } = useNuxtApp()
+    try {
+      const res = await fetch(`${$apiBase}/contract/${contractAddress}/step`)
+      if (!res.ok) throw new Error('Failed to fetch contract step')
+      const data = await res.json()
+      Object.assign(stepStatus, data.stepStatus)
+      return data
+    } catch (err) {
+      console.error('Fetch contract step error:', err)
     }
-
-    return { txHash, receipt, tokenId }
   }
-
+  
   // ----------------
   // Factory / TradeAgreement
   // ----------------
@@ -205,16 +185,30 @@ export function useContractActions() {
     await postLog({ action: 'finalize', account: account.value, txHash, contractAddress })
     return receipt
   }
+  
+  const getImporter = async (contractAddress: `0x${string}`) => {
+    try {
+      return await publicClient.readContract({
+        address: contractAddress,
+        abi: tradeAgreementAbi,
+        functionName: 'importer',
+        args: [],
+      }) as `0x${string}`
+    } catch (err) {
+      console.error('Failed to read importer:', err)
+    }
+  }
 
   return {
     deployedContracts,
     fetchDeployedContracts,
     stepStatus,
-    mintDocument,
+    fetchContractStep,
     deployContractWithDocs,
     depositToContract,
     approveAsImporter,
     approveAsExporter,
     finalizeContract,
+    getImporter,
   }
 }

@@ -57,4 +57,8 @@ contract DocumentRegistry is ERC721URIStorage, Ownable {
     function getTokenIdByHash(string memory fileHash) external view returns (uint256) {
         return hashToTokenId[fileHash];
     }
+
+    function isMinter(address addr) external view returns (bool) {
+        return approvedMinters[addr];
+    }
 }

@@ -25,6 +25,8 @@ export default defineNuxtConfig({
     // public
     public: {
       apiBase: process.env.API_BASE || 'http://localhost:5000/api',
+      CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME,
+      CLOUDINARY_UPLOAD_PRESET: process.env.CLOUDINARY_UPLOAD_PRESET,
     },
   },
 })
