@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import { useRegistry } from '~/composables/useRegistry'
 import { useWallet } from '~/composables/useWallets'
+import { createNft } from '~/composables/useNfts'
 
 const { walletClient, account } = useWallet()
 const { mintDocument, getTokenIdByHash, minting, addMinter, removeMinter, isMinter, quickCheckNFT } = useRegistry()
@@ -11,31 +12,23 @@ const tokenId = ref<bigint | null>(null)
 const error = ref<string | null>(null)
 const minterAddress = ref('')
 
+const nftInfo = ref<{ owner: string; metadata: any } | null>(null)
+
 const onFileChange = (e: Event) => {
   const files = (e.target as HTMLInputElement).files
   selectedFile.value = files?.[0] ?? null
 }
 
-const nftInfo = ref<{ owner: string; metadata: any } | null>(null)
-
 const checkNFT = async () => {
-  console.log('Token ID to check:', tokenId.value)
   if (!tokenId.value) return
 
   const info = await quickCheckNFT(tokenId.value)
-  console.log('NFT info returned:', info)
   if (info) {
     let metadata: any = info.metadata
 
     if (typeof metadata === 'string' && metadata.startsWith('data:application/json;base64,')) {
-      const base64 = metadata.split(',')[1] ?? ''  // pastikan tidak undefined
-      if (base64) {
-        const jsonStr = atob(base64)
-        metadata = JSON.parse(jsonStr)
-      } else {
-        console.warn('TokenURI base64 part is empty')
-        metadata = {}
-      }
+      const base64 = metadata.split(',')[1] ?? ''
+      metadata = base64 ? JSON.parse(atob(base64)) : {}
     }
 
     nftInfo.value = {
@@ -77,8 +70,22 @@ const verifyAndMint = async () => {
     }
 
     // --- 3. Mint NFT
-    const { receipt, tokenId: mintedId } = await mintDocument(account.value as `0x${string}`, selectedFile.value)
+    const { receipt, tokenId: mintedId, metadataUrl } = await mintDocument(account.value as `0x${string}`, selectedFile.value)
     tokenId.value = mintedId
+
+    // --- 4. Simpan NFT ke backend
+    await createNft({
+      tokenId: mintedId.toString(),
+      owner: account.value,
+      fileHash,
+      metadataUrl,
+      documentUrl: undefined,
+      name: selectedFile.value.name,
+      description: `Verified document ${selectedFile.value.name}`,
+      createdAt: Date.now(),
+    })
+
+    error.value = `✅ Document minted and saved! Token ID: ${mintedId}`
 
   } catch (err: any) {
     console.error(err)

@@ -15,6 +15,7 @@ const publicClient = createPublicClient({
 interface MintResult {
   receipt: any
   tokenId: bigint
+  metadataUrl: string
 }
 
 export function useRegistry() {
@@ -66,7 +67,6 @@ export function useRegistry() {
 
       const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash as `0x${string}` })
 
-      // --- Ambil DocumentVerified event
       const eventLog = receipt.logs.find(log => log.address.toLowerCase() === registryAddress.toLowerCase())
       if (!eventLog) throw new Error('No DocumentVerified event found')
 
@@ -83,9 +83,8 @@ export function useRegistry() {
       }
 
       const tokenId = decodedArgs.tokenId
-
       minting.value = false
-      return { receipt, tokenId }
+      return { receipt, tokenId, metadataUrl: tokenURI }
     } catch (err) {
       minting.value = false
       console.error('Minting error:', err)

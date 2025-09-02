@@ -4,6 +4,7 @@ import dotenv from 'dotenv'
 import morgan from 'morgan'
 import contractRoutes from './routes/contractRoutes.js'
 import walletRoutes from './routes/walletRoutes.js'
+import nftRoutes from './routes/nftRoutes.js'
 
 dotenv.config()
 
@@ -19,6 +20,7 @@ app.get('/', (req, res) => res.send('Backend is running'))
 
 app.use('/api/contract', contractRoutes)
 app.use('/api/wallet', walletRoutes)
+app.use('/api/nft', nftRoutes)
 
 const PORT = process.env.PORT || 5000
 app.listen(PORT, () => {
