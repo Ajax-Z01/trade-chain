@@ -2,23 +2,21 @@
 import { ref, computed, watch } from 'vue'
 import Button from '~/components/ui/Button.vue'
 import { Rocket, Loader2, Check } from 'lucide-vue-next'
-import { useRegistry } from '~/composables/useRegistry'
 import { useContractActions } from '~/composables/useContractActions'
 import { useWallet } from '~/composables/useWallets'
 import { useToast } from '~/composables/useToast'
+import { getNftsByOwner } from '~/composables/useNfts'
 
 // Wallet & Toast
 const { account } = useWallet()
 const { addToast } = useToast()
-
-// Registry composable
-const { getTokenIdByHash } = useRegistry()
 
 // Contract actions composable
 const {
   deployedContracts,
   fetchDeployedContracts,
   stepStatus,
+  fetchContractDetails,
   fetchContractStep,
   deployContractWithDocs,
   depositToContract,
@@ -30,7 +28,7 @@ const {
 
 // Inputs
 const exporterAddress = ref('')
-const requiredAmount = ref('') // ETH
+const requiredAmount = ref('')
 const backendExporter = ref('')
 const backendRequiredAmount = ref('')
 const selectedContract = ref<string | null>(null)
@@ -73,10 +71,7 @@ watch(selectedContract, async (contract) => {
   requiredAmount.value = ''
 
   try {
-    const { $apiBase } = useNuxtApp()
-    const res = await fetch(`${$apiBase}/contract/${contract}/details`)
-    if (!res.ok) throw new Error('Failed to fetch contract details')
-    const data = await res.json() as any
+    const data = await fetchContractDetails(contract)
 
     const deployLog = data.history?.find((h: any) => h.action === 'deploy')
     if (deployLog) {
@@ -123,6 +118,13 @@ const requiredAmountValue = computed({
 // Flag apakah field diisi otomatis dari backend
 const isAutoFilled = computed(() => !!backendExporter.value && !exporterAddress.value)
 
+// --- Helpers ---
+const getFirstTokenIdByOwner = async (owner: `0x${string}`): Promise<bigint | null> => {
+  const nfts = await getNftsByOwner(owner)
+  if (!nfts.length) return null
+  return BigInt(nfts[0]!.tokenId)
+}
+
 // --- Handlers ---
 const handleDeploy = async () => {
   if (!account.value) {
@@ -137,19 +139,16 @@ const handleDeploy = async () => {
 
   try {
     loadingButton.value = 'deploy'
-
     const weiAmount = BigInt(Math.floor(parseFloat(requiredAmount.value) * 1e18))
-    console.log('DEBUG: weiAmount =', weiAmount)
 
-    // --- Ambil tokenId Importer
-    const importerTokenId = 11n // await getTokenIdByHash(account.value as `0x${string}`)
+    const importerTokenId = await getFirstTokenIdByOwner(account.value as `0x${string}`)
+    if (!importerTokenId) throw new Error('No NFT found for importer')
     console.log('DEBUG: importerTokenId =', importerTokenId)
 
-    // --- Ambil tokenId Exporter
-    const exporterTokenId = 8n // await getTokenIdByHash(exporterAddress.value)
+    const exporterTokenId = await getFirstTokenIdByOwner(exporterAddress.value as `0x${string}`)
+    if (!exporterTokenId) throw new Error('No NFT found for exporter')
     console.log('DEBUG: exporterTokenId =', exporterTokenId)
 
-    // --- Deploy contract
     const contractAddress = await deployContractWithDocs(
       account.value as `0x${string}`,
       exporterAddress.value as `0x${string}`,
@@ -322,10 +321,14 @@ const handleNewContract = () => {
 
     <!-- Action Buttons -->
     <div class="space-y-3 mt-4">
-      <Button @click="handleDeploy" :disabled="step !== 'idle'" class="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded py-3">
+      <Button
+        @click="handleDeploy"
+        :disabled="loadingButton === 'deploy' || step !== 'idle'"
+        class="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded py-3"
+      >
         <Rocket class="w-5 h-5"/>
-        <span v-if="step === 'idle'">Deploy</span>
-        <span v-else-if="loadingButton==='deploy'">Deploying...</span>
+        <span v-if="step === 'idle' && loadingButton !== 'deploy'">Deploy</span>
+        <span v-else-if="loadingButton === 'deploy'">Deploying...</span>
         <Check v-if="stepStatus.deploy" class="w-5 h-5 text-green-400"/>
       </Button>
 

@@ -6,6 +6,7 @@ export interface ToastMessage {
   id: number
   type: ToastType
   message: string
+  progress?: number
 }
 
 const toasts = ref<ToastMessage[]>([])

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AppHeader from '~/components/AppHeader.vue'
+import Toast from '~/components/Toast.vue'
 </script>
 
 <template>
@@ -17,5 +18,6 @@ import AppHeader from '~/components/AppHeader.vue'
     <footer class="bg-white shadow-inner p-4 text-center text-sm text-gray-500">
       &copy; 2025 TradeChain
     </footer>
+    <Toast />
   </div>
 </template>

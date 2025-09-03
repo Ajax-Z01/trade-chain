@@ -17,9 +17,6 @@ const factoryAddress = '0xe7f1725e7734ce288f8367e1bb143e90bb3f0512' as `0x${stri
 const factoryAbiFull = factoryArtifact.abi
 const tradeAgreementAbi = tradeAgreementArtifact.abi
 
-const registryAddress = '0x5fbdb2315678afecb367f032d93f642f64180aa3' as `0x${string}`
-const registryAbi = registryArtifact.abi
-
 export function useContractActions() {
   const { account, walletClient } = useWallet()
 
@@ -41,6 +38,17 @@ export function useContractActions() {
       })
     } catch (err) {
       console.warn('Failed to post contract log:', err)
+    }
+  }
+  
+  const fetchContractDetails = async (contractAddress: string) => {
+    const { $apiBase } = useNuxtApp()
+    try {
+      const res = await fetch(`${$apiBase}/contract/${contractAddress}/details`)
+      if (!res.ok) throw new Error('Failed to fetch contract details')
+      return await res.json()
+    } catch (err) {
+      console.error('Get contract details error:', err)
     }
   }
   
@@ -103,10 +111,13 @@ export function useContractActions() {
       account: account.value,
       txHash,
       contractAddress: newContractAddress,
-      exporter,
-      requiredAmount: requiredAmount.toString(),
-      importerDocId: importerDocId.toString(),
-      exporterDocId: exporterDocId.toString(),
+      extra: {
+        exporter,
+        importer,
+        requiredAmount: requiredAmount.toString(),
+        exporterTokenId: exporterDocId.toString(),
+        importerTokenId: importerDocId.toString(),
+      },
     })
 
     return newContractAddress
@@ -135,7 +146,7 @@ export function useContractActions() {
       account: account.value,
       txHash,
       contractAddress,
-      amount: amount.toString(),
+      extra: { amount: amount.toString() },
     })
 
     return receipt
@@ -152,7 +163,13 @@ export function useContractActions() {
       chain: Chain,
     })
     const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash as `0x${string}` })
-    await postLog({ action: 'approveImporter', account: account.value, txHash, contractAddress })
+    await postLog({
+      action: 'approveImporter',
+      account: account.value,
+      txHash,
+      contractAddress,
+      extra: { approvedBy: account.value },
+    })
     return receipt
   }
 
@@ -167,7 +184,13 @@ export function useContractActions() {
       chain: Chain,
     })
     const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash as `0x${string}` })
-    await postLog({ action: 'approveExporter', account: account.value, txHash, contractAddress })
+    await postLog({
+      action: 'approveExporter',
+      account: account.value,
+      txHash,
+      contractAddress,
+      extra: { approvedBy: account.value },
+    })
     return receipt
   }
 
@@ -182,7 +205,13 @@ export function useContractActions() {
       chain: Chain,
     })
     const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash as `0x${string}` })
-    await postLog({ action: 'finalize', account: account.value, txHash, contractAddress })
+    await postLog({
+      action: 'finalize',
+      account: account.value,
+      txHash,
+      contractAddress,
+      extra: { status: 'completed' },
+    })
     return receipt
   }
   
@@ -203,6 +232,7 @@ export function useContractActions() {
     deployedContracts,
     fetchDeployedContracts,
     stepStatus,
+    fetchContractDetails,
     fetchContractStep,
     deployContractWithDocs,
     depositToContract,

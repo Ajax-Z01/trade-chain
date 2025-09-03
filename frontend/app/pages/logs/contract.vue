@@ -4,7 +4,6 @@ import { useContractLogs } from '~/composables/useContractLogs'
 const {
   logs,
   loading,
-  contractStates,
   getContractState,
   toggleContract,
 } = useContractLogs()
