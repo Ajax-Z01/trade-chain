@@ -38,6 +38,20 @@ export const logWalletDisconnect = async (req: Request, res: Response) => {
   }
 };
 
+// GET /wallet/logs
+export const getAllWalletLogs = async (req: Request, res: Response) => {
+  try {
+    const snapshot = await collection.get();
+
+    if (snapshot.empty) return res.status(404).json({ error: 'No wallet logs found' });
+
+    const logs = snapshot.docs.map((doc: admin.firestore.QueryDocumentSnapshot) => doc.data());
+    res.json(logs);
+  } catch (err) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+};
+
 // GET /wallet/:account/logs
 export const getWalletLogs = async (req: Request, res: Response) => {
   try {

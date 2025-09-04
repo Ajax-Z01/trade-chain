@@ -32,11 +32,8 @@ const tradeAgreementAbi = tradeAgreementArtifact.abi
 // --- Wallet logs ---
 export async function getWalletLogs() {
   const { $apiBase } = useNuxtApp()
-  const { account } = useWallet()
-  if (!account.value) return []
-
   try {
-    const res = await fetch(`${$apiBase}/wallet/${account.value}/logs`)
+    const res = await fetch(`${$apiBase}/wallet/logs`)
     if (!res.ok) return []
     return await res.json()
   } catch (err) {

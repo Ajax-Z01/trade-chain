@@ -61,6 +61,22 @@ const labels: { key: StepKey; text: string }[] = [
   { key: 'finalize', text: 'Finalize Contract' }
 ]
 
+const stepOrder: StepKey[] = ['deploy', 'deposit', 'approveImporter', 'approveExporter', 'finalize']
+
+const currentStepIndex = computed(() => {
+  return stepOrder.findIndex(key => step.value === keyToStep(key))
+})
+
+function keyToStep(key: StepKey): Step {
+  switch (key) {
+    case 'deploy': return 'idle'
+    case 'deposit': return 'depositing'
+    case 'approveImporter': return 'approvingImporter'
+    case 'approveExporter': return 'approvingExporter'
+    case 'finalize': return 'finalizing'
+  }
+}
+
 // Fetch deployed contracts when wallet connects
 watch(account, (acc) => { if (acc) fetchDeployedContracts() }, { immediate: true })
 
@@ -260,20 +276,31 @@ const handleNewContract = () => {
 <template>
   <div class="p-6 max-w-3xl mx-auto space-y-6">
     <div class="flex items-center justify-between">
-      <h1 class="text-2xl font-semibold text-gray-800">
-        Contract Full Flow
-      </h1>
-
-      <Button
-        @click="handleNewContract"
-        class="bg-indigo-600 hover:bg-indigo-700 text-white rounded py-2 px-4 flex items-center gap-2 shadow"
-      >
-        <span>New Contract</span>
+      <h1 class="text-2xl font-semibold text-gray-800">Contract Full Flow</h1>
+      <Button @click="handleNewContract" class="bg-indigo-600 hover:bg-indigo-700 text-white rounded py-2 px-4 flex items-center gap-2 shadow">
+        New Contract
       </Button>
     </div>
 
+    <!-- Stepper -->
+    <div class="flex items-center justify-between gap-2 overflow-x-auto mt-4">
+      <div v-for="(label,index) in labels" :key="label.key" class="flex-1 min-w-[80px]">
+        <div class="flex flex-col items-center">
+          <div
+            class="w-8 h-8 rounded-full flex items-center justify-center mb-1 transition"
+            :class="stepStatus[label.key] ? 'bg-green-500 text-white' : (currentStepIndex === index ? 'bg-indigo-500 text-white' : 'bg-gray-200 text-gray-500')"
+          >
+            <Check v-if="stepStatus[label.key]" class="w-4 h-4"/>
+            <span v-else>{{ index+1 }}</span>
+          </div>
+          <span class="text-xs text-center">{{ label.text }}</span>
+        </div>
+        <div v-if="index < labels.length-1" class="h-1 bg-gray-300 mt-2"></div>
+      </div>
+    </div>
+
     <!-- Contract Selection -->
-    <div class="space-y-2">
+    <div class="space-y-2 mt-6">
       <label class="block text-gray-700">Select Existing Contract</label>
       <select v-model="selectedContract" class="w-full p-3 border rounded focus:ring-2 focus:ring-indigo-400 outline-none">
         <option disabled value="">-- Select Contract --</option>
@@ -282,82 +309,61 @@ const handleNewContract = () => {
     </div>
 
     <!-- Deploy Inputs -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-gray-50 p-4 rounded shadow">
-      <div class="flex flex-col">
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-gray-50 p-4 rounded shadow mt-4">
+      <div class="flex flex-col relative">
         <label class="text-sm font-medium text-gray-700 mb-1">Exporter Address</label>
-        <input 
-          v-model="exporterValue" 
-          placeholder="0x..." 
-          :disabled="isAutoFilled"
-          class="w-full p-3 border rounded focus:ring-2 focus:ring-indigo-400 outline-none"
-        />
+        <input v-model="exporterValue" placeholder="0x..." :disabled="isAutoFilled"
+          class="w-full p-3 border rounded focus:ring-2 focus:ring-indigo-400 outline-none"/>
+        <span v-if="isAutoFilled" class="absolute right-2 top-1 text-xs text-gray-500 italic">auto-filled</span>
       </div>
-
-      <div class="flex flex-col">
-        <label class="text-sm font-medium text-gray-700 mb-1">Required Amount (ETH)</label>
-        <input 
-          v-model="requiredAmountValue" 
-          placeholder="e.g. 0.5" 
-          type="number" step="0.0001" 
-          :disabled="isAutoFilled"
-          class="w-full p-3 border rounded focus:ring-2 focus:ring-indigo-400 outline-none"
-        />
+      <div class="flex flex-col relative">
+        <label class="text-sm font-medium text-gray-700 mb-1">Required Amount</label>
+        <div class="flex items-center">
+          <input v-model="requiredAmountValue" type="number" step="0.0001" placeholder="0.5" :disabled="isAutoFilled"
+            class="w-full p-3 border rounded focus:ring-2 focus:ring-indigo-400 outline-none"/>
+          <span class="ml-2 text-gray-600">ETH</span>
+        </div>
+        <span v-if="isAutoFilled" class="absolute right-2 top-1 text-xs text-gray-500 italic">auto-filled</span>
       </div>
     </div>
 
-    <!-- Step Status (Horizontal badges) -->
-    <div class="flex flex-wrap gap-2 mt-4">
-      <span 
-        v-for="label in labels" 
-        :key="label.key" 
-        :class="[
-          'px-3 py-1 rounded-full text-sm font-medium',
-          stepStatus[label.key] ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
-        ]"
-      >
-        {{ label.text }}
-      </span>
-    </div>
-
-    <!-- Action Buttons -->
+    <!-- Action Buttons (vertical on mobile) -->
     <div class="space-y-3 mt-4">
       <Button
         @click="handleDeploy"
-        :disabled="loadingButton === 'deploy' || step !== 'idle'"
+        :disabled="loadingButton==='deploy'||step!=='idle'"
         class="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded py-3"
       >
         <Rocket class="w-5 h-5"/>
-        <span v-if="step === 'idle' && loadingButton !== 'deploy'">Deploy</span>
-        <span v-else-if="loadingButton === 'deploy'">Deploying...</span>
+        <span v-if="step==='idle' && loadingButton!=='deploy'">Deploy Contract</span>
+        <span v-else-if="loadingButton==='deploy'">Deploying...</span>
+        <span v-else-if="stepStatus.deploy">Deployed</span>
+        <Loader2 v-if="loadingButton==='deploy'" class="w-5 h-5 animate-spin"/>
         <Check v-if="stepStatus.deploy" class="w-5 h-5 text-green-400"/>
       </Button>
-
-      <Button @click="handleDeposit" :disabled="step !== 'depositing'" class="w-full flex items-center justify-center gap-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded py-3">
-        <span v-if="step === 'depositing' && loadingButton !== 'deposit'">Deposit ETH</span>
+      <Button @click="handleDeposit" :disabled="step!=='depositing'" class="w-full flex items-center justify-center gap-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded py-3">
+        <span v-if="step==='depositing' && loadingButton!=='deposit'">Deposit ETH</span>
         <span v-else-if="loadingButton==='deposit'">Depositing...</span>
         <span v-else-if="stepStatus.deposit">Deposited</span>
         <Loader2 v-if="loadingButton==='deposit'" class="w-5 h-5 animate-spin"/>
         <Check v-if="stepStatus.deposit" class="w-5 h-5 text-green-400"/>
       </Button>
-
-      <Button @click="handleApproveImporter" :disabled="step !== 'approvingImporter'" class="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white rounded py-3">
-        <span v-if="step === 'approvingImporter' && loadingButton !== 'approveImporter'">Approve Importer</span>
+      <Button @click="handleApproveImporter" :disabled="step!=='approvingImporter'" class="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white rounded py-3">
+        <span v-if="step==='approvingImporter' && loadingButton!=='approveImporter'">Approve Importer</span>
         <span v-else-if="loadingButton==='approveImporter'">Approving...</span>
         <span v-else-if="stepStatus.approveImporter">Approved</span>
         <Loader2 v-if="loadingButton==='approveImporter'" class="w-5 h-5 animate-spin"/>
         <Check v-if="stepStatus.approveImporter" class="w-5 h-5 text-green-400"/>
       </Button>
-
-      <Button @click="handleApproveExporter" :disabled="step !== 'approvingExporter'" class="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white rounded py-3">
-        <span v-if="step === 'approvingExporter' && loadingButton !== 'approveExporter'">Approve Exporter</span>
+      <Button @click="handleApproveExporter" :disabled="step!=='approvingExporter'" class="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white rounded py-3">
+        <span v-if="step==='approvingExporter' && loadingButton!=='approveExporter'">Approve Exporter</span>
         <span v-else-if="loadingButton==='approveExporter'">Approving...</span>
         <span v-else-if="stepStatus.approveExporter">Approved</span>
         <Loader2 v-if="loadingButton==='approveExporter'" class="w-5 h-5 animate-spin"/>
         <Check v-if="stepStatus.approveExporter" class="w-5 h-5 text-green-400"/>
       </Button>
-
-      <Button @click="handleFinalize" :disabled="step !== 'finalizing'" class="w-full flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white rounded py-3">
-        <span v-if="step === 'finalizing' && loadingButton !== 'finalize'">Finalize Contract</span>
+      <Button @click="handleFinalize" :disabled="step!=='finalizing'" class="w-full flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white rounded py-3">
+        <span v-if="step==='finalizing' && loadingButton!=='finalize'">Finalize Contract</span>
         <span v-else-if="loadingButton==='finalize'">Finalizing...</span>
         <span v-else-if="stepStatus.finalize">Finalized</span>
         <Loader2 v-if="loadingButton==='finalize'" class="w-5 h-5 animate-spin"/>

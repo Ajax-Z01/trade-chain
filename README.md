@@ -1,57 +1,136 @@
-# Sample Hardhat 3 Beta Project (`node:test` and `viem`)
+# Trade-Chain
 
-This project showcases a Hardhat 3 Beta project using the native Node.js test runner (`node:test`) and the `viem` library for Ethereum interactions.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+![pnpm](https://img.shields.io/badge/Build-pnpm-blue)
+![Hardhat](https://img.shields.io/badge/SmartContracts-Hardhat-orange)
+![Foundry](https://img.shields.io/badge/Tests-Foundry-green)
+![Nuxt](https://img.shields.io/badge/Frontend-Nuxt_4-00DC82)
+![Firestore](https://img.shields.io/badge/Database-Firestore-FFCA28)
 
-To learn more about the Hardhat 3 Beta, please visit the [Getting Started guide](https://hardhat.org/docs/getting-started#getting-started-with-hardhat-3). To share your feedback, join our [Hardhat 3 Beta](https://hardhat.org/hardhat3-beta-telegram-group) Telegram group or [open an issue](https://github.com/NomicFoundation/hardhat/issues/new) in our GitHub issue tracker.
+**Trade-Chain** adalah platform berbasis blockchain untuk mendukung proses perdagangan ekspor-impor.  
+Proyek ini memanfaatkan smart contract, NFT, dan integrasi backend–frontend untuk menciptakan alur perdagangan yang aman, transparan, dan terdokumentasi dengan baik.
 
-## Project Overview
+---
 
-This example project includes:
+## ✨ Fitur Utama
+- **Verifikasi Dokumen**  
+  Dokumen yang diverifikasi akan diikat ke blockchain untuk menjamin keaslian dan integritas.
+- **Penerbitan NFT**  
+  Setiap entitas (importir dan eksportir) akan memiliki NFT sebagai bukti verifikasi identitas/dokumen.
+- **Kontrak Perdagangan**  
+  Smart contract perdagangan hanya dapat dibuat apabila kedua pihak (importir dan eksportir) telah memiliki NFT verifikasi.
 
-- A simple Hardhat configuration file.
-- Foundry-compatible Solidity unit tests.
-- TypeScript integration tests using [`node:test`](nodejs.org/api/test.html), the new Node.js native test runner, and [`viem`](https://viem.sh/).
-- Examples demonstrating how to connect to different types of networks, including locally simulating OP mainnet.
+---
 
-## Usage
+## 📂 Struktur Proyek
+- `contracts/` → Smart contract Solidity (Hardhat, Foundry)  
+- `backend/` → Backend service (Express + Firestore)  
+- `frontend/` → Frontend aplikasi (Nuxt 4)  
+- `scripts/` → Script deployment kontrak (TypeScript + tsx)  
+- `test/` → Unit dan integration test  
+- `ignition/` → Modul deployment dengan Hardhat Ignition  
 
-### Running Tests
+---
 
-To run all the tests in the project, execute the following command:
+## ⚡️ Setup & Instalasi
 
-```shell
+### 1. Clone Repo
+```bash
+git clone https://github.com/Ajax-Z01/trade-chain.git
+cd trade-chain
+```
+
+### 2. Install Dependencies
+
+```bash
+pnpm install
+```
+
+### 3. Konfigurasi Environment
+
+Buat file `.env` untuk frontend dan backend.
+Contoh konfigurasi frontend (`frontend/.env`):
+
+```
+API_BASE=http://localhost:3000
+```
+
+Contoh konfigurasi backend (`backend/.env`):
+
+```
+FIRESTORE_PROJECT_ID=...
+FIRESTORE_PRIVATE_KEY=...
+FIRESTORE_CLIENT_EMAIL=...
+```
+
+---
+
+## 🚀 Menjalankan Proyek
+
+1. **Start Local Blockchain Node**
+
+   ```bash
+   npx hardhat node
+   ```
+
+2. **Deploy Smart Contracts**
+
+   ```bash
+   npx tsx scripts/deployRegistry.ts
+   npx tsx scripts/deployFactory.ts
+   ```
+
+3. **Start Backend (Express + Firestore)**
+
+   ```bash
+   cd backend
+   pnpm dev
+   ```
+
+4. **Start Frontend (Nuxt 4)**
+
+   ```bash
+   cd frontend
+   pnpm dev
+   ```
+
+---
+
+## 🧪 Testing
+
+Proyek ini menggunakan **Foundry**, **Hardhat**, dan **Viem**.
+Contoh menjalankan test Hardhat:
+
+```bash
 npx hardhat test
 ```
 
-You can also selectively run the Solidity or `node:test` tests:
+Contoh menjalankan test Foundry:
 
-```shell
-npx hardhat test solidity
-npx hardhat test nodejs
+```bash
+forge test
 ```
 
-### Make a deployment to Sepolia
+---
 
-This project includes an example Ignition module to deploy the contract. You can deploy this module to a locally simulated chain or to Sepolia.
+## 📖 Teknologi Utama
 
-To run the deployment to a local chain:
+* [Hardhat](https://hardhat.org/) – Ethereum development environment
+* [Foundry](https://book.getfoundry.sh/) – Smart contract testing framework
+* [Viem](https://viem.sh/) – TypeScript interface untuk Ethereum
+* [Nuxt 4](https://nuxt.com/) – Frontend framework
+* [Express](https://expressjs.com/) – Backend service
+* [Firestore](https://firebase.google.com/docs/firestore) – Database
 
-```shell
-npx hardhat ignition deploy ignition/modules/Counter.ts
-```
+---
 
-To run the deployment to Sepolia, you need an account with funds to send the transaction. The provided Hardhat configuration includes a Configuration Variable called `SEPOLIA_PRIVATE_KEY`, which you can use to set the private key of the account you want to use.
+## 📌 Catatan
 
-You can set the `SEPOLIA_PRIVATE_KEY` variable using the `hardhat-keystore` plugin or by setting it as an environment variable.
+* Saat ini proyek berjalan sepenuhnya **lokal**, kecuali backend yang tetap membutuhkan koneksi ke **Firestore**.
+* Kontribusi belum dibuka karena proyek masih dalam tahap awal pengembangan.
 
-To set the `SEPOLIA_PRIVATE_KEY` config variable using `hardhat-keystore`:
+---
 
-```shell
-npx hardhat keystore set SEPOLIA_PRIVATE_KEY
-```
+## 📜 Lisensi
 
-After setting the variable, you can run the deployment with the Sepolia network:
-
-```shell
-npx hardhat ignition deploy --network sepolia ignition/modules/Counter.ts
-```
+MIT License © 2025 [Ajax-Z01](https://github.com/Ajax-Z01)

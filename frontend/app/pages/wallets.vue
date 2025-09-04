@@ -2,12 +2,13 @@
 import { ref, watchEffect } from 'vue'
 import { createPublicClient, http } from 'viem'
 import Button from '~/components/ui/Button.vue'
-import { Wallet, PlugZap, Loader2, LogOut } from 'lucide-vue-next'
+import { Wallet, PlugZap, Loader2, LogOut, Copy } from 'lucide-vue-next'
 import { useWallet } from '~/composables/useWallets'
 
 const { account, connectWallet, disconnectWallet } = useWallet()
 const balance = ref<number | null>(null)
 const loadingConnect = ref(false)
+const copied = ref(false)
 
 const client = createPublicClient({
   chain: {
@@ -49,6 +50,17 @@ const handleDisconnect = () => {
   disconnectWallet()
   balance.value = null
 }
+
+const shortenAddress = (addr: string) =>
+  addr ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : ''
+
+const copyAddress = async () => {
+  if (account.value) {
+    await navigator.clipboard.writeText(account.value)
+    copied.value = true
+    setTimeout(() => (copied.value = false), 1500)
+  }
+}
 </script>
 
 <template>
@@ -58,17 +70,33 @@ const handleDisconnect = () => {
       <h1 class="text-2xl font-bold">Wallet</h1>
     </div>
 
-    <div class="bg-white rounded-3xl border shadow-lg p-6 transition hover:shadow-2xl">
+    <div
+      class="bg-white/80 backdrop-blur rounded-3xl border shadow-lg p-6 transition hover:shadow-2xl"
+    >
       <!-- Connected State -->
-      <div v-if="account" class="space-y-4">
-        <p class="text-gray-700 font-medium">Connected Account</p>
-        <code class="block p-2 rounded-lg bg-gray-100 text-sm font-mono truncate">
-          {{ account }}
-        </code>
+      <div v-if="account" class="space-y-5">
+        <div>
+          <p class="text-gray-700 font-medium mb-1">Connected Account</p>
+          <div
+            class="flex items-center justify-between bg-gray-100 rounded-lg px-3 py-2 font-mono text-sm"
+          >
+            <span>{{ shortenAddress(account) }}</span>
+            <button
+              class="flex items-center gap-1 text-gray-500 hover:text-indigo-600 transition"
+              @click="copyAddress"
+            >
+              <Copy class="w-4 h-4" />
+              <span v-if="copied" class="text-xs text-green-600">Copied!</span>
+            </button>
+          </div>
+        </div>
 
         <div class="flex items-center gap-2">
           <span class="text-gray-700 font-medium">Balance:</span>
-          <span v-if="balance !== null" class="text-indigo-600 font-semibold flex items-center gap-1">
+          <span
+            v-if="balance !== null"
+            class="px-3 py-1 rounded-full bg-indigo-100 text-indigo-700 font-semibold"
+          >
             {{ balance.toFixed(4) }} ETH
           </span>
           <Loader2 v-else class="w-4 h-4 animate-spin text-gray-400" />
@@ -100,9 +128,3 @@ const handleDisconnect = () => {
     </div>
   </div>
 </template>
-
-<style scoped>
-code {
-  word-break: break-all;
-}
-</style>
