@@ -6,8 +6,6 @@ import { Wallet, FileText, Activity } from 'lucide-vue-next'
 const {
   wallets,
   totalWallets,
-  deployedContracts,
-  recentTxs,
   loading,
   totalContracts,
   totalRecentTxs,
@@ -31,8 +29,8 @@ onMounted(() => {
     <div>
       <button
         class="bg-white text-indigo-600 px-4 py-2 rounded-lg shadow hover:bg-indigo-50 transition-all duration-200 flex items-center gap-2"
-        @click="fetchDashboard"
         :disabled="loading"
+        @click="fetchDashboard"
       >
         <span v-if="loading" class="animate-spin">⏳</span>
         {{ loading ? 'Refreshing...' : 'Refresh Data' }}

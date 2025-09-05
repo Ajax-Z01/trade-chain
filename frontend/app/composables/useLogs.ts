@@ -1,23 +1,7 @@
-import { useWallet } from './useWallets'
 import { createPublicClient, http } from 'viem'
 import tradeAgreementArtifact from '../../../artifacts/contracts/TradeAgreement.sol/TradeAgreement.json'
 import factoryArtifact from '../../../artifacts/contracts/TradeAgreementFactory.sol/TradeAgreementFactory.json'
 import { Chain } from '../config/chain'
-
-// --- Safe parsers ---
-function safeParseHex(value: unknown): `0x${string}` | null {
-  if (typeof value === 'string' && value.startsWith('0x')) return value as `0x${string}`
-  return null
-}
-
-function safeParseBigInt(value: unknown): bigint | null {
-  try {
-    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'bigint') {
-      return BigInt(value)
-    }
-  } catch {}
-  return null
-}
 
 // --- Client setup ---
 const publicClient = createPublicClient({

@@ -52,19 +52,19 @@ const isRecent = (ts: number) => (Date.now() - ts) < 24 * 60 * 60 * 1000
     <div class="flex flex-col sm:flex-row sm:items-center gap-4 justify-between">
       <div class="flex gap-2">
         <button
-          @click="actionFilter = 'all'"
           :class="actionFilter==='all'? 'bg-indigo-600 text-white':'bg-gray-200 text-gray-700'"
           class="px-3 py-1 rounded-lg transition"
+          @click="actionFilter = 'all'"
         >All</button>
         <button
-          @click="actionFilter = 'connect'"
           :class="actionFilter==='connect'? 'bg-green-600 text-white':'bg-gray-200 text-gray-700'"
           class="px-3 py-1 rounded-lg transition"
+          @click="actionFilter = 'connect'"
         >Connect</button>
         <button
-          @click="actionFilter = 'disconnect'"
           :class="actionFilter==='disconnect'? 'bg-red-600 text-white':'bg-gray-200 text-gray-700'"
           class="px-3 py-1 rounded-lg transition"
+          @click="actionFilter = 'disconnect'"
         >Disconnect</button>
       </div>
 
@@ -129,8 +129,8 @@ const isRecent = (ts: number) => (Date.now() - ts) < 24 * 60 * 60 * 1000
       <!-- Load more button -->
       <div v-if="visibleLogs < filteredLogs.length" class="flex justify-center mt-4">
         <button
-          @click="loadMore"
           class="px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition"
+          @click="loadMore"
         >
           Load More
         </button>

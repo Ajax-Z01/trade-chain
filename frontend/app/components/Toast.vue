@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { h } from 'vue'
 import { CheckCircle2, XCircle, Info } from 'lucide-vue-next'
 import { useToast } from '~/composables/useToast'
 
@@ -29,6 +28,7 @@ const getIcon = (type: string) => {
         :class="toast.type === 'success' ? 'bg-green-600' :
                 toast.type === 'error' ? 'bg-red-600' :
                 toast.type === 'info' ? 'bg-blue-600' :
+                toast.type === 'warning' ? 'bg-yellow-600' :
                 'bg-gray-700'"
       >
         <!-- Icon -->
@@ -42,8 +42,8 @@ const getIcon = (type: string) => {
 
         <!-- Close button -->
         <button
-          @click="removeToast(toast.id)"
           class="ml-2 text-white/70 hover:text-white"
+          @click="removeToast(toast.id)"
         >
           ✕
         </button>

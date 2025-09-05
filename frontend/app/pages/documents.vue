@@ -75,7 +75,7 @@ const verifyAndMint = async () => {
     }
 
     // --- 3. Mint NFT
-    const { receipt, tokenId: mintedId, metadataUrl } = await mintDocument(account.value as `0x${string}`, selectedFile.value)
+    const { tokenId: mintedId, metadataUrl } = await mintDocument(account.value as `0x${string}`, selectedFile.value)
     tokenId.value = mintedId
 
     // --- 4. Save to backend
@@ -132,8 +132,8 @@ const handleRemoveMinter = async () => {
       <label class="block text-sm font-medium text-gray-700">Upload Document</label>
       <input
         type="file"
-        @change="onFileChange"
         class="block w-full text-sm text-gray-700 border border-gray-300 rounded-lg cursor-pointer focus:ring focus:ring-blue-200"
+        @change="onFileChange"
       />
       <button
         class="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50"

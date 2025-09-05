@@ -3,9 +3,10 @@ import { useWallet } from './useWallets'
 import { createPublicClient, http } from 'viem'
 import tradeAgreementArtifact from '../../../artifacts/contracts/TradeAgreement.sol/TradeAgreement.json'
 import factoryArtifact from '../../../artifacts/contracts/TradeAgreementFactory.sol/TradeAgreementFactory.json'
-import registryArtifact from '../../../artifacts/contracts/DocumentRegistry.sol/DocumentRegistry.json'
 import { Chain } from '../config/chain'
+import { useToast } from './useToast'
 
+const { addToast } = useToast()
 export const deployedContracts = ref<`0x${string}`[]>([])
 
 const publicClient = createPublicClient({
@@ -69,18 +70,40 @@ export function useContractActions() {
   // Factory / TradeAgreement
   // ----------------
   const fetchDeployedContracts = async () => {
-    if (!account.value) return
+    if (!account.value) return []
     try {
+      const chainId = await publicClient.getChainId()
+      if (chainId !== Chain.id) {
+        addToast('Wrong network detected', 'warning')
+        deployedContracts.value = []
+        return []
+      }
+
       const contracts = await publicClient.readContract({
         address: factoryAddress,
         abi: factoryAbiFull,
         functionName: 'getDeployedContracts',
         args: [],
       })
+
       deployedContracts.value = contracts as `0x${string}`[]
-    } catch (err) {
-      console.error(err)
+
+      if (deployedContracts.value.length > 0) {
+        addToast(
+          `Found ${deployedContracts.value.length} deployed contract(s)`,
+          'success',
+          3000
+        )
+      } else {
+        addToast('No deployed contracts found', 'info', 3000)
+      }
+
+      return deployedContracts.value
+    } catch (err: any) {
+      console.error('fetchDeployedContracts error:', err)
+      addToast('Factory not deployed / wrong network', 'error', 4000)
       deployedContracts.value = []
+      return []
     }
   }
 
@@ -101,8 +124,7 @@ export function useContractActions() {
       account: account.value as `0x${string}`,
       chain: Chain,
     })
-
-    const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash as `0x${string}` })
+    
     await fetchDeployedContracts()
     const newContractAddress = deployedContracts.value[deployedContracts.value.length - 1]
 

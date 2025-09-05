@@ -13,7 +13,9 @@ function safeParseDate(value: unknown): number | null {
     if (typeof value === "number" || typeof value === "string") {
       return Number(value)
     }
-  } catch {}
+  } catch (err: unknown) {
+    console.warn('safeParseDate error:', err)
+  }
   return null
 }
 

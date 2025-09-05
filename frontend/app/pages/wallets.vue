@@ -115,8 +115,8 @@ const copyAddress = async () => {
         <p class="text-gray-500">No wallet connected.</p>
         <Button
           class="flex items-center justify-center gap-2 w-full px-4 py-2 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 active:bg-indigo-800 transition"
-          @click="handleConnect"
           :disabled="loadingConnect"
+          @click="handleConnect"
         >
           <PlugZap class="w-5 h-5" />
           <span v-if="!loadingConnect">Connect Wallet</span>
