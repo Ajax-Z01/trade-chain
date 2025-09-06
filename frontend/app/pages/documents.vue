@@ -15,6 +15,8 @@ const tokenId = ref<bigint | null>(null)
 const error = ref<string | null>(null)
 const success = ref<string | null>(null)
 const minterAddress = ref('')
+const addingMinter = ref(false)
+const removingMinter = ref(false)
 
 const nftInfo = ref<{ owner: string; metadata: any } | null>(null)
 
@@ -100,23 +102,35 @@ const verifyAndMint = async () => {
 
 const handleAddMinter = async () => {
   if (!minterAddress.value) return
+  addingMinter.value = true
+  error.value = null
+  success.value = null
+
   try {
     await addMinter(minterAddress.value as `0x${string}`)
     success.value = `Minter added: ${minterAddress.value}`
     minterAddress.value = ''
   } catch (err: any) {
     error.value = err.message || 'Add minter failed'
+  } finally {
+    addingMinter.value = false
   }
 }
 
 const handleRemoveMinter = async () => {
   if (!minterAddress.value) return
+  removingMinter.value = true
+  error.value = null
+  success.value = null
+
   try {
     await removeMinter(minterAddress.value as `0x${string}`)
     success.value = `Minter removed: ${minterAddress.value}`
     minterAddress.value = ''
   } catch (err: any) {
     error.value = err.message || 'Remove minter failed'
+  } finally {
+    removingMinter.value = false
   }
 }
 </script>
@@ -160,15 +174,19 @@ const handleRemoveMinter = async () => {
       <div class="flex gap-2">
         <button
           class="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2"
+          :disabled="addingMinter"
           @click="handleAddMinter"
         >
-          <Plus class="w-4 h-4" /> Add
+          <Loader2 v-if="addingMinter" class="w-4 h-4 animate-spin" />
+          <Plus v-else class="w-4 h-4" /> Add
         </button>
         <button
           class="flex-1 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2"
+          :disabled="removingMinter"
           @click="handleRemoveMinter"
         >
-          <Minus class="w-4 h-4" /> Remove
+          <Loader2 v-if="removingMinter" class="w-4 h-4 animate-spin" />
+          <Minus v-else class="w-4 h-4" /> Remove
         </button>
       </div>
     </div>

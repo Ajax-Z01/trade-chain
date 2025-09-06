@@ -1,30 +1,31 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import Button from '~/components/ui/Button.vue'
-import { Rocket, Loader2, Check } from 'lucide-vue-next'
+import { Rocket, Loader2, Check, X } from 'lucide-vue-next'
 import { useContractActions } from '~/composables/useContractActions'
 import { useWallet } from '~/composables/useWallets'
 import { useToast } from '~/composables/useToast'
 import { useTx } from '~/composables/useTx'
 import { getNftsByOwner } from '~/composables/useNfts'
 
-// Composable
+// Composables
 const { account } = useWallet()
 const { addToast } = useToast()
 const { withTx } = useTx()
 
-// Contract actions composable
+// Contract actions
 const {
   deployedContracts,
   fetchDeployedContracts,
   stepStatus,
   fetchContractDetails,
   deployContractWithDocs,
+  getStage,
   depositToContract,
-  approveAsImporter,
-  approveAsExporter,
-  finalizeContract,
-  getImporter
+  signAgreement,
+  startShipping,
+  completeContract,
+  cancelContract,
 } = useContractActions()
 
 // Inputs
@@ -35,61 +36,28 @@ const backendRequiredAmount = ref('')
 const selectedContract = ref<string | null>(null)
 const latestContract = ref<string | null>(null)
 
-// Current active contract
+// Current contract
 const currentContract = computed(() => latestContract.value || selectedContract.value)
 
-// Step state
-type Step =
-  | 'idle'
-  | 'deploying'
-  | 'depositing'
-  | 'approvingImporter'
-  | 'approvingExporter'
-  | 'finalizing'
-  | 'done'
-const step = ref<Step>('idle')
+// Stage enum for UI
+const stageLabels = ['Draft', 'Signed', 'Shipping', 'Completed', 'Cancelled']
+const currentStage = ref<number>(0)
 
-// Button-specific loading state
-type StepKey = 'deploy' | 'deposit' | 'approveImporter' | 'approveExporter' | 'finalize'
-const loadingButton = ref<StepKey | null>(null)
+// Button loading state
+type StageKey = 'deploy' | 'deposit' | 'sign' | 'shipping' | 'completed' | 'cancel'
+const loadingButton = ref<StageKey | null>(null)
 
-// Labels for UI
-const labels: { key: StepKey; text: string }[] = [
-  { key: 'deploy', text: 'Deploy Contract' },
-  { key: 'deposit', text: 'Deposit ETH' },
-  { key: 'approveImporter', text: 'Approve Importer' },
-  { key: 'approveExporter', text: 'Approve Exporter' },
-  { key: 'finalize', text: 'Finalize Contract' }
-]
-
-const stepOrder: StepKey[] = ['deploy', 'deposit', 'approveImporter', 'approveExporter', 'finalize']
-
-const currentStepIndex = computed(() => {
-  return stepOrder.findIndex(key => step.value === keyToStep(key))
-})
-
-function keyToStep(key: StepKey): Step {
-  switch (key) {
-    case 'deploy': return 'idle'
-    case 'deposit': return 'depositing'
-    case 'approveImporter': return 'approvingImporter'
-    case 'approveExporter': return 'approvingExporter'
-    case 'finalize': return 'finalizing'
-  }
-}
-
-// Fetch deployed contracts when wallet connects
+// Fetch contracts on wallet connect
 watch(account, (acc) => { if (acc) fetchDeployedContracts() }, { immediate: true })
 
-// Watch contract change to update step status
+// Watch contract selection to update stepStatus & stage
 watch(selectedContract, async (contract) => {
   if (!contract) return
   exporterAddress.value = ''
   requiredAmount.value = ''
-
+  
   try {
     const data = await fetchContractDetails(contract)
-
     const deployLog = data.history?.find((h: any) => h.action === 'deploy')
     if (deployLog) {
       backendExporter.value = deployLog.extra?.exporter || ''
@@ -98,30 +66,27 @@ watch(selectedContract, async (contract) => {
         : ''
     }
 
-    // --- Sync stepStatus dan step ---
-    stepStatus.deploy = data.history?.some((h: any) => h.action === 'deploy') || false
-    stepStatus.deposit = data.history?.some((h: any) => h.action === 'deposit') || false
-    stepStatus.approveImporter = data.history?.some((h: any) => h.action === 'approveImporter') || false
-    stepStatus.approveExporter = data.history?.some((h: any) => h.action === 'approveExporter') || false
-    stepStatus.finalize = data.history?.some((h: any) => h.action === 'finalize') || false
+    // Sync on-chain stage
+    const stage = await getStage(contract as `0x${string}`)
+    currentStage.value = stage ?? 0
+    const stageNumber = stage ?? 0
 
-    // Tentukan step aktif sesuai status
-    if (!stepStatus.deploy) step.value = 'idle'
-    else if (!stepStatus.deposit) step.value = 'depositing'
-    else if (!stepStatus.approveImporter) step.value = 'approvingImporter'
-    else if (!stepStatus.approveExporter) step.value = 'approvingExporter'
-    else if (!stepStatus.finalize) step.value = 'finalizing'
-    else step.value = 'done'
-
+    // Map stage to stepStatus
+    stepStatus.deploy = true
+    stepStatus.deposit = data.history?.some((h:any)=>h.action==='deposit') || false
+    stepStatus.sign = stageNumber >= 1
+    stepStatus.shipping = stageNumber >= 2
+    stepStatus.completed = stageNumber === 3
+    stepStatus.cancelled = stageNumber === 4
   } catch (err) {
     console.error('Failed to fetch contract data:', err)
     backendExporter.value = ''
     backendRequiredAmount.value = ''
-    step.value = 'idle'
+    currentStage.value = 0
   }
 }, { immediate: true })
 
-// Optional: computed yang merge dengan input user
+// Optional: computed merged with backend value
 const exporterValue = computed({
   get: () => exporterAddress.value || backendExporter.value,
   set: (val: string) => exporterAddress.value = val
@@ -132,34 +97,25 @@ const requiredAmountValue = computed({
   set: (val: string) => requiredAmount.value = val
 })
 
-// Flag apakah field diisi otomatis dari backend
 const isAutoFilled = computed(() => !!backendExporter.value && !exporterAddress.value)
 
-// --- Helpers ---
+// Helpers
 const getFirstTokenIdByOwner = async (owner: `0x${string}`): Promise<bigint | null> => {
   const nfts = await getNftsByOwner(owner)
   if (!nfts.length) return null
   return BigInt(nfts[0]!.tokenId)
 }
 
-// --- Handlers --- //
+// Handlers with loading state
 const handleDeploy = async () => {
-  if (!account.value) {
-    addToast('Connect wallet first', 'error')
-    return
-  }
-  if (!exporterAddress.value || !requiredAmount.value) {
-    addToast('Exporter and required amount are required', 'error')
-    return
-  }
+  if (!account.value) { addToast('Connect wallet first','error'); return }
+  if (!exporterAddress.value || !requiredAmount.value) { addToast('Exporter and amount required','error'); return }
 
   loadingButton.value = 'deploy'
   await withTx(async () => {
     const weiAmount = BigInt(Math.floor(parseFloat(requiredAmount.value) * 1e18))
-
     const importerTokenId = await getFirstTokenIdByOwner(account.value as `0x${string}`)
     if (!importerTokenId) throw new Error('No NFT found for importer')
-
     const exporterTokenId = await getFirstTokenIdByOwner(exporterAddress.value as `0x${string}`)
     if (!exporterTokenId) throw new Error('No NFT found for exporter')
 
@@ -173,100 +129,89 @@ const handleDeploy = async () => {
 
     selectedContract.value = latestContract.value = contractAddress as string
     stepStatus.deploy = true
+    currentStage.value = 0
     addToast(`Contract deployed at ${contractAddress}`, 'success')
-
-    const importer = await getImporter(contractAddress as `0x${string}`)
-    addToast(`Importer is ${importer}`, 'info')
-
-    step.value = 'depositing'
   }, { label: 'Deploy Contract' })
   loadingButton.value = null
 }
 
 const handleDeposit = async () => {
-  if (!currentContract.value) {
-    addToast('Select a contract first', 'error')
-    return
-  }
+  if (!currentContract.value) { addToast('Select a contract first','error'); return }
 
   loadingButton.value = 'deposit'
   await withTx(async () => {
     const amount = requiredAmount.value || backendRequiredAmount.value
-    if (!amount) throw new Error('Required amount is missing')
-
-    const weiAmount = BigInt(Math.floor(parseFloat(amount) * 1e18))
+    if (!amount) throw new Error('Required amount missing')
+    const weiAmount = BigInt(Math.floor(parseFloat(amount)*1e18))
     await depositToContract(currentContract.value as `0x${string}`, weiAmount)
-
     stepStatus.deposit = true
-    addToast('ETH deposited successfully', 'success')
-    step.value = 'approvingImporter'
+    addToast('ETH deposited', 'success')
   }, { label: 'Deposit ETH' })
   loadingButton.value = null
 }
 
-const handleApproveImporter = async () => {
-  if (!currentContract.value) {
-    addToast('Select a contract first', 'error')
-    return
-  }
-
-  loadingButton.value = 'approveImporter'
+const handleSign = async () => {
+  if (!currentContract.value) return
+  loadingButton.value = 'sign'
   await withTx(async () => {
-    await approveAsImporter(currentContract.value as `0x${string}`)
-    stepStatus.approveImporter = true
-    addToast('Approved as Importer', 'success')
-    step.value = 'approvingExporter'
-  }, { label: 'Approve Importer' })
+    await signAgreement(currentContract.value as `0x${string}`)
+    stepStatus.sign = true
+    currentStage.value = 1
+    addToast('Agreement signed', 'success')
+  }, { label: 'Sign Agreement' })
   loadingButton.value = null
 }
 
-const handleApproveExporter = async () => {
-  if (!currentContract.value) {
-    addToast('Select a contract first', 'error')
-    return
-  }
-
-  loadingButton.value = 'approveExporter'
+const handleStartShipping = async () => {
+  if (!currentContract.value) return
+  loadingButton.value = 'shipping'
   await withTx(async () => {
-    await approveAsExporter(currentContract.value as `0x${string}`)
-    stepStatus.approveExporter = true
-    addToast('Approved as Exporter', 'success')
-    step.value = 'finalizing'
-  }, { label: 'Approve Exporter' })
+    await startShipping(currentContract.value as `0x${string}`)
+    stepStatus.shipping = true
+    currentStage.value = 2
+    addToast('Shipping started', 'success')
+  }, { label: 'Start Shipping' })
   loadingButton.value = null
 }
 
-const handleFinalize = async () => {
-  if (!currentContract.value) {
-    addToast('Select a contract first', 'error')
-    return
-  }
-
-  loadingButton.value = 'finalize'
+const handleComplete = async () => {
+  if (!currentContract.value) return
+  loadingButton.value = 'completed'
   await withTx(async () => {
-    await finalizeContract(currentContract.value as `0x${string}`)
-    stepStatus.finalize = true
-    addToast('Contract finalized', 'success')
-    step.value = 'done'
-  }, { label: 'Finalize Contract' })
+    await completeContract(currentContract.value as `0x${string}`)
+    stepStatus.completed = true
+    currentStage.value = 3
+    addToast('Contract completed', 'success')
+  }, { label: 'Complete Contract' })
+  loadingButton.value = null
+}
+
+const handleCancel = async () => {
+  if (!currentContract.value) return
+  const reason = prompt('Reason for cancellation:')
+  if (!reason) return
+  loadingButton.value = 'cancel'
+  await withTx(async () => {
+    await cancelContract(currentContract.value as `0x${string}`, reason)
+    stepStatus.cancelled = true
+    currentStage.value = 4
+    addToast('Contract cancelled', 'info')
+  }, { label: 'Cancel Contract' })
   loadingButton.value = null
 }
 
 const handleNewContract = () => {
   selectedContract.value = null
   latestContract.value = null
-
   exporterAddress.value = ''
   requiredAmount.value = ''
   backendExporter.value = ''
   backendRequiredAmount.value = ''
-
-  step.value = 'idle'
+  currentStage.value = 0
+  Object.keys(stepStatus).forEach((key) => {
+    stepStatus[key as keyof typeof stepStatus] = false
+  })
   loadingButton.value = null
-  for (const key in stepStatus) {
-    stepStatus[key as StepKey] = false
-  }
-
   addToast('Ready to create a new contract', 'info')
 }
 </script>
@@ -274,61 +219,49 @@ const handleNewContract = () => {
 <template>
   <div class="p-6 max-w-3xl mx-auto space-y-6">
     <div class="flex items-center justify-between">
-      <h1 class="text-2xl font-semibold text-gray-800">Contract Full Flow</h1>
-      <Button class="bg-indigo-600 hover:bg-indigo-700 text-white rounded py-2 px-4 flex items-center gap-2 shadow" @click="handleNewContract">
-        New Contract
-      </Button>
-      
-      <Button
-        @click="async () => {
-          const res = await fetchDeployedContracts()
-          console.log('Refreshed contracts:', res)
-        }"
-      >
-        Refresh Data
-      </Button>
+      <h1 class="text-2xl font-semibold text-gray-800">TradeAgreement v2</h1>
+      <div class="flex gap-2">
+        <Button @click="handleNewContract" class="bg-indigo-600 hover:bg-indigo-700 text-white rounded py-2 px-4 flex items-center gap-2 shadow">New Contract</Button>
+        <Button @click="async()=>{ const res=await fetchDeployedContracts(); console.log(res) }">Refresh Data</Button>
+      </div>
     </div>
 
     <!-- Stepper -->
     <div class="flex items-center justify-between gap-2 overflow-x-auto mt-4">
-      <div v-for="(label,index) in labels" :key="label.key" class="flex-1 min-w-[80px]">
+      <div v-for="(label,index) in stageLabels" :key="label" class="flex-1 min-w-[80px]">
         <div class="flex flex-col items-center">
-          <div
-            class="w-8 h-8 rounded-full flex items-center justify-center mb-1 transition"
-            :class="stepStatus[label.key] ? 'bg-green-500 text-white' : (currentStepIndex === index ? 'bg-indigo-500 text-white' : 'bg-gray-200 text-gray-500')"
-          >
-            <Check v-if="stepStatus[label.key]" class="w-4 h-4"/>
+          <div class="w-8 h-8 rounded-full flex items-center justify-center mb-1 transition"
+            :class="currentStage >= index ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-500'">
+            <Check v-if="currentStage >= index" class="w-4 h-4"/>
             <span v-else>{{ index+1 }}</span>
           </div>
-          <span class="text-xs text-center">{{ label.text }}</span>
+          <span class="text-xs text-center">{{ label }}</span>
         </div>
-        <div v-if="index < labels.length-1" class="h-1 bg-gray-300 mt-2"></div>
+        <div v-if="index<stageLabels.length-1" class="h-1 bg-gray-300 mt-2"></div>
       </div>
     </div>
 
-    <!-- Contract Selection -->
+    <!-- Contract selection -->
     <div class="space-y-2 mt-6">
-      <label class="block text-gray-700">Select Existing Contract</label>
+      <label class="block text-gray-700">Select Contract</label>
       <select v-model="selectedContract" class="w-full p-3 border rounded focus:ring-2 focus:ring-indigo-400 outline-none">
         <option disabled value="">-- Select Contract --</option>
         <option v-for="c in deployedContracts" :key="c" :value="c">{{ c }}</option>
       </select>
     </div>
 
-    <!-- Deploy Inputs -->
+    <!-- Inputs -->
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-gray-50 p-4 rounded shadow mt-4">
       <div class="flex flex-col relative">
         <label class="text-sm font-medium text-gray-700 mb-1">Exporter Address</label>
-        <input
-v-model="exporterValue" placeholder="0x..." :disabled="isAutoFilled"
+        <input v-model="exporterValue" placeholder="0x..." :disabled="isAutoFilled"
           class="w-full p-3 border rounded focus:ring-2 focus:ring-indigo-400 outline-none"/>
         <span v-if="isAutoFilled" class="absolute right-2 top-1 text-xs text-gray-500 italic">auto-filled</span>
       </div>
       <div class="flex flex-col relative">
         <label class="text-sm font-medium text-gray-700 mb-1">Required Amount</label>
         <div class="flex items-center">
-          <input
-v-model="requiredAmountValue" type="number" step="0.0001" placeholder="0.5" :disabled="isAutoFilled"
+          <input v-model="requiredAmountValue" type="number" step="0.0001" placeholder="0.5" :disabled="isAutoFilled"
             class="w-full p-3 border rounded focus:ring-2 focus:ring-indigo-400 outline-none"/>
           <span class="ml-2 text-gray-600">ETH</span>
         </div>
@@ -336,48 +269,76 @@ v-model="requiredAmountValue" type="number" step="0.0001" placeholder="0.5" :dis
       </div>
     </div>
 
-    <!-- Action Buttons (vertical on mobile) -->
+    <!-- Action Buttons -->
     <div class="space-y-3 mt-4">
+
+      <!-- Step 1: Deploy -->
       <Button
-        :disabled="loadingButton==='deploy'||step!=='idle'"
-        class="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded py-3"
+        :disabled="loadingButton==='deploy' || stepStatus.deploy"
         @click="handleDeploy"
+        class="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded py-3"
       >
         <Rocket class="w-5 h-5"/>
-        <span v-if="step==='idle' && loadingButton!=='deploy'">Deploy Contract</span>
-        <span v-else-if="loadingButton==='deploy'">Deploying...</span>
-        <span v-else-if="stepStatus.deploy">Deployed</span>
+        <span v-if="loadingButton!=='deploy'">Deploy Contract</span>
         <Loader2 v-if="loadingButton==='deploy'" class="w-5 h-5 animate-spin"/>
         <Check v-if="stepStatus.deploy" class="w-5 h-5 text-green-400"/>
       </Button>
-      <Button :disabled="step!=='depositing'" class="w-full flex items-center justify-center gap-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded py-3" @click="handleDeposit">
-        <span v-if="step==='depositing' && loadingButton!=='deposit'">Deposit ETH</span>
-        <span v-else-if="loadingButton==='deposit'">Depositing...</span>
-        <span v-else-if="stepStatus.deposit">Deposited</span>
+
+      <!-- Step 2: Sign -->
+      <Button
+        :disabled="!stepStatus.deploy || loadingButton==='sign' || stepStatus.sign"
+        @click="handleSign"
+        class="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white rounded py-3"
+      >
+        <span>Sign Agreement</span>
+        <Loader2 v-if="loadingButton==='sign'" class="w-5 h-5 animate-spin"/>
+        <Check v-if="stepStatus.sign" class="w-5 h-5 text-green-400"/>
+      </Button>
+
+      <!-- Step 3: Deposit (by Importer) -->
+      <Button
+        :disabled="!stepStatus.sign || loadingButton==='deposit' || stepStatus.deposit"
+        @click="handleDeposit"
+        class="w-full flex items-center justify-center gap-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded py-3"
+      >
+        <span>Deposit ETH</span>
         <Loader2 v-if="loadingButton==='deposit'" class="w-5 h-5 animate-spin"/>
         <Check v-if="stepStatus.deposit" class="w-5 h-5 text-green-400"/>
       </Button>
-      <Button :disabled="step!=='approvingImporter'" class="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white rounded py-3" @click="handleApproveImporter">
-        <span v-if="step==='approvingImporter' && loadingButton!=='approveImporter'">Approve Importer</span>
-        <span v-else-if="loadingButton==='approveImporter'">Approving...</span>
-        <span v-else-if="stepStatus.approveImporter">Approved</span>
-        <Loader2 v-if="loadingButton==='approveImporter'" class="w-5 h-5 animate-spin"/>
-        <Check v-if="stepStatus.approveImporter" class="w-5 h-5 text-green-400"/>
+
+      <!-- Step 4: Start Shipping (by Exporter) -->
+      <Button
+        :disabled="!stepStatus.deposit || loadingButton==='shipping' || stepStatus.shipping"
+        @click="handleStartShipping"
+        class="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white rounded py-3"
+      >
+        <span>Start Shipping</span>
+        <Loader2 v-if="loadingButton==='shipping'" class="w-5 h-5 animate-spin"/>
+        <Check v-if="stepStatus.shipping" class="w-5 h-5 text-green-400"/>
       </Button>
-      <Button :disabled="step!=='approvingExporter'" class="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white rounded py-3" @click="handleApproveExporter">
-        <span v-if="step==='approvingExporter' && loadingButton!=='approveExporter'">Approve Exporter</span>
-        <span v-else-if="loadingButton==='approveExporter'">Approving...</span>
-        <span v-else-if="stepStatus.approveExporter">Approved</span>
-        <Loader2 v-if="loadingButton==='approveExporter'" class="w-5 h-5 animate-spin"/>
-        <Check v-if="stepStatus.approveExporter" class="w-5 h-5 text-green-400"/>
+
+      <!-- Step 5: Complete (by Importer) -->
+      <Button
+        :disabled="!stepStatus.shipping || loadingButton==='completed' || stepStatus.completed"
+        @click="handleComplete"
+        class="w-full flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white rounded py-3"
+      >
+        <span>Complete Contract</span>
+        <Loader2 v-if="loadingButton==='completed'" class="w-5 h-5 animate-spin"/>
+        <Check v-if="stepStatus.completed" class="w-5 h-5 text-green-400"/>
       </Button>
-      <Button :disabled="step!=='finalizing'" class="w-full flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white rounded py-3" @click="handleFinalize">
-        <span v-if="step==='finalizing' && loadingButton!=='finalize'">Finalize Contract</span>
-        <span v-else-if="loadingButton==='finalize'">Finalizing...</span>
-        <span v-else-if="stepStatus.finalize">Finalized</span>
-        <Loader2 v-if="loadingButton==='finalize'" class="w-5 h-5 animate-spin"/>
-        <Check v-if="stepStatus.finalize" class="w-5 h-5 text-green-400"/>
+
+      <!-- Cancel (anytime before Completed) -->
+      <Button
+        :disabled="loadingButton==='cancel' || stepStatus.completed || stepStatus.cancelled"
+        @click="handleCancel"
+        class="w-full flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white rounded py-3"
+      >
+        <span>Cancel Contract</span>
+        <Loader2 v-if="loadingButton==='cancel'" class="w-5 h-5 animate-spin"/>
+        <X v-if="stepStatus.cancelled" class="w-5 h-5 text-white"/>
       </Button>
+
     </div>
   </div>
 </template>

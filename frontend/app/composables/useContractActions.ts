@@ -24,9 +24,10 @@ export function useContractActions() {
   const stepStatus = reactive({
     deploy: false,
     deposit: false,
-    approveImporter: false,
-    approveExporter: false,
-    finalize: false,
+    sign: false,
+    shipping: false,
+    completed: false,
+    cancelled: false,
   })
 
   const postLog = async (data: any) => {
@@ -52,23 +53,10 @@ export function useContractActions() {
       console.error('Get contract details error:', err)
     }
   }
-  
-  const fetchContractStep = async (contractAddress: `0x${string}`) => {
-    const { $apiBase } = useNuxtApp()
-    try {
-      const res = await fetch(`${$apiBase}/contract/${contractAddress}/step`)
-      if (!res.ok) throw new Error('Failed to fetch contract step')
-      const data = await res.json()
-      Object.assign(stepStatus, data.stepStatus)
-      return data
-    } catch (err) {
-      console.error('Fetch contract step error:', err)
-    }
-  }
-  
-  // ----------------
-  // Factory / TradeAgreement
-  // ----------------
+
+  // ---------
+  // Factory
+  // ---------
   const fetchDeployedContracts = async () => {
     if (!account.value) return []
     try {
@@ -124,7 +112,7 @@ export function useContractActions() {
       account: account.value as `0x${string}`,
       chain: Chain,
     })
-    
+
     await fetchDeployedContracts()
     const newContractAddress = deployedContracts.value[deployedContracts.value.length - 1]
 
@@ -145,15 +133,28 @@ export function useContractActions() {
     return newContractAddress
   }
 
-  // ----------------
-  // TradeAgreement steps
-  // ----------------
+  // ---------
+  // TradeAgreement v2
+  // ---------
+  const getStage = async (contractAddress: `0x${string}`) => {
+    try {
+      return await publicClient.readContract({
+        address: contractAddress,
+        abi: tradeAgreementAbi,
+        functionName: 'currentStage',
+        args: [],
+      }) as number
+    } catch (err) {
+      console.error('Failed to get stage:', err)
+    }
+  }
+
   const depositToContract = async (contractAddress: `0x${string}`, amount: bigint) => {
     if (!walletClient.value || !account.value) throw new Error('Wallet not connected')
 
     const txHash = await walletClient.value.writeContract({
       address: contractAddress,
-      abi: [{ type: 'function', name: 'deposit', stateMutability: 'payable', inputs: [], outputs: [] }],
+      abi: tradeAgreementAbi,
       functionName: 'deposit',
       args: [],
       account: account.value as `0x${string}`,
@@ -174,93 +175,77 @@ export function useContractActions() {
     return receipt
   }
 
-  const approveAsImporter = async (contractAddress: `0x${string}`) => {
-    if (!walletClient.value || !account.value) throw new Error("Wallet not connected")
-    const txHash = await walletClient.value.writeContract({
-      address: contractAddress,
-      abi: tradeAgreementAbi,
-      functionName: 'approveAsImporter',
-      args: [],
-      account: account.value as `0x${string}`,
-      chain: Chain,
-    })
-    const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash as `0x${string}` })
-    await postLog({
-      action: 'approveImporter',
-      account: account.value,
-      txHash,
-      contractAddress,
-      extra: { approvedBy: account.value },
-    })
-    return receipt
-  }
-
-  const approveAsExporter = async (contractAddress: `0x${string}`) => {
+  const signAgreement = async (contractAddress: `0x${string}`) => {
     if (!walletClient.value || !account.value) throw new Error('Wallet not connected')
     const txHash = await walletClient.value.writeContract({
       address: contractAddress,
       abi: tradeAgreementAbi,
-      functionName: 'approveAsExporter',
+      functionName: 'sign',
       args: [],
-      account: account.value as `0x${string}`,
+      account: account.value,
       chain: Chain,
     })
     const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash as `0x${string}` })
-    await postLog({
-      action: 'approveExporter',
-      account: account.value,
-      txHash,
-      contractAddress,
-      extra: { approvedBy: account.value },
-    })
+    await postLog({ action: 'sign', account: account.value, txHash, contractAddress })
     return receipt
   }
 
-  const finalizeContract = async (contractAddress: `0x${string}`) => {
+  const startShipping = async (contractAddress: `0x${string}`) => {
     if (!walletClient.value || !account.value) throw new Error('Wallet not connected')
     const txHash = await walletClient.value.writeContract({
       address: contractAddress,
       abi: tradeAgreementAbi,
-      functionName: 'finalize',
+      functionName: 'startShipping',
       args: [],
-      account: account.value as `0x${string}`,
+      account: account.value,
       chain: Chain,
     })
     const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash as `0x${string}` })
-    await postLog({
-      action: 'finalize',
-      account: account.value,
-      txHash,
-      contractAddress,
-      extra: { status: 'completed' },
-    })
+    await postLog({ action: 'startShipping', account: account.value, txHash, contractAddress })
     return receipt
   }
-  
-  const getImporter = async (contractAddress: `0x${string}`) => {
-    try {
-      return await publicClient.readContract({
-        address: contractAddress,
-        abi: tradeAgreementAbi,
-        functionName: 'importer',
-        args: [],
-      }) as `0x${string}`
-    } catch (err) {
-      console.error('Failed to read importer:', err)
-    }
+
+  const completeContract = async (contractAddress: `0x${string}`) => {
+    if (!walletClient.value || !account.value) throw new Error('Wallet not connected')
+    const txHash = await walletClient.value.writeContract({
+      address: contractAddress,
+      abi: tradeAgreementAbi,
+      functionName: 'complete',
+      args: [],
+      account: account.value,
+      chain: Chain,
+    })
+    const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash as `0x${string}` })
+    await postLog({ action: 'complete', account: account.value, txHash, contractAddress })
+    return receipt
+  }
+
+  const cancelContract = async (contractAddress: `0x${string}`, reason: string) => {
+    if (!walletClient.value || !account.value) throw new Error('Wallet not connected')
+    const txHash = await walletClient.value.writeContract({
+      address: contractAddress,
+      abi: tradeAgreementAbi,
+      functionName: 'cancel',
+      args: [reason],
+      account: account.value,
+      chain: Chain,
+    })
+    const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash as `0x${string}` })
+    await postLog({ action: 'cancel', account: account.value, txHash, contractAddress, extra: { reason } })
+    return receipt
   }
 
   return {
     deployedContracts,
-    fetchDeployedContracts,
     stepStatus,
     fetchContractDetails,
-    fetchContractStep,
+    fetchDeployedContracts,
     deployContractWithDocs,
+    getStage,
     depositToContract,
-    approveAsImporter,
-    approveAsExporter,
-    finalizeContract,
-    getImporter,
+    signAgreement,
+    startShipping,
+    completeContract,
+    cancelContract,
   }
 }

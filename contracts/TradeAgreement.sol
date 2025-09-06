@@ -6,6 +6,14 @@ interface IDocumentRegistry {
 }
 
 contract TradeAgreement {
+    enum Stage {
+        Draft,
+        Signed,
+        Shipping,
+        Completed,
+        Cancelled
+    }
+
     IDocumentRegistry public registry;
     address public importer;
     address public exporter;
@@ -16,9 +24,28 @@ contract TradeAgreement {
     bool public importerApproved;
     bool public exporterApproved;
 
+    Stage public currentStage;
+
     event Deposit(address indexed from, uint256 amount);
     event Approved(address indexed by);
     event Finalized(address indexed to, uint256 amount);
+    event StageChanged(Stage oldStage, Stage newStage, address by, uint256 timestamp);
+    event Cancelled(address by, string reason);
+
+    modifier onlyImporter() {
+        require(msg.sender == importer, "Only importer");
+        _;
+    }
+
+    modifier onlyExporter() {
+        require(msg.sender == exporter, "Only exporter");
+        _;
+    }
+
+    modifier atStage(Stage s) {
+        require(currentStage == s, "Invalid stage");
+        _;
+    }
 
     constructor(
         address _importer,
@@ -38,30 +65,60 @@ contract TradeAgreement {
         importerDocId = _importerDocId;
         exporterDocId = _exporterDocId;
         requiredAmount = _requiredAmount;
+
+        currentStage = Stage.Draft;
     }
 
-    function deposit() external payable {
+    // ---- Lifecycle ----
+    function sign() external {
+        require(msg.sender == importer || msg.sender == exporter, "Not a party");
+        if (msg.sender == importer) {
+            importerApproved = true;
+        } else {
+            exporterApproved = true;
+        }
+        emit Approved(msg.sender);
+
+        if (importerApproved && exporterApproved) {
+            _setStage(Stage.Signed);
+        }
+    }
+
+    function startShipping() external onlyExporter atStage(Stage.Signed) {
+        _setStage(Stage.Shipping);
+    }
+
+    function complete() external onlyImporter atStage(Stage.Shipping) {
+        require(totalDeposited >= requiredAmount, "Insufficient funds");
+        _setStage(Stage.Completed);
+
+        payable(exporter).transfer(requiredAmount);
+        emit Finalized(exporter, requiredAmount);
+    }
+
+    function cancel(string calldata reason) external {
+        require(msg.sender == importer || msg.sender == exporter, "Not a party");
+        require(currentStage != Stage.Completed, "Already completed");
+
+        _setStage(Stage.Cancelled);
+        emit Cancelled(msg.sender, reason);
+
+        if (totalDeposited > 0) {
+            payable(importer).transfer(totalDeposited);
+        }
+    }
+
+    // ---- Escrow ----
+    function deposit() external payable atStage(Stage.Signed) {
         require(msg.value > 0, "No ETH sent");
         totalDeposited += msg.value;
         emit Deposit(msg.sender, msg.value);
     }
 
-    function approveAsImporter() external {
-        require(msg.sender == importer, "Only importer can approve");
-        importerApproved = true;
-        emit Approved(msg.sender);
-    }
-
-    function approveAsExporter() external {
-        require(msg.sender == exporter, "Only exporter can approve");
-        exporterApproved = true;
-        emit Approved(msg.sender);
-    }
-
-    function finalize() external {
-        require(importerApproved && exporterApproved, "Both must approve");
-        require(totalDeposited >= requiredAmount, "Not enough funds deposited");
-        payable(exporter).transfer(requiredAmount);
-        emit Finalized(exporter, requiredAmount);
+    // ---- Internal ----
+    function _setStage(Stage newStage) internal {
+        Stage old = currentStage;
+        currentStage = newStage;
+        emit StageChanged(old, newStage, msg.sender, block.timestamp);
     }
 }
