@@ -8,6 +8,7 @@ import { useToast } from './useToast'
 
 const { addToast } = useToast()
 export const deployedContracts = ref<`0x${string}`[]>([])
+export const currentStage = ref<number>(0)
 
 const publicClient = createPublicClient({
   chain: Chain,
@@ -21,10 +22,14 @@ const tradeAgreementAbi = tradeAgreementArtifact.abi
 export function useContractActions() {
   const { account, walletClient } = useWallet()
 
+  // Step status now includes separate importer/exporter sign
   const stepStatus = reactive({
     deploy: false,
     deposit: false,
-    sign: false,
+    sign: {
+      importer: false,
+      exporter: false,
+    },
     shipping: false,
     completed: false,
     cancelled: false,
@@ -42,15 +47,40 @@ export function useContractActions() {
       console.warn('Failed to post contract log:', err)
     }
   }
-  
+
   const fetchContractDetails = async (contractAddress: string) => {
     const { $apiBase } = useNuxtApp()
     try {
       const res = await fetch(`${$apiBase}/contract/${contractAddress}/details`)
       if (!res.ok) throw new Error('Failed to fetch contract details')
-      return await res.json()
+      const data = await res.json()
+
+      // Fetch on-chain stage
+      const stage = (await getStage(contractAddress as `0x${string}`)) ?? 0
+      const importerSigned = await publicClient.readContract({
+        address: contractAddress as `0x${string}`,
+        abi: tradeAgreementAbi,
+        functionName: 'importerSigned',
+      })
+      const exporterSigned = await publicClient.readContract({
+        address: contractAddress as `0x${string}`,
+        abi: tradeAgreementAbi,
+        functionName: 'exporterSigned',
+      })
+
+      // Map on-chain status to stepStatus
+      stepStatus.deploy = data.history?.some((h: any) => h.action === 'deploy') || false
+      stepStatus.deposit = data.history?.some((h: any) => h.action === 'deposit') || false
+      stepStatus.sign.importer = Boolean(importerSigned)
+      stepStatus.sign.exporter = Boolean(exporterSigned)
+      stepStatus.shipping = stage >= 2
+      stepStatus.completed = stage === 3
+      stepStatus.cancelled = stage === 4
+
+      return data
     } catch (err) {
       console.error('Get contract details error:', err)
+      return null
     }
   }
 
@@ -75,17 +105,11 @@ export function useContractActions() {
       })
 
       deployedContracts.value = contracts as `0x${string}`[]
-
       if (deployedContracts.value.length > 0) {
-        addToast(
-          `Found ${deployedContracts.value.length} deployed contract(s)`,
-          'success',
-          3000
-        )
+        addToast(`Found ${deployedContracts.value.length} deployed contract(s)`, 'success', 3000)
       } else {
         addToast('No deployed contracts found', 'info', 3000)
       }
-
       return deployedContracts.value
     } catch (err: any) {
       console.error('fetchDeployedContracts error:', err)
@@ -121,13 +145,7 @@ export function useContractActions() {
       account: account.value,
       txHash,
       contractAddress: newContractAddress,
-      extra: {
-        exporter,
-        importer,
-        requiredAmount: requiredAmount.toString(),
-        exporterTokenId: exporterDocId.toString(),
-        importerTokenId: importerDocId.toString(),
-      },
+      extra: { exporter, importer, requiredAmount: requiredAmount.toString(), exporterTokenId: exporterDocId.toString(), importerTokenId: importerDocId.toString() },
     })
 
     return newContractAddress
@@ -164,19 +182,14 @@ export function useContractActions() {
 
     const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash as `0x${string}` })
 
-    await postLog({
-      action: 'deposit',
-      account: account.value,
-      txHash,
-      contractAddress,
-      extra: { amount: amount.toString() },
-    })
+    await postLog({ action: 'deposit', account: account.value, txHash, contractAddress, extra: { amount: amount.toString() } })
 
     return receipt
   }
 
   const signAgreement = async (contractAddress: `0x${string}`) => {
     if (!walletClient.value || !account.value) throw new Error('Wallet not connected')
+
     const txHash = await walletClient.value.writeContract({
       address: contractAddress,
       abi: tradeAgreementAbi,
@@ -185,8 +198,25 @@ export function useContractActions() {
       account: account.value,
       chain: Chain,
     })
+
     const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash as `0x${string}` })
     await postLog({ action: 'sign', account: account.value, txHash, contractAddress })
+
+    // update stepStatus after signing
+    const importerSigned = await publicClient.readContract({
+      address: contractAddress,
+      abi: tradeAgreementAbi,
+      functionName: 'importerSigned',
+    })
+    const exporterSigned = await publicClient.readContract({
+      address: contractAddress,
+      abi: tradeAgreementAbi,
+      functionName: 'exporterSigned',
+    })
+
+    stepStatus.sign.importer = Boolean(importerSigned)
+    stepStatus.sign.exporter = Boolean(exporterSigned)
+
     return receipt
   }
 
@@ -234,6 +264,48 @@ export function useContractActions() {
     await postLog({ action: 'cancel', account: account.value, txHash, contractAddress, extra: { reason } })
     return receipt
   }
+  
+  const mapStageToStepStatus = async (contract: string) => {
+    if (!contract) return
+
+    const stage = (await getStage(contract as `0x${string}`)) ?? 0
+
+    const importerSigned = await publicClient.readContract({
+      address: contract as `0x${string}`,
+      abi: tradeAgreementAbi,
+      functionName: 'importerSigned',
+    })
+    const exporterSigned = await publicClient.readContract({
+      address: contract as `0x${string}`,
+      abi: tradeAgreementAbi,
+      functionName: 'exporterSigned',
+    })
+    const totalDeposited = await publicClient.readContract({
+      address: contract as `0x${string}`,
+      abi: tradeAgreementAbi,
+      functionName: 'totalDeposited',
+    })
+    const requiredAmount = await publicClient.readContract({
+      address: contract as `0x${string}`,
+      abi: tradeAgreementAbi,
+      functionName: 'requiredAmount',
+    })
+
+    // ---- Mapping stepStatus ----
+    stepStatus.deploy = stage >= 0
+    stepStatus.sign.importer = Boolean(importerSigned)
+    stepStatus.sign.exporter = Boolean(exporterSigned)
+    stepStatus.deposit = BigInt(totalDeposited as unknown as string || '0') >= BigInt(requiredAmount as unknown as string || '0')
+    stepStatus.shipping = stage >= 4
+    stepStatus.completed = stage >= 5
+    stepStatus.cancelled = stage === 6
+
+    // update reactive currentStage sesuai on-chain
+    currentStage.value = stage
+
+    console.log('Mapping stage to stepStatus, current stage:', stage)
+    console.log('stepStatus after mapping:', JSON.stringify(stepStatus))
+  }
 
   return {
     deployedContracts,
@@ -247,5 +319,7 @@ export function useContractActions() {
     startShipping,
     completeContract,
     cancelContract,
+    mapStageToStepStatus,
+    currentStage,
   }
 }

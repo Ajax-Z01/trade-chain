@@ -8,7 +8,9 @@ interface IDocumentRegistry {
 contract TradeAgreement {
     enum Stage {
         Draft,
-        Signed,
+        SignedByImporter,
+        SignedByExporter,
+        SignedByBoth,
         Shipping,
         Completed,
         Cancelled
@@ -21,9 +23,9 @@ contract TradeAgreement {
     uint256 public exporterDocId;
     uint256 public requiredAmount;
     uint256 public totalDeposited;
-    bool public importerApproved;
-    bool public exporterApproved;
 
+    bool public importerSigned;
+    bool public exporterSigned;
     Stage public currentStage;
 
     event Deposit(address indexed from, uint256 amount);
@@ -31,6 +33,11 @@ contract TradeAgreement {
     event Finalized(address indexed to, uint256 amount);
     event StageChanged(Stage oldStage, Stage newStage, address by, uint256 timestamp);
     event Cancelled(address by, string reason);
+
+    modifier onlyParty() {
+        require(msg.sender == importer || msg.sender == exporter, "Not a party");
+        _;
+    }
 
     modifier onlyImporter() {
         require(msg.sender == importer, "Only importer");
@@ -69,22 +76,30 @@ contract TradeAgreement {
         currentStage = Stage.Draft;
     }
 
-    // ---- Lifecycle ----
-    function sign() external {
-        require(msg.sender == importer || msg.sender == exporter, "Not a party");
+    function sign() external onlyParty {
         if (msg.sender == importer) {
-            importerApproved = true;
+            require(!importerSigned, "Importer already signed");
+            importerSigned = true;
         } else {
-            exporterApproved = true;
+            require(!exporterSigned, "Exporter already signed");
+            exporterSigned = true;
         }
+
         emit Approved(msg.sender);
 
-        if (importerApproved && exporterApproved) {
-            _setStage(Stage.Signed);
+        // Update stage
+        if (importerSigned && exporterSigned) {
+            _setStage(Stage.SignedByBoth);
+        } else if (importerSigned) {
+            _setStage(Stage.SignedByImporter);
+        } else if (exporterSigned) {
+            _setStage(Stage.SignedByExporter);
+        } else {
+            _setStage(Stage.Draft);
         }
     }
 
-    function startShipping() external onlyExporter atStage(Stage.Signed) {
+    function startShipping() external onlyExporter atStage(Stage.SignedByBoth) {
         _setStage(Stage.Shipping);
     }
 
@@ -96,10 +111,8 @@ contract TradeAgreement {
         emit Finalized(exporter, requiredAmount);
     }
 
-    function cancel(string calldata reason) external {
-        require(msg.sender == importer || msg.sender == exporter, "Not a party");
+    function cancel(string calldata reason) external onlyParty {
         require(currentStage != Stage.Completed, "Already completed");
-
         _setStage(Stage.Cancelled);
         emit Cancelled(msg.sender, reason);
 
@@ -108,8 +121,7 @@ contract TradeAgreement {
         }
     }
 
-    // ---- Escrow ----
-    function deposit() external payable atStage(Stage.Signed) {
+    function deposit() external payable atStage(Stage.SignedByBoth) {
         require(msg.value > 0, "No ETH sent");
         totalDeposited += msg.value;
         emit Deposit(msg.sender, msg.value);

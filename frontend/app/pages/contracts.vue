@@ -7,6 +7,7 @@ import { useWallet } from '~/composables/useWallets'
 import { useToast } from '~/composables/useToast'
 import { useTx } from '~/composables/useTx'
 import { getNftsByOwner } from '~/composables/useNfts'
+import ContractStepper from '~/components/ContractStepper.vue'
 
 // Composables
 const { account } = useWallet()
@@ -18,14 +19,16 @@ const {
   deployedContracts,
   fetchDeployedContracts,
   stepStatus,
-  fetchContractDetails,
   deployContractWithDocs,
+  fetchContractDetails,
   getStage,
   depositToContract,
   signAgreement,
   startShipping,
   completeContract,
   cancelContract,
+  mapStageToStepStatus,
+  currentStage,
 } = useContractActions()
 
 // Inputs
@@ -36,55 +39,18 @@ const backendRequiredAmount = ref('')
 const selectedContract = ref<string | null>(null)
 const latestContract = ref<string | null>(null)
 
+const userRole = computed<'importer' | 'exporter' | null>(() => {
+  if (!account.value || !currentContract.value) return null
+  if (isImporter.value) return 'importer'
+  if (isExporter.value) return 'exporter'
+  return null
+})
+
+// Computed: check if both parties signed
+const signCompleted = computed(() => stepStatus.sign.importer && stepStatus.sign.exporter)
+
 // Current contract
 const currentContract = computed(() => latestContract.value || selectedContract.value)
-
-// Stage enum for UI
-const stageLabels = ['Draft', 'Signed', 'Shipping', 'Completed', 'Cancelled']
-const currentStage = ref<number>(0)
-
-// Button loading state
-type StageKey = 'deploy' | 'deposit' | 'sign' | 'shipping' | 'completed' | 'cancel'
-const loadingButton = ref<StageKey | null>(null)
-
-// Fetch contracts on wallet connect
-watch(account, (acc) => { if (acc) fetchDeployedContracts() }, { immediate: true })
-
-// Watch contract selection to update stepStatus & stage
-watch(selectedContract, async (contract) => {
-  if (!contract) return
-  exporterAddress.value = ''
-  requiredAmount.value = ''
-  
-  try {
-    const data = await fetchContractDetails(contract)
-    const deployLog = data.history?.find((h: any) => h.action === 'deploy')
-    if (deployLog) {
-      backendExporter.value = deployLog.extra?.exporter || ''
-      backendRequiredAmount.value = deployLog.extra?.requiredAmount
-        ? (BigInt(deployLog.extra.requiredAmount) / 1_000_000_000_000_000_000n).toString()
-        : ''
-    }
-
-    // Sync on-chain stage
-    const stage = await getStage(contract as `0x${string}`)
-    currentStage.value = stage ?? 0
-    const stageNumber = stage ?? 0
-
-    // Map stage to stepStatus
-    stepStatus.deploy = true
-    stepStatus.deposit = data.history?.some((h:any)=>h.action==='deposit') || false
-    stepStatus.sign = stageNumber >= 1
-    stepStatus.shipping = stageNumber >= 2
-    stepStatus.completed = stageNumber === 3
-    stepStatus.cancelled = stageNumber === 4
-  } catch (err) {
-    console.error('Failed to fetch contract data:', err)
-    backendExporter.value = ''
-    backendRequiredAmount.value = ''
-    currentStage.value = 0
-  }
-}, { immediate: true })
 
 // Optional: computed merged with backend value
 const exporterValue = computed({
@@ -106,7 +72,63 @@ const getFirstTokenIdByOwner = async (owner: `0x${string}`): Promise<bigint | nu
   return BigInt(nfts[0]!.tokenId)
 }
 
-// Handlers with loading state
+// Determine if current user is importer/exporter
+const getContractRoles = async (contract: string) => {
+  try {
+    const data = await fetchContractDetails(contract as `0x${string}`)
+    const deployLog = data.history?.find((h: any) => h.action === 'deploy')
+    return {
+      importer: deployLog?.extra?.importer?.toLowerCase() || '',
+      exporter: deployLog?.extra?.exporter?.toLowerCase() || ''
+    }
+  } catch {
+    return { importer: '', exporter: '' }
+  }
+}
+
+const isImporter = ref(false)
+const isExporter = ref(false)
+
+watch([selectedContract, account], async ([contract, acc]) => {
+  if (!contract || !acc) return
+  const roles = await getContractRoles(contract)
+  isImporter.value = acc.toLowerCase() === roles.importer
+  isExporter.value = acc.toLowerCase() === roles.exporter
+}, { immediate: true })
+
+// Fetch contracts on wallet connect
+watch(account, (acc) => { if (acc) fetchDeployedContracts() }, { immediate: true })
+
+// Watch contract selection to fetch details & map stage
+watch(selectedContract, async (contract) => {
+  if (!contract) return
+
+  exporterAddress.value = ''
+  requiredAmount.value = ''
+  backendExporter.value = ''
+  backendRequiredAmount.value = ''
+
+  try {
+    const data = await fetchContractDetails(contract)
+    const deployLog = data.history?.find((h: any) => h.action === 'deploy')
+    if (deployLog) {
+      backendExporter.value = deployLog.extra?.exporter || ''
+      backendRequiredAmount.value = deployLog.extra?.requiredAmount
+        ? (BigInt(deployLog.extra.requiredAmount) / 1_000_000_000_000_000_000n).toString()
+        : ''
+    }
+
+    await mapStageToStepStatus(contract as `0x${string}`)
+  } catch (err) {
+    console.error('Failed to fetch contract data:', err)
+    backendExporter.value = ''
+    backendRequiredAmount.value = ''
+  }
+}, { immediate: true })
+
+// -------- Handlers --------
+const loadingButton = ref<'deploy'|'deposit'|'sign'|'shipping'|'completed'|'cancel'|null>(null)
+
 const handleDeploy = async () => {
   if (!account.value) { addToast('Connect wallet first','error'); return }
   if (!exporterAddress.value || !requiredAmount.value) { addToast('Exporter and amount required','error'); return }
@@ -129,6 +151,7 @@ const handleDeploy = async () => {
 
     selectedContract.value = latestContract.value = contractAddress as string
     stepStatus.deploy = true
+    stepStatus.sign = { importer: false, exporter: false }
     currentStage.value = 0
     addToast(`Contract deployed at ${contractAddress}`, 'success')
   }, { label: 'Deploy Contract' })
@@ -137,6 +160,7 @@ const handleDeploy = async () => {
 
 const handleDeposit = async () => {
   if (!currentContract.value) { addToast('Select a contract first','error'); return }
+  if (!isImporter.value) { addToast('Only importer can deposit','error'); return }
 
   loadingButton.value = 'deposit'
   await withTx(async () => {
@@ -151,24 +175,26 @@ const handleDeposit = async () => {
 }
 
 const handleSign = async () => {
-  if (!currentContract.value) return
+  if (!currentContract.value || !account.value) return
   loadingButton.value = 'sign'
+
   await withTx(async () => {
     await signAgreement(currentContract.value as `0x${string}`)
-    stepStatus.sign = true
-    currentStage.value = 1
+    await mapStageToStepStatus(currentContract.value as `0x${string}`)
     addToast('Agreement signed', 'success')
   }, { label: 'Sign Agreement' })
+
   loadingButton.value = null
 }
 
 const handleStartShipping = async () => {
   if (!currentContract.value) return
+  if (!isExporter.value) { addToast('Only exporter can start shipping','error'); return }
+
   loadingButton.value = 'shipping'
   await withTx(async () => {
     await startShipping(currentContract.value as `0x${string}`)
-    stepStatus.shipping = true
-    currentStage.value = 2
+    await mapStageToStepStatus(currentContract.value as `0x${string}`)
     addToast('Shipping started', 'success')
   }, { label: 'Start Shipping' })
   loadingButton.value = null
@@ -179,8 +205,7 @@ const handleComplete = async () => {
   loadingButton.value = 'completed'
   await withTx(async () => {
     await completeContract(currentContract.value as `0x${string}`)
-    stepStatus.completed = true
-    currentStage.value = 3
+    await mapStageToStepStatus(currentContract.value as `0x${string}`)
     addToast('Contract completed', 'success')
   }, { label: 'Complete Contract' })
   loadingButton.value = null
@@ -193,8 +218,7 @@ const handleCancel = async () => {
   loadingButton.value = 'cancel'
   await withTx(async () => {
     await cancelContract(currentContract.value as `0x${string}`, reason)
-    stepStatus.cancelled = true
-    currentStage.value = 4
+    await mapStageToStepStatus(currentContract.value as `0x${string}`)
     addToast('Contract cancelled', 'info')
   }, { label: 'Cancel Contract' })
   loadingButton.value = null
@@ -207,11 +231,14 @@ const handleNewContract = () => {
   requiredAmount.value = ''
   backendExporter.value = ''
   backendRequiredAmount.value = ''
-  currentStage.value = 0
-  Object.keys(stepStatus).forEach((key) => {
-    stepStatus[key as keyof typeof stepStatus] = false
-  })
+  stepStatus.deploy = false
+  stepStatus.deposit = false
+  stepStatus.sign = { importer: false, exporter: false }
+  stepStatus.shipping = false
+  stepStatus.completed = false
+  stepStatus.cancelled = false
   loadingButton.value = null
+  currentStage.value = 0
   addToast('Ready to create a new contract', 'info')
 }
 </script>
@@ -227,19 +254,13 @@ const handleNewContract = () => {
     </div>
 
     <!-- Stepper -->
-    <div class="flex items-center justify-between gap-2 overflow-x-auto mt-4">
-      <div v-for="(label,index) in stageLabels" :key="label" class="flex-1 min-w-[80px]">
-        <div class="flex flex-col items-center">
-          <div class="w-8 h-8 rounded-full flex items-center justify-center mb-1 transition"
-            :class="currentStage >= index ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-500'">
-            <Check v-if="currentStage >= index" class="w-4 h-4"/>
-            <span v-else>{{ index+1 }}</span>
-          </div>
-          <span class="text-xs text-center">{{ label }}</span>
-        </div>
-        <div v-if="index<stageLabels.length-1" class="h-1 bg-gray-300 mt-2"></div>
-      </div>
-    </div>
+    <ContractStepper
+      :currentStage="currentStage"
+      :userRole="userRole"
+      :importerSigned="stepStatus.sign.importer"
+      :exporterSigned="stepStatus.sign.exporter"
+      :depositDone="stepStatus.deposit"
+    />
 
     <!-- Contract selection -->
     <div class="space-y-2 mt-6">
@@ -271,7 +292,6 @@ const handleNewContract = () => {
 
     <!-- Action Buttons -->
     <div class="space-y-3 mt-4">
-
       <!-- Step 1: Deploy -->
       <Button
         :disabled="loadingButton==='deploy' || stepStatus.deploy"
@@ -286,18 +306,18 @@ const handleNewContract = () => {
 
       <!-- Step 2: Sign -->
       <Button
-        :disabled="!stepStatus.deploy || loadingButton==='sign' || stepStatus.sign"
+        :disabled="!stepStatus.deploy || loadingButton==='sign' || signCompleted"
         @click="handleSign"
         class="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white rounded py-3"
       >
         <span>Sign Agreement</span>
         <Loader2 v-if="loadingButton==='sign'" class="w-5 h-5 animate-spin"/>
-        <Check v-if="stepStatus.sign" class="w-5 h-5 text-green-400"/>
+        <Check v-if="signCompleted" class="w-5 h-5 text-green-400"/>
       </Button>
 
       <!-- Step 3: Deposit (by Importer) -->
       <Button
-        :disabled="!stepStatus.sign || loadingButton==='deposit' || stepStatus.deposit"
+        :disabled="!isImporter || loadingButton==='deposit' || stepStatus.deposit"
         @click="handleDeposit"
         class="w-full flex items-center justify-center gap-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded py-3"
       >
@@ -308,7 +328,7 @@ const handleNewContract = () => {
 
       <!-- Step 4: Start Shipping (by Exporter) -->
       <Button
-        :disabled="!stepStatus.deposit || loadingButton==='shipping' || stepStatus.shipping"
+        :disabled="!isExporter || loadingButton==='shipping' || !stepStatus.deposit || stepStatus.shipping"
         @click="handleStartShipping"
         class="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white rounded py-3"
       >
@@ -338,7 +358,6 @@ const handleNewContract = () => {
         <Loader2 v-if="loadingButton==='cancel'" class="w-5 h-5 animate-spin"/>
         <X v-if="stepStatus.cancelled" class="w-5 h-5 text-white"/>
       </Button>
-
     </div>
   </div>
 </template>
