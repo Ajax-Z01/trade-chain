@@ -21,6 +21,8 @@ export default defineNuxtConfig({
   runtimeConfig: {
     // private
     apiSecret: process.env.API_SECRET,
+    INFURA_PROJECT_ID: process.env.INFURA_PROJECT_ID,
+    INFURA_PROJECT_SECRET: process.env.INFURA_PROJECT_SECRET,
 
     // public
     public: {

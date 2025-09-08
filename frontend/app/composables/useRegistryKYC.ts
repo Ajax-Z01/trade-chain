@@ -1,11 +1,11 @@
 import { ref } from 'vue'
 import { createPublicClient, http, decodeEventLog } from 'viem'
-import registryArtifact from '../../../artifacts/contracts/DocumentRegistry.sol/DocumentRegistry.json'
+import registryKYCArtifact from '../../../artifacts/contracts/KYCRegistry.sol/KYCRegistry.json'
 import { Chain } from '../config/chain'
 import { useWallet } from '~/composables/useWallets'
 
 const registryAddress = '0x5fbdb2315678afecb367f032d93f642f64180aa3' as `0x${string}`
-const { abi } = registryArtifact
+const { abi } = registryKYCArtifact
 
 const publicClient = createPublicClient({
   chain: Chain,

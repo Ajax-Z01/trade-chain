@@ -1,65 +1,38 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { useRegistry } from '~/composables/useRegistry'
-import { useWallet } from '~/composables/useWallets'
-import { createNft } from '~/composables/useNfts'
+import { useDocuments } from '~/composables/useDocuments'
+import type { Document as DocType } from '~/types/Document'
 
 // Lucide icons
-import { Loader2, CheckCircle2, XCircle, Plus, Minus, FileUp, Search, Users } from 'lucide-vue-next'
+import { Loader2, CheckCircle2, XCircle, Plus, FileUp, Search, Users } from 'lucide-vue-next'
 
-const { walletClient, account } = useWallet()
-const { mintDocument, getTokenIdByHash, minting, addMinter, removeMinter, isMinter, quickCheckNFT } = useRegistry()
+const { attachDocument, getDocumentsByContract } = useDocuments()
 
 const selectedFile = ref<File | null>(null)
-const tokenId = ref<bigint | null>(null)
+const contractAddress = ref('') // isi alamat kontrak trade
+const docType = ref<'Invoice' | 'B/L' | 'COO' | 'PackingList' | 'Other'>('Invoice')
+
 const error = ref<string | null>(null)
 const success = ref<string | null>(null)
-const minterAddress = ref('')
-const addingMinter = ref(false)
-const removingMinter = ref(false)
+const attaching = ref(false)
 
-const nftInfo = ref<{ owner: string; metadata: any } | null>(null)
+const documents = ref<DocType[]>([])
 
 const onFileChange = (e: Event) => {
   const files = (e.target as HTMLInputElement).files
   selectedFile.value = files?.[0] ?? null
 }
 
-const checkNFT = async () => {
-  if (!tokenId.value) return
-
-  const info = await quickCheckNFT(tokenId.value)
-  if (info) {
-    let metadata: any = info.metadata
-
-    if (typeof metadata === 'string' && metadata.startsWith('data:application/json;base64,')) {
-      const base64 = metadata.split(',')[1] ?? ''
-      metadata = base64 ? JSON.parse(atob(base64)) : {}
-    }
-
-    nftInfo.value = {
-      owner: info.owner as string,
-      metadata
-    }
-  }
+const fetchDocuments = async () => {
+  if (!contractAddress.value) return
+  documents.value = await getDocumentsByContract(contractAddress.value)
 }
 
-const verifyAndMint = async () => {
-  if (!selectedFile.value) return
+const handleAttachDocument = async () => {
+  if (!selectedFile.value || !contractAddress.value) return
   error.value = null
   success.value = null
-
-  if (!account.value || !walletClient.value) {
-    error.value = 'Wallet not connected'
-    return
-  }
-
-  // --- 0. Check minter role
-  const minterStatus = await isMinter(account.value as `0x${string}`)
-  if (!minterStatus) {
-    error.value = 'Wallet is not authorized as minter'
-    return
-  }
+  attaching.value = true
 
   try {
     // --- 1. Hash file
@@ -68,69 +41,26 @@ const verifyAndMint = async () => {
     const hashArray = Array.from(new Uint8Array(hashBuffer))
     const fileHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
 
-    // --- 2. Check existing token
-    const existingId = await getTokenIdByHash(fileHash)
-    if (existingId && existingId !== 0n) {
-      tokenId.value = existingId
-      error.value = `Document already minted! Token ID: ${existingId}`
-      return
-    }
-
-    // --- 3. Mint NFT
-    const { tokenId: mintedId, metadataUrl } = await mintDocument(account.value as `0x${string}`, selectedFile.value)
-    tokenId.value = mintedId
-
-    // --- 4. Save to backend
-    await createNft({
-      tokenId: mintedId.toString(),
-      owner: account.value,
+    // --- 2. Upload & attach document to backend
+    const doc = await attachDocument(contractAddress.value, {
       fileHash,
-      metadataUrl,
-      documentUrl: undefined,
-      name: selectedFile.value.name,
-      description: `Verified document ${selectedFile.value.name}`,
+      uri: '', // isi dengan URL file dari cloud storage
+      owner: '0x...', // optional, bisa ambil dari wallet
+      docType: docType.value,
+      linkedContracts: [contractAddress.value],
       createdAt: Date.now(),
+      name: selectedFile.value.name,
+      description: `Attached document ${selectedFile.value.name}`,
     })
 
-    success.value = `Document minted and saved! Token ID: ${mintedId}`
-
+    success.value = `Document attached! Token ID: ${doc.tokenId}`
+    documents.value.push(doc)
+    selectedFile.value = null
   } catch (err: any) {
     console.error(err)
-    error.value = err.message || 'Minting failed'
-  }
-}
-
-const handleAddMinter = async () => {
-  if (!minterAddress.value) return
-  addingMinter.value = true
-  error.value = null
-  success.value = null
-
-  try {
-    await addMinter(minterAddress.value as `0x${string}`)
-    success.value = `Minter added: ${minterAddress.value}`
-    minterAddress.value = ''
-  } catch (err: any) {
-    error.value = err.message || 'Add minter failed'
+    error.value = err.message || 'Attach document failed'
   } finally {
-    addingMinter.value = false
-  }
-}
-
-const handleRemoveMinter = async () => {
-  if (!minterAddress.value) return
-  removingMinter.value = true
-  error.value = null
-  success.value = null
-
-  try {
-    await removeMinter(minterAddress.value as `0x${string}`)
-    success.value = `Minter removed: ${minterAddress.value}`
-    minterAddress.value = ''
-  } catch (err: any) {
-    error.value = err.message || 'Remove minter failed'
-  } finally {
-    removingMinter.value = false
+    attaching.value = false
   }
 }
 </script>
@@ -138,57 +68,44 @@ const handleRemoveMinter = async () => {
 <template>
   <div class="p-6 max-w-lg mx-auto space-y-6 bg-white rounded-xl shadow-lg">
     <h2 class="text-2xl font-bold text-gray-800 flex items-center gap-2">
-      <FileUp class="w-6 h-6" /> Document Verification & Minting
+      <FileUp class="w-6 h-6" /> Attach Document to Contract
     </h2>
 
-    <!-- Upload & Mint -->
+    <!-- Upload & Attach -->
     <div class="space-y-3">
-      <label class="block text-sm font-medium text-gray-700">Upload Document</label>
+      <label class="block text-sm font-medium text-gray-700">Contract Address</label>
+      <input
+        v-model="contractAddress"
+        type="text"
+        placeholder="0x..."
+        class="block w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring focus:ring-blue-200"
+      />
+
+      <label class="block text-sm font-medium text-gray-700">Document Type</label>
+      <select v-model="docType" class="block w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring focus:ring-blue-200">
+        <option value="Invoice">Invoice</option>
+        <option value="B/L">B/L</option>
+        <option value="COO">COO</option>
+        <option value="PackingList">PackingList</option>
+        <option value="Other">Other</option>
+      </select>
+
+      <label class="block text-sm font-medium text-gray-700">Upload File</label>
       <input
         type="file"
         class="block w-full text-sm text-gray-700 border border-gray-300 rounded-lg cursor-pointer focus:ring focus:ring-blue-200"
         @change="onFileChange"
       />
+
       <button
         class="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50"
-        :disabled="!selectedFile || minting"
-        @click="verifyAndMint"
+        :disabled="!selectedFile || attaching"
+        @click="handleAttachDocument"
       >
-        <Loader2 v-if="minting" class="w-4 h-4 animate-spin" />
+        <Loader2 v-if="attaching" class="w-4 h-4 animate-spin" />
         <FileUp v-else class="w-4 h-4" />
-        {{ minting ? 'Minting...' : 'Verify & Mint' }}
+        {{ attaching ? 'Attaching...' : 'Attach Document' }}
       </button>
-    </div>
-
-    <!-- Manage Minters -->
-    <div class="space-y-3 border-t pt-4">
-      <h3 class="font-semibold text-gray-800 flex items-center gap-2">
-        <Users class="w-5 h-5" /> Manage Minters
-      </h3>
-      <input
-        v-model="minterAddress"
-        type="text"
-        placeholder="Enter minter address"
-        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring focus:ring-blue-200"
-      />
-      <div class="flex gap-2">
-        <button
-          class="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2"
-          :disabled="addingMinter"
-          @click="handleAddMinter"
-        >
-          <Loader2 v-if="addingMinter" class="w-4 h-4 animate-spin" />
-          <Plus v-else class="w-4 h-4" /> Add
-        </button>
-        <button
-          class="flex-1 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2"
-          :disabled="removingMinter"
-          @click="handleRemoveMinter"
-        >
-          <Loader2 v-if="removingMinter" class="w-4 h-4 animate-spin" />
-          <Minus v-else class="w-4 h-4" /> Remove
-        </button>
-      </div>
     </div>
 
     <!-- Feedback -->
@@ -200,32 +117,17 @@ const handleRemoveMinter = async () => {
       <XCircle class="w-5 h-5" /> {{ error }}
     </div>
 
-    <!-- Quick Check NFT -->
-    <div class="border-t pt-4 space-y-3">
+    <!-- Document List -->
+    <div v-if="documents.length" class="border-t pt-4 space-y-3">
       <h3 class="font-semibold text-gray-800 flex items-center gap-2">
-        <Search class="w-5 h-5" /> Quick Check NFT
+        <FileUp class="w-5 h-5" /> Attached Documents
       </h3>
-      <button
-        class="w-full bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50"
-        :disabled="!tokenId"
-        @click="checkNFT"
-      >
-        <Search class="w-4 h-4" /> Check NFT
-      </button>
-
-      <div
-        v-if="tokenId && nftInfo"
-        class="p-4 rounded-lg bg-blue-50 border border-blue-200 text-blue-800 space-y-2"
-      >
-        <p><strong>Owner:</strong> {{ nftInfo.owner }}</p>
-        <p><strong>Name:</strong> {{ nftInfo.metadata.name }}</p>
-        <p><strong>Description:</strong> {{ nftInfo.metadata.description }}</p>
-        <img
-          :src="nftInfo.metadata.image"
-          alt="NFT image"
-          class="mt-2 w-32 h-32 object-contain rounded border"
-        />
-      </div>
+      <ul class="space-y-2">
+        <li v-for="doc in documents" :key="doc.tokenId" class="p-2 border rounded bg-gray-50 flex justify-between items-center">
+          <span>{{ doc.name }} ({{ doc.docType }})</span>
+          <a :href="doc.uri" target="_blank" class="text-blue-600 underline">View</a>
+        </li>
+      </ul>
     </div>
   </div>
 </template>

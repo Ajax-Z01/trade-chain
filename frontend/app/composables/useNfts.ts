@@ -1,4 +1,3 @@
-// composables/useNfts.ts
 import { useNuxtApp } from "#app"
 import type { NFT } from "~/types/NFT"
 

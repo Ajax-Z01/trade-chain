@@ -295,10 +295,10 @@ export function useContractActions() {
     stepStatus.deploy = stage >= 0
     stepStatus.sign.importer = Boolean(importerSigned)
     stepStatus.sign.exporter = Boolean(exporterSigned)
-    stepStatus.deposit = BigInt(totalDeposited as unknown as string || '0') >= BigInt(requiredAmount as unknown as string || '0')
-    stepStatus.shipping = stage >= 4
-    stepStatus.completed = stage >= 5
-    stepStatus.cancelled = stage === 6
+    stepStatus.deposit = stage >= 4
+    stepStatus.shipping = stage >= 5
+    stepStatus.completed = stage >= 6
+    stepStatus.cancelled = stage === 7
 
     // update reactive currentStage sesuai on-chain
     currentStage.value = stage

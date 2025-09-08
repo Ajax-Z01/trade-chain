@@ -70,7 +70,7 @@ const toggleMobile = () => {
           <NuxtLink
             to="/documents"
             class="px-2 py-1 rounded hover:bg-indigo-50 hover:text-indigo-600 transition"
-            >Document Verification</NuxtLink
+            >Document</NuxtLink
           >
         </li>
       </ul>
@@ -117,7 +117,7 @@ const toggleMobile = () => {
           <NuxtLink to="/logs/contract" class="block px-2 py-1 rounded hover:bg-indigo-50 hover:text-indigo-600 transition" @click="mobileOpen=false">Contract Logs</NuxtLink>
         </li>
         <li>
-          <NuxtLink to="/documents" class="block px-2 py-1 rounded hover:bg-indigo-50 hover:text-indigo-600 transition" @click="mobileOpen=false">Document Verification</NuxtLink>
+          <NuxtLink to="/documents" class="block px-2 py-1 rounded hover:bg-indigo-50 hover:text-indigo-600 transition" @click="mobileOpen=false">Document</NuxtLink>
         </li>
       </ul>
 

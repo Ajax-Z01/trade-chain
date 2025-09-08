@@ -11,6 +11,7 @@ contract TradeAgreement {
         SignedByImporter,
         SignedByExporter,
         SignedByBoth,
+        Deposited,
         Shipping,
         Completed,
         Cancelled
@@ -99,7 +100,17 @@ contract TradeAgreement {
         }
     }
 
-    function startShipping() external onlyExporter atStage(Stage.SignedByBoth) {
+    function deposit() external payable atStage(Stage.SignedByBoth) {
+        require(msg.value > 0, "No ETH sent");
+        totalDeposited += msg.value;
+        emit Deposit(msg.sender, msg.value);
+
+        if (totalDeposited >= requiredAmount) {
+            _setStage(Stage.Deposited);
+        }
+    }
+
+    function startShipping() external onlyExporter atStage(Stage.Deposited) {
         _setStage(Stage.Shipping);
     }
 
@@ -119,12 +130,6 @@ contract TradeAgreement {
         if (totalDeposited > 0) {
             payable(importer).transfer(totalDeposited);
         }
-    }
-
-    function deposit() external payable atStage(Stage.SignedByBoth) {
-        require(msg.value > 0, "No ETH sent");
-        totalDeposited += msg.value;
-        emit Deposit(msg.sender, msg.value);
     }
 
     // ---- Internal ----

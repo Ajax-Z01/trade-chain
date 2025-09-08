@@ -4,27 +4,19 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract DocumentRegistry is ERC721URIStorage, Ownable {
+contract KYCRegistry is ERC721URIStorage, Ownable {
     uint256 public nextTokenId;
 
-    // Mapping hash -> tokenId (untuk dokumen unik)
+    // Mapping hash -> tokenId (supaya dokumen unik)
     mapping(string => uint256) public hashToTokenId;
-
-    // Mapping tokenId -> docType (Invoice, B/L, COO, dll)
-    mapping(uint256 => string) public tokenIdToDocType;
 
     // Mapping untuk akun yang diperbolehkan mint (importir & eksportir)
     mapping(address => bool) public approvedMinters;
 
     event DocumentVerified(address indexed owner, uint256 tokenId, string fileHash);
-    event DocumentLinked(
-        address indexed contractAddress,
-        uint256 indexed tokenId,
-        string docType,
-        string uri
-    );
 
-    constructor(address initialOwner) ERC721("TradeDocument", "TDOC") Ownable(initialOwner) {}
+    // v5: Ownable wajib initialOwner
+    constructor(address initialOwner) ERC721("VerifiedDocument", "VDOC") Ownable(initialOwner) {}
 
     // --- Owner bisa menambahkan minter
     function addMinter(address minter) external onlyOwner {
@@ -35,17 +27,17 @@ contract DocumentRegistry is ERC721URIStorage, Ownable {
         approvedMinters[minter] = false;
     }
 
+    // --- Modifier untuk akun yang diperbolehkan
     modifier onlyApprovedMinter() {
         require(approvedMinters[msg.sender], "Not an approved minter");
         _;
     }
 
-    // --- Mint NFT dokumen
+    // --- Mint dokumen, bisa dilakukan oleh importir atau eksportir
     function verifyAndMint(
         address to,
         string memory fileHash,
-        string memory tokenURI,
-        string memory docType
+        string memory tokenURI
     ) external onlyApprovedMinter returns (uint256) {
         require(hashToTokenId[fileHash] == 0, "Document already verified");
 
@@ -54,7 +46,6 @@ contract DocumentRegistry is ERC721URIStorage, Ownable {
 
         _safeMint(to, newTokenId);
         _setTokenURI(newTokenId, tokenURI);
-        tokenIdToDocType[newTokenId] = docType;
 
         hashToTokenId[fileHash] = newTokenId;
 
@@ -63,26 +54,8 @@ contract DocumentRegistry is ERC721URIStorage, Ownable {
         return newTokenId;
     }
 
-    // --- Link dokumen ke kontrak trade (emit event saja)
-    function linkDocumentToContract(address contractAddress, uint256 tokenId) external onlyApprovedMinter {
-        try this.ownerOf(tokenId) returns (address) {
-        } catch {
-            revert("Token does not exist");
-        }
-
-        string memory uri = tokenURI(tokenId);
-        string memory docType = tokenIdToDocType[tokenId];
-
-        emit DocumentLinked(contractAddress, tokenId, docType, uri);
-    }
-
-    // --- View helpers
     function getTokenIdByHash(string memory fileHash) external view returns (uint256) {
         return hashToTokenId[fileHash];
-    }
-
-    function getDocType(uint256 tokenId) external view returns (string memory) {
-        return tokenIdToDocType[tokenId];
     }
 
     function isMinter(address addr) external view returns (bool) {

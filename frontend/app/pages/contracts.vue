@@ -238,7 +238,7 @@ const handleNewContract = () => {
   stepStatus.completed = false
   stepStatus.cancelled = false
   loadingButton.value = null
-  currentStage.value = 0
+  currentStage.value = -1
   addToast('Ready to create a new contract', 'info')
 }
 </script>
