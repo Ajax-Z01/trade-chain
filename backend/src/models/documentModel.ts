@@ -1,11 +1,16 @@
 import { db } from "../config/firebase.js"
 import DocumentDTO from "../dtos/documentDTO.js"
 import type { Document } from "../types/Document.js"
+import { getContractRoles } from "../services/contractService.js"
 
 const collection = db.collection("documents")
 
 // --- Tambah dokumen baru
-export const addDocument = async (data: Partial<Document>) => {
+export const addDocument = async (data: Partial<Document>, account: string) => {
+  if (!data.linkedContracts || !data.linkedContracts.length) {
+    throw new Error("Document must be linked to at least one contract")
+  }
+  
   const dto = new DocumentDTO(data)
 
   const docRef = collection.doc(dto.tokenId.toString())
@@ -13,6 +18,14 @@ export const addDocument = async (data: Partial<Document>) => {
 
   if (doc.exists) {
     throw new Error(`Document with tokenId ${dto.tokenId} already exists`)
+  }
+  
+  for (const contractAddress of dto.linkedContracts) {
+    const roles = await getContractRoles(contractAddress)
+    const acctLower = account.toLowerCase()
+    if (acctLower !== roles.importer && acctLower !== roles.exporter) {
+      throw new Error(`Account ${account} is not authorized for contract ${contractAddress}`)
+    }
   }
 
   const newDoc: Document = dto.toFirestore()

@@ -32,7 +32,7 @@ export const attachDocument = async (req: Request, res: Response) => {
       metadataUrl,
     })
 
-    const doc = await addDocument(docData.toFirestore())
+    const doc = await addDocument(docData.toFirestore(), signer)
     return res.status(201).json(doc)
   } catch (err: any) {
     console.error(err)

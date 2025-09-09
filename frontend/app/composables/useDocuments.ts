@@ -64,7 +64,7 @@ export async function getDocumentsByContract(contractAddr: string): Promise<Docu
     const res = await fetch(`${$apiBase}/document/contract/${contractAddr}`)
     if (!res.ok) return []
     const data = await res.json()
-    return Array.isArray(data.data) ? data.data.map(parseDocument) : []
+    return Array.isArray(data) ? data.map(parseDocument) : []
   } catch (err) {
     console.error(`Error fetching documents for contract ${contractAddr}:`, err)
     return []
