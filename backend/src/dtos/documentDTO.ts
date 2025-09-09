@@ -12,6 +12,7 @@ export default class DocumentDTO {
   signer?: string
   name?: string
   description?: string
+  metadataUrl?: string
 
   constructor(data: Partial<Document>) {
     if (data.tokenId === undefined) throw new Error("tokenId is required")
@@ -31,6 +32,7 @@ export default class DocumentDTO {
     this.updatedAt = data.updatedAt || Date.now()
     this.name = data.name || ""
     this.description = data.description || ""
+    this.metadataUrl = data.metadataUrl || ""
   }
 
   toFirestore(): Document {
@@ -46,6 +48,7 @@ export default class DocumentDTO {
       updatedAt: this.updatedAt,
       name: this.name,
       description: this.description,
+      metadataUrl: this.metadataUrl,
     }
   }
 }

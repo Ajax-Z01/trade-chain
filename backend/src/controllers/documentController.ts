@@ -13,13 +13,12 @@ import DocumentDTO from "../dtos/documentDTO.js"
 export const attachDocument = async (req: Request, res: Response) => {
   try {
     const { addr: contractAddress } = req.params
-    const { tokenId, owner, fileHash, uri, docType, signer } = req.body
+    const { tokenId, owner, fileHash, uri, docType, signer, name, description, metadataUrl } = req.body
 
     if (!tokenId || !owner || !fileHash || !uri || !docType) {
       return res.status(400).json({ message: "Missing required fields" })
     }
 
-    // Tambahkan linked contract
     const docData = new DocumentDTO({
       tokenId,
       owner,
@@ -28,6 +27,9 @@ export const attachDocument = async (req: Request, res: Response) => {
       docType,
       linkedContracts: [contractAddress],
       signer,
+      name,
+      description,
+      metadataUrl,
     })
 
     const doc = await addDocument(docData.toFirestore())

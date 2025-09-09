@@ -14,18 +14,18 @@ const router = Router()
 router.post("/contract/:addr/docs", attachDocument)
 
 // --- GET /documents/:tokenId
-router.get("/documents/:tokenId", getDocument)
+router.get("/:tokenId", getDocument)
 
 // --- GET /documents/owner/:owner
-router.get("/documents/owner/:owner", getDocumentsOwner)
+router.get("/owner/:owner", getDocumentsOwner)
 
 // --- GET /documents/contract/:addr
-router.get("/documents/contract/:addr", getDocumentsContract)
+router.get("/contract/:addr", getDocumentsContract)
 
 // --- PATCH /documents/:tokenId
-router.patch("/documents/:tokenId", updateDocumentController)
+router.patch("/:tokenId", updateDocumentController)
 
 // --- DELETE /documents/:tokenId
-router.delete("/documents/:tokenId", deleteDocumentController)
+router.delete("/:tokenId", deleteDocumentController)
 
 export default router

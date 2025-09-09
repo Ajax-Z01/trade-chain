@@ -12,4 +12,5 @@ export interface Document {
   signer?: string 
   name?: string
   description?: string
+  metadataUrl?: string
 }

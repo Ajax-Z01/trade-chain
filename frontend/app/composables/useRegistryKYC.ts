@@ -3,6 +3,7 @@ import { createPublicClient, http, decodeEventLog } from 'viem'
 import registryKYCArtifact from '../../../artifacts/contracts/KYCRegistry.sol/KYCRegistry.json'
 import { Chain } from '../config/chain'
 import { useWallet } from '~/composables/useWallets'
+import type { MintResult } from '~/types/Mint'
 
 const registryAddress = '0x5fbdb2315678afecb367f032d93f642f64180aa3' as `0x${string}`
 const { abi } = registryKYCArtifact
@@ -11,12 +12,6 @@ const publicClient = createPublicClient({
   chain: Chain,
   transport: http(Chain.rpcUrls.default.http[0]),
 })
-
-interface MintResult {
-  receipt: any
-  tokenId: bigint
-  metadataUrl: string
-}
 
 export function useRegistry() {
   const { account, walletClient } = useWallet()
@@ -84,7 +79,7 @@ export function useRegistry() {
 
       const tokenId = decodedArgs.tokenId
       minting.value = false
-      return { receipt, tokenId, metadataUrl: tokenURI }
+      return { receipt, tokenId, metadataUrl: tokenURI, fileHash }
     } catch (err) {
       minting.value = false
       console.error('Minting error:', err)

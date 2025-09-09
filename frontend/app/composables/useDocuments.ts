@@ -1,4 +1,3 @@
-// composables/useDocuments.ts
 import { useNuxtApp } from "#app"
 import type { Document, DocType } from "~/types/Document"
 
@@ -17,15 +16,18 @@ function safeParseDate(value: unknown): number | null {
 // --- Parse raw Document from backend ---
 function parseDocument(d: any): Document {
   return {
-    tokenId: Number(d.tokenId),
-    owner: d.owner ?? "",
-    fileHash: d.fileHash ?? "",
-    uri: d.uri ?? "",
-    docType: d.docType as DocType,
-    linkedContracts: Array.isArray(d.linkedContracts) ? d.linkedContracts : [],
-    createdAt: safeParseDate(d.createdAt) ?? Date.now(),
-    updatedAt: safeParseDate(d.updatedAt) ?? Date.now(),
-    signer: d.signer ?? undefined,
+    tokenId: d?.tokenId ?? 0,
+    owner: d?.owner ?? "",
+    fileHash: d?.fileHash ?? "",
+    uri: d?.uri ?? "",
+    docType: d?.docType ?? "Other",
+    linkedContracts: Array.isArray(d?.linkedContracts) ? d.linkedContracts : [],
+    createdAt: safeParseDate(d?.createdAt) ?? Date.now(),
+    updatedAt: safeParseDate(d?.updatedAt) ?? Date.now(),
+    signer: d?.signer ?? undefined,
+    name: d?.name ?? "",
+    description: d?.description ?? "",
+    metadataUrl: d?.metadataUrl ?? "",
   }
 }
 
@@ -33,7 +35,7 @@ function parseDocument(d: any): Document {
 export async function getDocument(tokenId: number): Promise<Document | null> {
   const { $apiBase } = useNuxtApp()
   try {
-    const res = await fetch(`${$apiBase}/documents/${tokenId}`)
+    const res = await fetch(`${$apiBase}/document/${tokenId}`)
     if (!res.ok) return null
     const data = await res.json()
     return data?.data ? parseDocument(data.data) : null
@@ -46,7 +48,7 @@ export async function getDocument(tokenId: number): Promise<Document | null> {
 export async function getDocumentsByOwner(owner: string): Promise<Document[]> {
   const { $apiBase } = useNuxtApp()
   try {
-    const res = await fetch(`${$apiBase}/documents/owner/${owner}`)
+    const res = await fetch(`${$apiBase}/document/owner/${owner}`)
     if (!res.ok) return []
     const data = await res.json()
     return Array.isArray(data.data) ? data.data.map(parseDocument) : []
@@ -59,7 +61,7 @@ export async function getDocumentsByOwner(owner: string): Promise<Document[]> {
 export async function getDocumentsByContract(contractAddr: string): Promise<Document[]> {
   const { $apiBase } = useNuxtApp()
   try {
-    const res = await fetch(`${$apiBase}/documents/contract/${contractAddr}`)
+    const res = await fetch(`${$apiBase}/document/contract/${contractAddr}`)
     if (!res.ok) return []
     const data = await res.json()
     return Array.isArray(data.data) ? data.data.map(parseDocument) : []
@@ -72,14 +74,16 @@ export async function getDocumentsByContract(contractAddr: string): Promise<Docu
 export async function attachDocument(contractAddr: string, payload: Partial<Document>) {
   const { $apiBase } = useNuxtApp()
   try {
-    const res = await fetch(`${$apiBase}/contract/${contractAddr}/docs`, {
+    const res = await fetch(`${$apiBase}/document/contract/${contractAddr}/docs`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     })
     if (!res.ok) throw new Error("Failed to attach document")
     const data = await res.json()
-    return parseDocument(data.data)
+    console.log('attachDocument response', data)
+    if (!data) throw new Error('No document data returned from backend')
+    return parseDocument(data)
   } catch (err) {
     console.error(`Error attaching document to contract ${contractAddr}:`, err)
     throw err
@@ -89,7 +93,7 @@ export async function attachDocument(contractAddr: string, payload: Partial<Docu
 export async function updateDocument(tokenId: number, payload: Partial<Document>) {
   const { $apiBase } = useNuxtApp()
   try {
-    const res = await fetch(`${$apiBase}/documents/${tokenId}`, {
+    const res = await fetch(`${$apiBase}/document/${tokenId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -106,7 +110,7 @@ export async function updateDocument(tokenId: number, payload: Partial<Document>
 export async function deleteDocument(tokenId: number) {
   const { $apiBase } = useNuxtApp()
   try {
-    const res = await fetch(`${$apiBase}/documents/${tokenId}`, {
+    const res = await fetch(`${$apiBase}/document/${tokenId}`, {
       method: "DELETE",
     })
     if (!res.ok) throw new Error("Failed to delete document")
