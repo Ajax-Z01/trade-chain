@@ -5,7 +5,7 @@ import "./TradeAgreement.sol";
 
 contract TradeAgreementFactory {
     address[] public deployedContracts;
-    address public registry; // alamat DocumentRegistry
+    address public registry;
 
     event ContractDeployed(
         address indexed contractAddress,
@@ -13,7 +13,8 @@ contract TradeAgreementFactory {
         uint256 importerDocId,
         address exporter,
         uint256 exporterDocId,
-        uint256 requiredAmount
+        uint256 requiredAmount,
+        address token
     );
 
     constructor(address _registry) {
@@ -25,7 +26,8 @@ contract TradeAgreementFactory {
         address _exporter,
         uint256 _requiredAmount,
         uint256 _importerDocId,
-        uint256 _exporterDocId
+        uint256 _exporterDocId,
+        address _token
     ) external returns (address) {
         TradeAgreement newContract = new TradeAgreement(
             _importer,
@@ -33,7 +35,8 @@ contract TradeAgreementFactory {
             _requiredAmount,
             registry,
             _importerDocId,
-            _exporterDocId
+            _exporterDocId,
+            _token
         );
 
         deployedContracts.push(address(newContract));
@@ -44,7 +47,8 @@ contract TradeAgreementFactory {
             _importerDocId,
             _exporter,
             _exporterDocId,
-            _requiredAmount
+            _requiredAmount,
+            _token
         );
 
         return address(newContract);
