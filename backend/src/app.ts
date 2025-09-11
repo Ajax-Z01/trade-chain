@@ -7,6 +7,7 @@ import walletRoutes from './routes/walletRoutes.js'
 import nftRoutes from './routes/nftRoutes.js'
 import companyRoutes from './routes/companyRoutes.js'
 import documentRoutes from './routes/documentRoutes.js'
+import activityRoutes from './routes/activityRoutes.js'
 
 dotenv.config()
 
@@ -25,6 +26,7 @@ app.use('/api/wallet', walletRoutes)
 app.use('/api/nft', nftRoutes)
 app.use('/api/company', companyRoutes)
 app.use('/api/document', documentRoutes)
+app.use('/api/activity', activityRoutes);
 
 const PORT = process.env.PORT || 5000
 app.listen(PORT, () => {

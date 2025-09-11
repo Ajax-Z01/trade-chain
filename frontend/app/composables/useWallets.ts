@@ -1,85 +1,105 @@
-import { ref, readonly, onMounted, watch } from 'vue'
+import { ref, readonly, onMounted } from 'vue'
 import { Chain } from '~/config/chain'
-import { createPublicClient, http } from 'viem'
-import { useMockUSDC } from '~/composables/useMockUSDC'
 
 const account = ref<string | null>(null)
 const walletClient = ref<any>(null)
+const listenersAttached = ref(false)
 
-const nativeBalance = ref<number | null>(null)
-const usdcBalance = ref<number | null>(null) // store USDC balance
+async function initWallet() {
+  if (!window.ethereum) return
 
-const publicClient = createPublicClient({
-  chain: Chain,
-  transport: http(Chain.rpcUrls.default.http[0]),
-})
-
-const { getBalance: getUSDCBalance } = useMockUSDC()
-
-async function fetchBalances() {
-  if (!account.value) return
-
-  // Native ETH
   try {
-    const bal = await publicClient.getBalance({ address: account.value as `0x${string}` })
-    nativeBalance.value = Number(bal) / 1e18
+    const accounts: string[] = await window.ethereum.request({ method: 'eth_accounts' })
+    if (accounts.length > 0) {
+      account.value = accounts[0] as string
+
+      if (!walletClient.value) {
+        const { createWalletClient, custom } = await import('viem')
+        walletClient.value = createWalletClient({
+          transport: custom(window.ethereum),
+          chain: Chain
+        })
+      }
+    }
   } catch (err) {
-    console.warn('Failed to fetch native balance', err)
-    nativeBalance.value = null
+    console.warn('Failed to check wallet accounts', err)
   }
 
-  // USDC
-  try {
-    usdcBalance.value = await getUSDCBalance(account.value as `0x${string}`)
-  } catch (err) {
-    console.warn('Failed to fetch USDC balance', err)
-    usdcBalance.value = null
+  if (!listenersAttached.value) {
+    window.ethereum.on('accountsChanged', handleAccountsChanged)
+    listenersAttached.value = true
   }
 }
 
-// --- Connect wallet
 export async function connectWallet() {
+  const { $apiBase } = useNuxtApp()
+
   if (!window.ethereum) throw new Error('MetaMask not installed')
+
   const accounts: string[] = await window.ethereum.request({ method: 'eth_requestAccounts' })
   account.value = accounts[0] ?? null
 
+  if (!walletClient.value) {
+    const { createWalletClient, custom } = await import('viem')
+    walletClient.value = createWalletClient({
+      transport: custom(window.ethereum),
+      chain: Chain
+    })
+  }
+
+  if (!listenersAttached.value) {
+    window.ethereum.on('accountsChanged', handleAccountsChanged)
+    listenersAttached.value = true
+  }
+
+  // log ke backend
   if (account.value) {
-    await fetchBalances()
+    try {
+      await fetch(`${$apiBase}/wallet/log-login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ account: account.value })
+      })
+    } catch (err) {
+      console.warn('Failed to log wallet login', err)
+    }
   }
 
   return account.value
 }
 
-// --- Disconnect wallet
 export async function disconnectWallet() {
+  const { $apiBase } = useNuxtApp()
+
+  if (account.value) {
+    try {
+      await fetch(`${$apiBase}/wallet/log-disconnect`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ account: account.value })
+      })
+    } catch (err) {
+      console.warn('Failed to log wallet disconnect', err)
+    }
+  }
+
   account.value = null
   walletClient.value = null
-  nativeBalance.value = null
-  usdcBalance.value = null
+}
+
+const handleAccountsChanged = (accounts: string[]) => {
+  account.value = accounts[0] ?? null
 }
 
 export function useWallet() {
   onMounted(() => {
-    if (window.ethereum) {
-      window.ethereum.on('accountsChanged', async (accounts: string[]) => {
-        account.value = accounts[0] ?? null
-        await fetchBalances()
-      })
-    }
-  })
-
-  // Watch account change to refresh balances
-  watch(account, () => {
-    fetchBalances()
+    initWallet()
   })
 
   return {
     account: readonly(account),
     walletClient,
-    nativeBalance: readonly(nativeBalance),
-    usdcBalance: readonly(usdcBalance),
     connectWallet,
     disconnectWallet,
-    fetchBalances,
   }
 }

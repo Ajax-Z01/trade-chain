@@ -1,8 +1,9 @@
 import { ref, reactive } from 'vue'
 import { useWallet } from './useWallets'
-import { createPublicClient, http } from 'viem'
+import { createPublicClient, http, parseEther, parseUnits } from 'viem'
 import tradeAgreementArtifact from '../../../artifacts/contracts/TradeAgreement.sol/TradeAgreement.json'
 import factoryArtifact from '../../../artifacts/contracts/TradeAgreementFactory.sol/TradeAgreementFactory.json'
+import mockUSDCArtifact from '../../../artifacts/contracts/MockUSDC.sol/MintableUSDC.json'
 import { Chain } from '../config/chain'
 import { useToast } from './useToast'
 
@@ -18,6 +19,7 @@ const publicClient = createPublicClient({
 const factoryAddress = '0xe7f1725e7734ce288f8367e1bb143e90bb3f0512' as `0x${string}`
 const factoryAbiFull = factoryArtifact.abi
 const tradeAgreementAbi = tradeAgreementArtifact.abi
+const mockUSDCAbi = mockUSDCArtifact.abi
 
 export function useContractActions() {
   const { account, walletClient } = useWallet()
@@ -124,15 +126,23 @@ export function useContractActions() {
     exporter: `0x${string}`,
     importerDocId: bigint,
     exporterDocId: bigint,
-    requiredAmount: bigint
+    requiredAmount: bigint,
+    token: `0x${string}`
   ) => {
     if (!walletClient.value || !account.value) throw new Error('Wallet not connected')
-
+      
     const txHash = await walletClient.value.writeContract({
       address: factoryAddress,
       abi: factoryAbiFull,
       functionName: 'deployTradeAgreement',
-      args: [importer, exporter, requiredAmount, importerDocId, exporterDocId],
+      args: [
+        importer,
+        exporter,
+        requiredAmount,
+        importerDocId,
+        exporterDocId,
+        token
+      ],
       account: account.value as `0x${string}`,
       chain: Chain,
     })
@@ -145,7 +155,14 @@ export function useContractActions() {
       account: account.value,
       txHash,
       contractAddress: newContractAddress,
-      extra: { exporter, importer, requiredAmount: requiredAmount.toString(), exporterTokenId: exporterDocId.toString(), importerTokenId: importerDocId.toString() },
+      extra: {
+        exporter,
+        importer,
+        requiredAmount: requiredAmount.toString(),
+        exporterTokenId: exporterDocId.toString(),
+        importerTokenId: importerDocId.toString(),
+        token
+      },
     })
 
     return newContractAddress
@@ -167,22 +184,66 @@ export function useContractActions() {
     }
   }
 
-  const depositToContract = async (contractAddress: `0x${string}`, amount: bigint) => {
+  const depositToContract = async (
+    contractAddress: `0x${string}`,
+    amount: string
+  ) => {
     if (!walletClient.value || !account.value) throw new Error('Wallet not connected')
 
-    const txHash = await walletClient.value.writeContract({
+    const token = await publicClient.readContract({
       address: contractAddress,
       abi: tradeAgreementAbi,
-      functionName: 'deposit',
-      args: [],
-      account: account.value as `0x${string}`,
-      chain: Chain,
-      value: amount,
+      functionName: 'token',
+    }) as `0x${string}`
+
+    const depositAmount = BigInt(amount)
+    let txHash: `0x${string}`
+
+    if (token === '0x0000000000000000000000000000000000000000') {
+      txHash = await walletClient.value.writeContract({
+        address: contractAddress,
+        abi: tradeAgreementAbi,
+        functionName: 'deposit',
+        args: [depositAmount],
+        account: account.value as `0x${string}`,
+        chain: Chain,
+        value: depositAmount,
+      })
+    } else {
+      // ERC20 (MUSDC)
+      const approveTx = await walletClient.value.writeContract({
+        address: token,
+        abi: mockUSDCAbi,
+        functionName: 'approve',
+        args: [contractAddress, depositAmount],
+        account: account.value as `0x${string}`,
+        chain: Chain,
+      })
+      await publicClient.waitForTransactionReceipt({ hash: approveTx as `0x${string}` })
+
+      txHash = await walletClient.value.writeContract({
+        address: contractAddress,
+        abi: tradeAgreementAbi,
+        functionName: 'deposit',
+        args: [depositAmount],
+        account: account.value as `0x${string}`,
+        chain: Chain,
+      })
+    }
+
+    const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash })
+
+    // --- Tambahkan log deposit ---
+    await postLog({
+      action: 'deposit',
+      account: account.value,
+      txHash,
+      contractAddress,
+      extra: {
+        amount: depositAmount.toString(),
+        token,
+      },
     })
-
-    const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash as `0x${string}` })
-
-    await postLog({ action: 'deposit', account: account.value, txHash, contractAddress, extra: { amount: amount.toString() } })
 
     return receipt
   }

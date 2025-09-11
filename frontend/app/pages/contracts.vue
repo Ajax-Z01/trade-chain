@@ -21,7 +21,6 @@ const {
   stepStatus,
   deployContractWithDocs,
   fetchContractDetails,
-  getStage,
   depositToContract,
   signAgreement,
   startShipping,
@@ -38,6 +37,49 @@ const backendExporter = ref('')
 const backendRequiredAmount = ref('')
 const selectedContract = ref<string | null>(null)
 const latestContract = ref<string | null>(null)
+const paymentToken = ref<'ETH' | 'MUSDC'>('ETH')
+const backendToken = ref<'ETH' | 'MUSDC' | null>(null)
+
+const paymentTokenValue = computed({
+  get: () => backendToken.value || paymentToken.value || 'ETH',
+  set: (val: 'ETH' | 'MUSDC') => paymentToken.value = val
+})
+
+const isTokenAutoFilled = computed(() => !!backendToken.value)
+
+const tokenAddress = computed(() => {
+  if (paymentTokenValue.value === 'ETH') return '0x0000000000000000000000000000000000000000'
+  const usdcAddr = import.meta.env.VITE_MOCK_USDC_ADDRESS
+  if (!usdcAddr) throw new Error('USDC address not set in .env')
+  return usdcAddr
+})
+
+const currentContract = computed(() => latestContract.value || selectedContract.value)
+const signCompleted = computed(() => stepStatus.sign.importer && stepStatus.sign.exporter)
+const isAutoFilled = computed(() => !!backendExporter.value && !exporterAddress.value)
+
+const exporterValue = computed({
+  get: () => exporterAddress.value || backendExporter.value,
+  set: (val: string) => exporterAddress.value = val
+})
+
+const requiredAmountValue = computed({
+  get: () => {
+    let amountStr = requiredAmount.value || ''
+    if (!amountStr && backendRequiredAmount.value) {
+      const amount = BigInt(backendRequiredAmount.value)
+      if (paymentTokenValue.value === 'ETH') {
+        amountStr = (Number(amount) / 1e18).toFixed(4)
+      } else if (paymentTokenValue.value === 'MUSDC') {
+        amountStr = (Number(amount) / 1e6).toFixed(4)
+      }
+    }
+    return amountStr.replace(/\.?0+$/, '')
+  },
+  set: (val: string) => {
+    requiredAmount.value = val
+  }
+})
 
 const userRole = computed<'importer' | 'exporter' | null>(() => {
   if (!account.value || !currentContract.value) return null
@@ -46,33 +88,24 @@ const userRole = computed<'importer' | 'exporter' | null>(() => {
   return null
 })
 
-// Computed: check if both parties signed
-const signCompleted = computed(() => stepStatus.sign.importer && stepStatus.sign.exporter)
-
-// Current contract
-const currentContract = computed(() => latestContract.value || selectedContract.value)
-
-// Optional: computed merged with backend value
-const exporterValue = computed({
-  get: () => exporterAddress.value || backendExporter.value,
-  set: (val: string) => exporterAddress.value = val
-})
-
-const requiredAmountValue = computed({
-  get: () => requiredAmount.value || backendRequiredAmount.value,
-  set: (val: string) => requiredAmount.value = val
-})
-
-const isAutoFilled = computed(() => !!backendExporter.value && !exporterAddress.value)
+// Buttons
+const canDeploy = computed(() => !stepStatus.deploy && !loadingButton.value)
+const canSign = computed(() => stepStatus.deploy && !signCompleted && !loadingButton.value)
+const canDeposit = computed(() => isImporter.value && stepStatus.deploy && !stepStatus.deposit && !loadingButton.value)
+const canStartShipping = computed(() => isExporter.value && stepStatus.deposit && !stepStatus.shipping && !loadingButton.value)
+const canComplete = computed(() => isImporter.value && stepStatus.shipping && !stepStatus.completed && !loadingButton.value)
+const canCancel = computed(() => stepStatus.deploy && !stepStatus.completed && !stepStatus.cancelled && !loadingButton.value)
 
 // Helpers
 const getFirstTokenIdByOwner = async (owner: `0x${string}`): Promise<bigint | null> => {
   const nfts = await getNftsByOwner(owner)
-  if (!nfts.length) return null
-  return BigInt(nfts[0]!.tokenId)
+  return nfts.length ? BigInt(nfts[0]!.tokenId) : null
 }
 
-// Determine if current user is importer/exporter
+// Roles
+const isImporter = ref(false)
+const isExporter = ref(false)
+
 const getContractRoles = async (contract: string) => {
   try {
     const data = await fetchContractDetails(contract as `0x${string}`)
@@ -86,9 +119,6 @@ const getContractRoles = async (contract: string) => {
   }
 }
 
-const isImporter = ref(false)
-const isExporter = ref(false)
-
 watch([selectedContract, account], async ([contract, acc]) => {
   if (!contract || !acc) return
   const roles = await getContractRoles(contract)
@@ -96,17 +126,17 @@ watch([selectedContract, account], async ([contract, acc]) => {
   isExporter.value = acc.toLowerCase() === roles.exporter
 }, { immediate: true })
 
-// Fetch contracts on wallet connect
 watch(account, (acc) => { if (acc) fetchDeployedContracts() }, { immediate: true })
 
-// Watch contract selection to fetch details & map stage
 watch(selectedContract, async (contract) => {
   if (!contract) return
 
+  // reset
   exporterAddress.value = ''
   requiredAmount.value = ''
   backendExporter.value = ''
   backendRequiredAmount.value = ''
+  backendToken.value = null
 
   try {
     const data = await fetchContractDetails(contract)
@@ -114,28 +144,38 @@ watch(selectedContract, async (contract) => {
     if (deployLog) {
       backendExporter.value = deployLog.extra?.exporter || ''
       backendRequiredAmount.value = deployLog.extra?.requiredAmount
-        ? (BigInt(deployLog.extra.requiredAmount) / 1_000_000_000_000_000_000n).toString()
+        ? (BigInt(deployLog.extra.requiredAmount)).toString()
         : ''
+      
+      const tokenAddr = deployLog.extra?.token?.toLowerCase()
+      if (tokenAddr === '0x0000000000000000000000000000000000000000') {
+        backendToken.value = 'ETH'
+      } else if (tokenAddr === import.meta.env.VITE_MOCK_USDC_ADDRESS) {
+        backendToken.value = 'MUSDC'
+      }
     }
 
     await mapStageToStepStatus(contract as `0x${string}`)
   } catch (err) {
     console.error('Failed to fetch contract data:', err)
-    backendExporter.value = ''
-    backendRequiredAmount.value = ''
   }
 }, { immediate: true })
 
-// -------- Handlers --------
+// Loading
 const loadingButton = ref<'deploy'|'deposit'|'sign'|'shipping'|'completed'|'cancel'|null>(null)
 
+// Handlers
 const handleDeploy = async () => {
-  if (!account.value) { addToast('Connect wallet first','error'); return }
-  if (!exporterAddress.value || !requiredAmount.value) { addToast('Exporter and amount required','error'); return }
+  if (!account.value) return addToast('Connect wallet first','error')
+  if (!exporterAddress.value || !requiredAmount.value) return addToast('Exporter and amount required','error')
+  
+  console.log('Token address:', tokenAddress.value)
 
   loadingButton.value = 'deploy'
   await withTx(async () => {
-    const weiAmount = BigInt(Math.floor(parseFloat(requiredAmount.value) * 1e18))
+    const weiAmount = paymentTokenValue.value === 'ETH'
+      ? BigInt(Math.floor(parseFloat(requiredAmount.value) * 1e18))
+      : BigInt(Math.floor(parseFloat(requiredAmount.value) * 1e6))
     const importerTokenId = await getFirstTokenIdByOwner(account.value as `0x${string}`)
     if (!importerTokenId) throw new Error('No NFT found for importer')
     const exporterTokenId = await getFirstTokenIdByOwner(exporterAddress.value as `0x${string}`)
@@ -146,7 +186,8 @@ const handleDeploy = async () => {
       exporterAddress.value as `0x${string}`,
       importerTokenId,
       exporterTokenId,
-      weiAmount
+      weiAmount,
+      tokenAddress.value
     )
 
     selectedContract.value = latestContract.value = contractAddress as string
@@ -159,37 +200,36 @@ const handleDeploy = async () => {
 }
 
 const handleDeposit = async () => {
-  if (!currentContract.value) { addToast('Select a contract first','error'); return }
-  if (!isImporter.value) { addToast('Only importer can deposit','error'); return }
+  if (!currentContract.value) return addToast('Select a contract first', 'error')
+  if (!isImporter.value) return addToast('Only importer can deposit', 'error')
 
   loadingButton.value = 'deposit'
   await withTx(async () => {
     const amount = requiredAmount.value || backendRequiredAmount.value
     if (!amount) throw new Error('Required amount missing')
-    const weiAmount = BigInt(Math.floor(parseFloat(amount)*1e18))
-    await depositToContract(currentContract.value as `0x${string}`, weiAmount)
+
+    await depositToContract(currentContract.value as `0x${string}`, amount.toString())
+
     stepStatus.deposit = true
-    addToast('ETH deposited', 'success')
-  }, { label: 'Deposit ETH' })
+    addToast('Deposit successful', 'success')
+  }, { label: 'Deposit' })
   loadingButton.value = null
 }
 
 const handleSign = async () => {
   if (!currentContract.value || !account.value) return
   loadingButton.value = 'sign'
-
   await withTx(async () => {
     await signAgreement(currentContract.value as `0x${string}`)
     await mapStageToStepStatus(currentContract.value as `0x${string}`)
     addToast('Agreement signed', 'success')
   }, { label: 'Sign Agreement' })
-
   loadingButton.value = null
 }
 
 const handleStartShipping = async () => {
   if (!currentContract.value) return
-  if (!isExporter.value) { addToast('Only exporter can start shipping','error'); return }
+  if (!isExporter.value) return addToast('Only exporter can start shipping','error')
 
   loadingButton.value = 'shipping'
   await withTx(async () => {
@@ -231,6 +271,7 @@ const handleNewContract = () => {
   requiredAmount.value = ''
   backendExporter.value = ''
   backendRequiredAmount.value = ''
+  backendToken.value = null
   stepStatus.deploy = false
   stepStatus.deposit = false
   stepStatus.sign = { importer: false, exporter: false }
@@ -264,29 +305,50 @@ const handleNewContract = () => {
 
     <!-- Contract selection -->
     <div class="space-y-2 mt-6">
-      <label class="block text-gray-700">Select Contract</label>
-      <select v-model="selectedContract" class="w-full p-3 border rounded focus:ring-2 focus:ring-indigo-400 outline-none">
-        <option disabled value="">-- Select Contract --</option>
-        <option v-for="c in deployedContracts" :key="c" :value="c">{{ c }}</option>
-      </select>
+      <label class="block text-gray-700">Select Contract
+        <select v-model="selectedContract" class="w-full p-3 border rounded focus:ring-2 focus:ring-indigo-400 outline-none">
+          <option disabled value="">-- Select Contract --</option>
+          <option v-for="c in deployedContracts" :key="c" :value="c">{{ c }}</option>
+        </select>
+      </label>
     </div>
 
     <!-- Inputs -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-gray-50 p-4 rounded shadow mt-4">
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-gray-50 p-4 rounded shadow mt-4">
+      <!-- Exporter Address -->
       <div class="flex flex-col relative">
-        <label class="text-sm font-medium text-gray-700 mb-1">Exporter Address</label>
-        <input v-model="exporterValue" placeholder="0x..." :disabled="isAutoFilled"
-          class="w-full p-3 border rounded focus:ring-2 focus:ring-indigo-400 outline-none"/>
-        <span v-if="isAutoFilled" class="absolute right-2 top-1 text-xs text-gray-500 italic">auto-filled</span>
-      </div>
-      <div class="flex flex-col relative">
-        <label class="text-sm font-medium text-gray-700 mb-1">Required Amount</label>
-        <div class="flex items-center">
-          <input v-model="requiredAmountValue" type="number" step="0.0001" placeholder="0.5" :disabled="isAutoFilled"
+        <label class="text-sm font-medium text-gray-700 mb-1">Exporter Address
+          <input v-model="exporterValue" placeholder="0x..." :disabled="isAutoFilled"
             class="w-full p-3 border rounded focus:ring-2 focus:ring-indigo-400 outline-none"/>
-          <span class="ml-2 text-gray-600">ETH</span>
-        </div>
-        <span v-if="isAutoFilled" class="absolute right-2 top-1 text-xs text-gray-500 italic">auto-filled</span>
+          <span v-if="isAutoFilled" class="absolute right-2 top-1 text-xs text-gray-500 italic">auto-filled</span>
+        </label>
+      </div>
+
+      <!-- Required Amount -->
+      <div class="flex flex-col relative">
+        <label class="text-sm font-medium text-gray-700 mb-1">Required Amount
+          <div class="flex items-center">
+            <input v-model="requiredAmountValue" type="number" step="0.0001"
+              placeholder="0.5" :disabled="isAutoFilled"
+              class="w-full p-3 border rounded focus:ring-2 focus:ring-indigo-400 outline-none"/>
+          </div>
+          <span v-if="isAutoFilled" class="absolute right-2 top-1 text-xs text-gray-500 italic">auto-filled</span>
+        </label>
+      </div>
+
+      <!-- Payment Token -->
+      <div class="flex flex-col relative">
+        <label class="text-sm font-medium text-gray-700 mb-1">Payment Token
+          <div v-if="isTokenAutoFilled" class="p-3 border rounded bg-gray-100 text-gray-700">
+            {{ paymentTokenValue }}
+          </div>
+          <span v-if="isAutoFilled" class="absolute right-2 top-1 text-xs text-gray-500 italic">auto-filled</span>
+          <select v-else v-model="paymentTokenValue"
+            class="w-full p-3 border rounded focus:ring-2 focus:ring-indigo-400 outline-none">
+            <option value="ETH">ETH</option>
+            <option value="MUSDC">MUSDC</option>
+          </select>
+        </label>
       </div>
     </div>
 
@@ -294,7 +356,7 @@ const handleNewContract = () => {
     <div class="space-y-3 mt-4">
       <!-- Step 1: Deploy -->
       <Button
-        :disabled="loadingButton==='deploy' || stepStatus.deploy"
+        :disabled="loadingButton==='deploy' || stepStatus.deploy || !canDeploy"
         @click="handleDeploy"
         class="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded py-3"
       >
@@ -306,7 +368,7 @@ const handleNewContract = () => {
 
       <!-- Step 2: Sign -->
       <Button
-        :disabled="!stepStatus.deploy || loadingButton==='sign' || signCompleted"
+        :disabled="!stepStatus.deploy || loadingButton==='sign' || signCompleted || !canSign"
         @click="handleSign"
         class="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white rounded py-3"
       >
@@ -317,7 +379,7 @@ const handleNewContract = () => {
 
       <!-- Step 3: Deposit (by Importer) -->
       <Button
-        :disabled="!isImporter || loadingButton==='deposit' || stepStatus.deposit"
+        :disabled="!isImporter || loadingButton==='deposit' || stepStatus.deposit || !canDeposit"
         @click="handleDeposit"
         class="w-full flex items-center justify-center gap-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded py-3"
       >
@@ -328,7 +390,7 @@ const handleNewContract = () => {
 
       <!-- Step 4: Start Shipping (by Exporter) -->
       <Button
-        :disabled="!isExporter || loadingButton==='shipping' || !stepStatus.deposit || stepStatus.shipping"
+        :disabled="!isExporter || loadingButton==='shipping' || !stepStatus.deposit || stepStatus.shipping || !canStartShipping"
         @click="handleStartShipping"
         class="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white rounded py-3"
       >
@@ -339,7 +401,7 @@ const handleNewContract = () => {
 
       <!-- Step 5: Complete (by Importer) -->
       <Button
-        :disabled="!stepStatus.shipping || loadingButton==='completed' || stepStatus.completed"
+        :disabled="!stepStatus.shipping || loadingButton==='completed' || stepStatus.completed || !canComplete"
         @click="handleComplete"
         class="w-full flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white rounded py-3"
       >
@@ -350,7 +412,7 @@ const handleNewContract = () => {
 
       <!-- Cancel (anytime before Completed) -->
       <Button
-        :disabled="loadingButton==='cancel' || stepStatus.completed || stepStatus.cancelled"
+        :disabled="loadingButton==='cancel' || stepStatus.completed || stepStatus.cancelled || !canCancel"
         @click="handleCancel"
         class="w-full flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white rounded py-3"
       >

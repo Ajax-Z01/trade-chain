@@ -25,8 +25,12 @@ const stages = [
   { key: 5, label: "Cancelled", icon: XCircle },
 ]
 
+// --- Cancel check ---
+const isCancelled = computed(() => props.currentStage === 7)
+
 // --- Status logic ---
 const isCompleted = (idx: number) => {
+  if (isCancelled.value) return false
   switch (idx) {
     case 0: return props.currentStage >= 0
     case 1: return props.importerSigned && props.exporterSigned
@@ -38,21 +42,15 @@ const isCompleted = (idx: number) => {
 }
 
 const highlightStage = () => {
-  if (props.currentStage === 7) return -1 // Cancelled
+  if (isCancelled.value) return -1
 
-  // Step Signed → highlight jika user belum tanda tangan
   if (props.currentStage === 0 || props.currentStage === 1) {
     if (props.userRole === "importer" && !props.importerSigned) return 1
     if (props.userRole === "exporter" && !props.exporterSigned) return 1
   }
 
-  // Deposit
   if (props.currentStage === 3 && props.userRole === "importer" && !props.depositDone) return 2
-
-  // Shipping
   if (props.currentStage === 4 && props.userRole === "exporter") return 3
-
-  // Complete
   if (props.currentStage === 5 && props.userRole === "importer") return 4
 
   return -1
@@ -63,7 +61,6 @@ const isActionRequired = (idx: number) => highlightStage() === idx
 // --- Real-time polling ---
 const interval = ref<number>()
 const fetchStage = async () => {
-  // TODO: Replace dengan fetch API / event contract
   emit("update:stage", props.currentStage)
 }
 
@@ -93,8 +90,10 @@ watch(() => props.importerSigned && props.exporterSigned, (bothSigned) => {
   if (bothSigned) addToast("Both parties signed the contract", "success")
 })
 
-// --- Badge status ---
+// --- Badge status & class ---
 const statusBadge = computed(() => {
+  if (isCancelled.value) return "Cancelled"
+  if (props.currentStage === 6) return "Completed"
   switch (props.currentStage) {
     case -1: return "Ready to Deploy"
     case 0: return "Pending signatures"
@@ -103,20 +102,20 @@ const statusBadge = computed(() => {
     case 3: return "Awaiting deposit"
     case 4: return "Ready to ship"
     case 5: return "Ready to complete"
-    case 6: return "Completed"
-    case 7: return "Cancelled"
     default: return "Unknown"
   }
+})
+
+const statusBadgeClass = computed(() => {
+  if (isCancelled.value) return 'bg-red-100 text-red-700'
+  if (props.currentStage === 6) return 'bg-green-100 text-green-700'
+  return 'bg-blue-100 text-blue-700'
 })
 </script>
 
 <template>
   <div class="w-full" role="region" aria-label="Contract stepper">
-    <div
-      class="flex items-center justify-between gap-2"
-      role="list"
-      aria-label="Contract progress stepper"
-    >
+    <div class="flex items-center justify-between gap-2" role="list" aria-label="Contract progress stepper">
       <div
         v-for="(stage, idx) in stages"
         :key="stage.key"
@@ -127,73 +126,54 @@ const statusBadge = computed(() => {
         @keyup.enter.prevent="highlightStage() === idx && addToast(`Action required: ${stage.label}`, 'warning')"
         @keyup.space.prevent="highlightStage() === idx && addToast(`Action required: ${stage.label}`, 'warning')"
       >
-        <!-- Icon wrapper -->
         <div
           class="relative flex items-center justify-center w-10 h-10 rounded-full transition-all duration-300 focus:outline-none"
           :class="[ 
-            isCompleted(idx)
-              ? 'bg-green-500 text-white'
-              : highlightStage() === idx
-                ? 'bg-yellow-400 text-white animate-pulse'
-                : 'bg-gray-200 text-gray-500',
-            isActionRequired(idx) ? 'ring-2 ring-blue-400 animate-pulse' : ''
+            isCancelled
+              ? 'bg-red-500 text-white'
+              : isCompleted(idx)
+                ? 'bg-green-500 text-white'
+                : highlightStage() === idx
+                  ? 'bg-yellow-400 text-white animate-pulse'
+                  : 'bg-gray-200 text-gray-500',
+            isActionRequired(idx) && !isCancelled ? 'ring-2 ring-blue-400 animate-pulse' : ''
           ]"
         >
           <component :is="stage.icon" class="w-5 h-5" />
 
           <!-- Signed indicators -->
-          <template v-if="stage.key === 1">
-            <span
-              v-if="props.importerSigned"
-              class="absolute -top-1 -left-1 w-3 h-3 bg-blue-500 rounded-full border border-white"
-              aria-label="Importer signed"
-            />
-            <span
-              v-if="props.exporterSigned"
-              class="absolute -top-1 -right-1 w-3 h-3 bg-purple-500 rounded-full border border-white"
-              aria-label="Exporter signed"
-            />
-            <Check
-              v-if="props.importerSigned && props.exporterSigned"
-              class="absolute -bottom-1 -right-1 w-4 h-4 bg-white rounded-full text-green-600"
-              aria-label="All parties signed"
-            />
+          <template v-if="stage.key === 1 && !isCancelled">
+            <span v-if="props.importerSigned" class="absolute -top-1 -left-1 w-3 h-3 bg-blue-500 rounded-full border border-white" aria-label="Importer signed"/>
+            <span v-if="props.exporterSigned" class="absolute -top-1 -right-1 w-3 h-3 bg-purple-500 rounded-full border border-white" aria-label="Exporter signed"/>
+            <Check v-if="props.importerSigned && props.exporterSigned" class="absolute -bottom-1 -right-1 w-4 h-4 bg-white rounded-full text-green-600" aria-label="All parties signed"/>
           </template>
 
-          <!-- Check untuk stage setelah Deposit -->
-          <Check
-            v-if="isCompleted(idx) && idx > 1 && idx < 5"
-            class="absolute -bottom-1 -right-1 w-4 h-4 bg-white rounded-full text-green-600"
-          />
+          <Check v-if="isCompleted(idx) && idx > 1 && idx < 5 && !isCancelled" class="absolute -bottom-1 -right-1 w-4 h-4 bg-white rounded-full text-green-600"/>
         </div>
 
         <!-- Label -->
-        <span
-          class="mt-2 text-xs font-medium text-center"
-          :class="[ 
-            isCompleted(idx)
-              ? 'text-green-600'
-              : highlightStage() === idx
-                ? 'text-yellow-600'
-                : 'text-gray-500'
-          ]"
-        >
+        <span class="mt-2 text-xs font-medium text-center"
+              :class="[ 
+                isCancelled
+                  ? 'text-red-600'
+                  : isCompleted(idx)
+                    ? 'text-green-600'
+                    : highlightStage() === idx
+                      ? 'text-yellow-600'
+                      : 'text-gray-500'
+              ]">
           {{ stage.label }}
         </span>
 
         <!-- Connector line -->
-        <div
-          v-if="idx < stages.length - 1"
-          class="h-0.5 w-full mt-2 transition-colors duration-300"
-          :class="[isCompleted(idx) ? 'bg-green-500' : 'bg-gray-300']"
-        />
+        <div v-if="idx < stages.length - 1" class="h-0.5 w-full mt-2 transition-colors duration-300"
+             :class="[isCancelled ? 'bg-red-500' : isCompleted(idx) ? 'bg-green-500' : 'bg-gray-300']"/>
       </div>
-      
     </div>
-    
+
     <!-- Badge -->
     <div class="flex justify-center mt-4">
-      <span class="px-3 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-700">
+      <span class="px-3 py-1 text-xs font-medium rounded-full" :class="statusBadgeClass">
         {{ statusBadge }}
       </span>
     </div>
