@@ -2,6 +2,7 @@ import { ref } from 'vue'
 import { createPublicClient, http } from 'viem'
 import { Chain } from '../config/chain'
 import { useWallet } from '~/composables/useWallets'
+import { useActivityLogs } from './useActivityLogs'
 import type { FaucetResult } from '~/types/FaucetResult'
 import mockUSDCArtifact from '../../../artifacts/contracts/MockUSDC.sol/MintableUSDC.json'
 
@@ -15,6 +16,7 @@ const publicClient = createPublicClient({
 
 export function useMockUSDC() {
   const { account, walletClient } = useWallet()
+  const { addActivityLog } = useActivityLogs()
   const minting = ref(false)
 
   const mint = async (to: `0x${string}`, amount: number): Promise<FaucetResult> => {
@@ -22,17 +24,14 @@ export function useMockUSDC() {
     minting.value = true
 
     try {
-      // Ambil decimals USDC
       const decimals = await publicClient.readContract({
         address: mockUSDCAddress,
-        abi: abi,
+        abi,
         functionName: 'decimals',
       })
 
-      // konversi ke smallest unit
       const mintAmount = BigInt(Math.floor(amount * 10 ** Number(decimals)))
 
-      // Kirim mint transaction
       const txHash = await walletClient.value.writeContract({
         address: mockUSDCAddress,
         abi: abi,
@@ -42,10 +41,26 @@ export function useMockUSDC() {
         chain: Chain,
       })
 
-      // Tunggu konfirmasi
       const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash as `0x${string}` })
+      const latestBlock = Number(await publicClient.getBlockNumber())
+      const blockNumber = Number(receipt.blockNumber)
+      const confirmations = latestBlock - blockNumber + 1
 
-      // Ambil saldo baru
+      // --- addActivityLog
+      await addActivityLog(account.value, {
+        type: 'onChain',
+        action: 'mintUSDC',
+        account: account.value,
+        txHash: txHash as `0x${string}`,
+        contractAddress: mockUSDCAddress,
+        extra: { amount, to },
+        onChainInfo: {
+          status: receipt.status === 'success' ? 'success' : 'failed',
+          blockNumber,
+          confirmations,
+        },
+      })
+
       const balance = await publicClient.readContract({
         address: mockUSDCAddress,
         abi: abi,

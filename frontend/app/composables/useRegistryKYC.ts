@@ -3,6 +3,7 @@ import { createPublicClient, http, decodeEventLog } from 'viem'
 import registryKYCArtifact from '../../../artifacts/contracts/KYCRegistry.sol/KYCRegistry.json'
 import { Chain } from '../config/chain'
 import { useWallet } from '~/composables/useWallets'
+import { useActivityLogs } from './useActivityLogs'
 import type { MintResult } from '~/types/Mint'
 
 const registryAddress = '0x5fbdb2315678afecb367f032d93f642f64180aa3' as `0x${string}`
@@ -15,6 +16,7 @@ const publicClient = createPublicClient({
 
 export function useRegistry() {
   const { account, walletClient } = useWallet()
+  const { addActivityLog } = useActivityLogs()
   const minting = ref(false)
 
   const getTokenIdByHash = async (fileHash: string) => {
@@ -62,6 +64,10 @@ export function useRegistry() {
 
       const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash as `0x${string}` })
 
+      const latestBlock = Number(await publicClient.getBlockNumber())
+      const blockNumber = Number(receipt.blockNumber)
+      const confirmations = latestBlock - blockNumber + 1
+
       const eventLog = receipt.logs.find(log => log.address.toLowerCase() === registryAddress.toLowerCase())
       if (!eventLog) throw new Error('No DocumentVerified event found')
 
@@ -77,9 +83,22 @@ export function useRegistry() {
         fileHash: string
       }
 
-      const tokenId = decodedArgs.tokenId
+      await addActivityLog(account.value, {
+        type: 'onChain',
+        action: 'mintDocument',
+        account: account.value,
+        txHash: txHash as `0x${string}`,
+        contractAddress: registryAddress,
+        extra: { fileName: file.name },
+        onChainInfo: {
+          status: receipt.status === 'success' ? 'success' : 'failed',
+          blockNumber,
+          confirmations,
+        },
+      })
+
       minting.value = false
-      return { receipt, tokenId, metadataUrl: tokenURI, fileHash }
+      return { receipt, tokenId: decodedArgs.tokenId, metadataUrl: tokenURI, fileHash }
     } catch (err) {
       minting.value = false
       console.error('Minting error:', err)
@@ -97,7 +116,27 @@ export function useRegistry() {
       account: account.value as `0x${string}`,
       chain: Chain,
     })
-    return publicClient.waitForTransactionReceipt({ hash: txHash as `0x${string}` })
+    const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash as `0x${string}` })
+
+    const latestBlock = Number(await publicClient.getBlockNumber())
+    const blockNumber = Number(receipt.blockNumber)
+    const confirmations = latestBlock - blockNumber + 1
+
+    await addActivityLog(account.value, {
+      type: 'onChain',
+      action: 'addMinter',
+      account: account.value,
+      txHash: txHash as `0x${string}`,
+      contractAddress: registryAddress,
+      extra: { newMinter },
+      onChainInfo: {
+        status: receipt.status === 'success' ? 'success' : 'failed',
+        blockNumber,
+        confirmations,
+      },
+    })
+
+    return receipt
   }
 
   const removeMinter = async (minter: `0x${string}`) => {
@@ -110,7 +149,27 @@ export function useRegistry() {
       account: account.value as `0x${string}`,
       chain: Chain,
     })
-    return publicClient.waitForTransactionReceipt({ hash: txHash as `0x${string}` })
+    const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash as `0x${string}` })
+
+    const latestBlock = Number(await publicClient.getBlockNumber())
+    const blockNumber = Number(receipt.blockNumber)
+    const confirmations = latestBlock - blockNumber + 1
+
+    await addActivityLog(account.value, {
+      type: 'onChain',
+      action: 'removeMinter',
+      account: account.value,
+      txHash: txHash as `0x${string}`,
+      contractAddress: registryAddress,
+      extra: { minter },
+      onChainInfo: {
+        status: receipt.status === 'success' ? 'success' : 'failed',
+        blockNumber,
+        confirmations,
+      },
+    })
+
+    return receipt
   }
 
   const isMinter = async (address: `0x${string}`): Promise<boolean> => {

@@ -1,4 +1,3 @@
-import admin from 'firebase-admin';
 import { db } from '../config/firebase.js';
 import ActivityLogDTO from '../dtos/activityDTO.js';
 import type { ActivityLog } from '../types/Activity.js';
@@ -9,8 +8,8 @@ const collection = db.collection('activityLogs');
  * Tambah Activity Log
  * Setiap log menjadi dokumen di subcollection 'history' per account
  */
-export const addActivityLog = async (data: Partial<ActivityLogDTO>) => {
-  const dto = new ActivityLogDTO(data as any);
+export const addActivityLog = async (data: Partial<ActivityLog>) => {
+  const dto = new ActivityLogDTO(data);
   dto.validate();
 
   const entry: ActivityLog = {
@@ -19,6 +18,7 @@ export const addActivityLog = async (data: Partial<ActivityLogDTO>) => {
     action: dto.action,
     account: dto.account,
     txHash: dto.txHash,
+    contractAddress: dto.contractAddress,
     extra: dto.extra ?? undefined,
     onChainInfo: dto.onChainInfo,
   };
@@ -59,10 +59,10 @@ export const getActivityByAccount = async (
 };
 
 /**
- * Ambil semua activity log dengan filter (account / txHash) — paginasi optional
+ * Ambil semua activity log dengan filter (account / txHash / contractAddress) — paginasi optional
  */
 export const getAllActivities = async (
-  filter?: { account?: string; txHash?: string; limit?: number; startAfterTimestamp?: number }
+  filter?: { account?: string; txHash?: string; contractAddress?: string; limit?: number; startAfterTimestamp?: number }
 ): Promise<ActivityLog[]> => {
   let logs: ActivityLog[] = [];
 
@@ -72,7 +72,6 @@ export const getAllActivities = async (
       startAfterTimestamp: filter.startAfterTimestamp,
     });
   } else {
-    // Ambil semua log untuk semua account (hati-hati, ini bisa besar)
     const snapshot = await collection.get();
     for (const doc of snapshot.docs) {
       const accountLogs = await getActivityByAccount(doc.id, {
@@ -84,6 +83,7 @@ export const getAllActivities = async (
   }
 
   if (filter?.txHash) logs = logs.filter((l) => l.txHash === filter.txHash);
+  if (filter?.contractAddress) logs = logs.filter((l) => l.contractAddress === filter.contractAddress);
 
   // Sort descending just in case
   logs.sort((a, b) => b.timestamp - a.timestamp);

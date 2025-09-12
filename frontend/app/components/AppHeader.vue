@@ -80,6 +80,13 @@ const toggleMobile = () => {
             >KYC</NuxtLink
           >
         </li>
+        <li>
+          <NuxtLink
+            to="/faucet"
+            class="px-2 py-1 rounded hover:bg-indigo-50 hover:text-indigo-600 transition"
+            >Faucet</NuxtLink
+          >
+        </li>
       </ul>
     </nav>
 
@@ -128,6 +135,9 @@ const toggleMobile = () => {
         </li>
         <li>
           <NuxtLink to="/kyc" class="block px-2 py-1 rounded hover:bg-indigo-50 hover:text-indigo-600 transition" @click="mobileOpen=false">KYC</NuxtLink>
+        </li>
+        <li>
+          <NuxtLink to="/faucet" class="block px-2 py-1 rounded hover:bg-indigo-50 hover:text-indigo-600 transition" @click="mobileOpen=false">Faucet</NuxtLink>
         </li>
       </ul>
 

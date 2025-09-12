@@ -65,7 +65,8 @@ const exporterValue = computed({
 
 const requiredAmountValue = computed({
   get: () => {
-    let amountStr = requiredAmount.value || ''
+    let amountStr: string = requiredAmount.value || ''
+    
     if (!amountStr && backendRequiredAmount.value) {
       const amount = BigInt(backendRequiredAmount.value)
       if (paymentTokenValue.value === 'ETH') {
@@ -74,6 +75,8 @@ const requiredAmountValue = computed({
         amountStr = (Number(amount) / 1e6).toFixed(4)
       }
     }
+
+    amountStr = String(amountStr)
     return amountStr.replace(/\.?0+$/, '')
   },
   set: (val: string) => {
@@ -90,8 +93,13 @@ const userRole = computed<'importer' | 'exporter' | null>(() => {
 
 // Buttons
 const canDeploy = computed(() => !stepStatus.deploy && !loadingButton.value)
-const canSign = computed(() => stepStatus.deploy && !signCompleted && !loadingButton.value)
-const canDeposit = computed(() => isImporter.value && stepStatus.deploy && !stepStatus.deposit && !loadingButton.value)
+const canSign = computed(() => {
+  if (!stepStatus.deploy || loadingButton.value === 'sign') return false
+  if (userRole.value === 'importer' && !stepStatus.sign.importer) return true
+  if (userRole.value === 'exporter' && !stepStatus.sign.exporter) return true
+  return false
+})
+const canDeposit = computed(() => isImporter.value && stepStatus.deploy && !stepStatus.deposit &&  signCompleted.value && !loadingButton.value)
 const canStartShipping = computed(() => isExporter.value && stepStatus.deposit && !stepStatus.shipping && !loadingButton.value)
 const canComplete = computed(() => isImporter.value && stepStatus.shipping && !stepStatus.completed && !loadingButton.value)
 const canCancel = computed(() => stepStatus.deploy && !stepStatus.completed && !stepStatus.cancelled && !loadingButton.value)
@@ -139,7 +147,7 @@ watch(selectedContract, async (contract) => {
   backendToken.value = null
 
   try {
-    const data = await fetchContractDetails(contract)
+    const data = await fetchContractDetails(contract as `0x${string}`)
     const deployLog = data.history?.find((h: any) => h.action === 'deploy')
     if (deployLog) {
       backendExporter.value = deployLog.extra?.exporter || ''
@@ -166,21 +174,26 @@ const loadingButton = ref<'deploy'|'deposit'|'sign'|'shipping'|'completed'|'canc
 
 // Handlers
 const handleDeploy = async () => {
-  if (!account.value) return addToast('Connect wallet first','error')
-  if (!exporterAddress.value || !requiredAmount.value) return addToast('Exporter and amount required','error')
+  if (!account.value) return addToast('Connect wallet first', 'error')
+  if (!exporterAddress.value || !requiredAmount.value) return addToast('Exporter and amount required', 'error')
   
   console.log('Token address:', tokenAddress.value)
 
   loadingButton.value = 'deploy'
   await withTx(async () => {
+    // hitung wei/musdc amount
     const weiAmount = paymentTokenValue.value === 'ETH'
       ? BigInt(Math.floor(parseFloat(requiredAmount.value) * 1e18))
       : BigInt(Math.floor(parseFloat(requiredAmount.value) * 1e6))
+
+    // dapatkan NFT tokenIds
     const importerTokenId = await getFirstTokenIdByOwner(account.value as `0x${string}`)
     if (!importerTokenId) throw new Error('No NFT found for importer')
+
     const exporterTokenId = await getFirstTokenIdByOwner(exporterAddress.value as `0x${string}`)
     if (!exporterTokenId) throw new Error('No NFT found for exporter')
 
+    // deploy contract
     const contractAddress = await deployContractWithDocs(
       account.value as `0x${string}`,
       exporterAddress.value as `0x${string}`,
@@ -191,11 +204,24 @@ const handleDeploy = async () => {
     )
 
     selectedContract.value = latestContract.value = contractAddress as string
+
     stepStatus.deploy = true
+    stepStatus.deposit = false
     stepStatus.sign = { importer: false, exporter: false }
+    stepStatus.shipping = false
+    stepStatus.completed = false
+    stepStatus.cancelled = false
     currentStage.value = 0
+
     addToast(`Contract deployed at ${contractAddress}`, 'success')
+
+    const roles = await getContractRoles(contractAddress as `0x${string}`)
+    isImporter.value = account.value!.toLowerCase() === roles.importer
+    isExporter.value = account.value!.toLowerCase() === roles.exporter
+
+    await mapStageToStepStatus(contractAddress as `0x${string}`)
   }, { label: 'Deploy Contract' })
+
   loadingButton.value = null
 }
 
@@ -205,10 +231,12 @@ const handleDeposit = async () => {
 
   loadingButton.value = 'deposit'
   await withTx(async () => {
-    const amount = requiredAmount.value || backendRequiredAmount.value
+    const amount = requiredAmount.value 
+      ? BigInt(Math.floor(parseFloat(requiredAmount.value) * (paymentTokenValue.value === 'ETH' ? 1e18 : 1e6)))
+      : BigInt(backendRequiredAmount.value)
     if (!amount) throw new Error('Required amount missing')
 
-    await depositToContract(currentContract.value as `0x${string}`, amount.toString())
+    await depositToContract(currentContract.value as `0x${string}`, amount)
 
     stepStatus.deposit = true
     addToast('Deposit successful', 'success')

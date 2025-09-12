@@ -4,7 +4,8 @@ export interface ActivityLog {
   action: string
   account: string
   txHash?: string
-  extra?: Record<string, any>;
+  contractAddress?: string
+  extra?: Record<string, any>
   onChainInfo?: {
     status: string
     blockNumber: number

@@ -6,6 +6,7 @@ export default class ActivityLogDTO {
   action!: string;
   account!: string;
   txHash?: string;
+  contractAddress?: string;
   extra?: Record<string, any>;
   onChainInfo?: {
     status: string;
@@ -22,6 +23,9 @@ export default class ActivityLogDTO {
     if (!this.type) throw new Error('type required');
     if (!this.action) throw new Error('action required');
     if (!this.account) throw new Error('account required');
+    if (this.type === 'onChain' && !this.contractAddress) {
+      throw new Error('contractAddress required for onChain logs');
+    }
   }
 
   toJSON(): ActivityLog {
@@ -31,6 +35,7 @@ export default class ActivityLogDTO {
       action: this.action,
       account: this.account,
       txHash: this.txHash,
+      contractAddress: this.contractAddress,
       extra: this.extra,
       onChainInfo: this.onChainInfo,
     };

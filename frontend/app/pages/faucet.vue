@@ -7,7 +7,7 @@ const { mint, getBalance, minting } = useMockUSDC()
 const { account } = useWallet()
 
 const recipient = ref(account.value || '')
-const amount = ref(100) // default 100 USDC
+const amount = ref(1000)
 const balance = ref<number | null>(null)
 const message = ref('')
 

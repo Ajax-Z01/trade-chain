@@ -42,7 +42,7 @@ export function useActivityLogs() {
 
       state.logs.push(...data)
       if (data.length > 0) {
-        params.append('startAfterTimestamp', (state.lastTimestamp ?? 0).toString())
+        state.lastTimestamp = data[data.length - 1]?.timestamp ?? state.lastTimestamp
       }
     } catch (err) {
       console.error(`Failed to fetch activity logs for ${account}:`, err)
