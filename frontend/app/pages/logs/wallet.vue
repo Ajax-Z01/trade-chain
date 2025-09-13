@@ -34,7 +34,7 @@ watch(account, () => {
 const filteredLogs = computed(() => {
   return logs.value
     .filter(log => (actionFilter.value === 'all' ? true : log.action === actionFilter.value))
-    .filter(log => log.account.toLowerCase().includes(searchQuery.value.toLowerCase()))
+    .filter(log => log.account.includes(searchQuery.value))
 })
 
 // Format timestamp

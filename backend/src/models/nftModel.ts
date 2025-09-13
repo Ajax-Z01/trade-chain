@@ -31,7 +31,7 @@ export const getAllNFTs = async () => {
 }
 
 export const getNFTsByOwner = async (owner: string) => {
-  const snapshot = await collection.where("owner", "==", owner.toLowerCase()).get()
+  const snapshot = await collection.where("owner", "==", owner).get()
   return snapshot.docs.map((doc) => doc.data() as NFT)
 }
 

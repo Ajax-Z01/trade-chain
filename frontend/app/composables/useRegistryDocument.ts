@@ -89,7 +89,7 @@ export function useRegistryDocument() {
       })
 
       const eventLog = receipt.logs.find(
-        log => log.address.toLowerCase() === documentRegistryAddress.toLowerCase()
+        log => log.address === documentRegistryAddress
       )
       if (!eventLog) throw new Error('No DocumentVerified event found')
 

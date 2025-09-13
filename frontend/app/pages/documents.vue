@@ -47,8 +47,8 @@ const getContractRoles = async (contract: string) => {
     const data = await fetchContractDetails(contract as `0x${string}`)
     const deployLog = data.history?.find((h: any) => h.action === 'deploy')
     return {
-      importer: deployLog?.extra?.importer?.toLowerCase() || '',
-      exporter: deployLog?.extra?.exporter?.toLowerCase() || ''
+      importer: deployLog?.extra?.importer || '',
+      exporter: deployLog?.extra?.exporter || ''
     }
   } catch {
     return { importer: '', exporter: '' }
@@ -71,8 +71,8 @@ watch([currentContract, account], async ([contract, acc]) => {
 
   // fetch roles
   const roles = await getContractRoles(contract)
-  isImporter.value = acc.toLowerCase() === roles.importer
-  isExporter.value = acc.toLowerCase() === roles.exporter
+  isImporter.value = acc === roles.importer
+  isExporter.value = acc === roles.exporter
 
   // fetch documents
   try {

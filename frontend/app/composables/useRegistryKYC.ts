@@ -68,7 +68,7 @@ export function useRegistry() {
       const blockNumber = Number(receipt.blockNumber)
       const confirmations = latestBlock - blockNumber + 1
 
-      const eventLog = receipt.logs.find(log => log.address.toLowerCase() === registryAddress.toLowerCase())
+      const eventLog = receipt.logs.find(log => log.address === registryAddress)
       if (!eventLog) throw new Error('No DocumentVerified event found')
 
       const decodedRaw = decodeEventLog({
@@ -85,7 +85,7 @@ export function useRegistry() {
 
       await addActivityLog(account.value, {
         type: 'onChain',
-        action: 'mintDocument',
+        action: 'mintKYC',
         account: account.value,
         txHash: txHash as `0x${string}`,
         contractAddress: registryAddress,

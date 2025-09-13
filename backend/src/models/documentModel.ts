@@ -1,3 +1,4 @@
+import { getAddress } from 'viem'
 import { db } from "../config/firebase.js"
 import DocumentDTO from "../dtos/documentDTO.js"
 import type { Document } from "../types/Document.js"
@@ -5,14 +6,17 @@ import { getContractRoles } from "../services/contractService.js"
 
 const collection = db.collection("documents")
 
-// --- Tambah dokumen baru
+function safeAddress(addr?: string | null): string {
+  if (!addr) throw new Error('Address is missing or invalid')
+  return getAddress(addr)
+}
+
 export const addDocument = async (data: Partial<Document>, account: string) => {
   if (!data.linkedContracts || !data.linkedContracts.length) {
     throw new Error("Document must be linked to at least one contract")
   }
   
   const dto = new DocumentDTO(data)
-
   const docRef = collection.doc(dto.tokenId.toString())
   const doc = await docRef.get()
 
@@ -20,10 +24,18 @@ export const addDocument = async (data: Partial<Document>, account: string) => {
     throw new Error(`Document with tokenId ${dto.tokenId} already exists`)
   }
   
+  const normalizedAccount = safeAddress(account)
+
   for (const contractAddress of dto.linkedContracts) {
     const roles = await getContractRoles(contractAddress)
-    const acctLower = account.toLowerCase()
-    if (acctLower !== roles.importer && acctLower !== roles.exporter) {
+    const importer = roles.importer ? safeAddress(roles.importer) : null
+    const exporter = roles.exporter ? safeAddress(roles.exporter) : null
+
+    if (!importer && !exporter) {
+      throw new Error(`Contract ${contractAddress} has no assigned roles yet`)
+    }
+
+    if (normalizedAccount !== importer && normalizedAccount !== exporter) {
       throw new Error(`Account ${account} is not authorized for contract ${contractAddress}`)
     }
   }
@@ -48,7 +60,7 @@ export const getAllDocuments = async () => {
 
 // --- Ambil dokumen by owner
 export const getDocumentsByOwner = async (owner: string) => {
-  const snapshot = await collection.where("owner", "==", owner.toLowerCase()).get()
+  const snapshot = await collection.where("owner", "==", owner).get()
   return snapshot.docs.map((doc) => doc.data() as Document)
 }
 

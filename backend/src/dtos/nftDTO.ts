@@ -18,7 +18,7 @@ export default class NFTDTO {
     if (!data.metadataUrl) throw new Error("metadataUrl is required")
 
     this.tokenId = data.tokenId
-    this.owner = data.owner.toLowerCase()
+    this.owner = data.owner
     this.fileHash = data.fileHash
     this.metadataUrl = data.metadataUrl
     this.documentUrl = data.documentUrl

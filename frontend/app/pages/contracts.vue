@@ -119,8 +119,8 @@ const getContractRoles = async (contract: string) => {
     const data = await fetchContractDetails(contract as `0x${string}`)
     const deployLog = data.history?.find((h: any) => h.action === 'deploy')
     return {
-      importer: deployLog?.extra?.importer?.toLowerCase() || '',
-      exporter: deployLog?.extra?.exporter?.toLowerCase() || ''
+      importer: deployLog?.extra?.importer || '',
+      exporter: deployLog?.extra?.exporter || ''
     }
   } catch {
     return { importer: '', exporter: '' }
@@ -130,8 +130,8 @@ const getContractRoles = async (contract: string) => {
 watch([selectedContract, account], async ([contract, acc]) => {
   if (!contract || !acc) return
   const roles = await getContractRoles(contract)
-  isImporter.value = acc.toLowerCase() === roles.importer
-  isExporter.value = acc.toLowerCase() === roles.exporter
+  isImporter.value = acc === roles.importer
+  isExporter.value = acc === roles.exporter
 }, { immediate: true })
 
 watch(account, (acc) => { if (acc) fetchDeployedContracts() }, { immediate: true })
@@ -155,7 +155,7 @@ watch(selectedContract, async (contract) => {
         ? (BigInt(deployLog.extra.requiredAmount)).toString()
         : ''
       
-      const tokenAddr = deployLog.extra?.token?.toLowerCase()
+      const tokenAddr = deployLog.extra?.token
       if (tokenAddr === '0x0000000000000000000000000000000000000000') {
         backendToken.value = 'ETH'
       } else if (tokenAddr === import.meta.env.VITE_MOCK_USDC_ADDRESS) {
@@ -216,8 +216,8 @@ const handleDeploy = async () => {
     addToast(`Contract deployed at ${contractAddress}`, 'success')
 
     const roles = await getContractRoles(contractAddress as `0x${string}`)
-    isImporter.value = account.value!.toLowerCase() === roles.importer
-    isExporter.value = account.value!.toLowerCase() === roles.exporter
+    isImporter.value = account.value === roles.importer
+    isExporter.value = account.value === roles.exporter
 
     await mapStageToStepStatus(contractAddress as `0x${string}`)
   }, { label: 'Deploy Contract' })

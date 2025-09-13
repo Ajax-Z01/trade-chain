@@ -22,7 +22,7 @@ export default class DocumentDTO {
     if (!data.docType) throw new Error("docType is required")
 
     this.tokenId = data.tokenId
-    this.owner = data.owner.toLowerCase()
+    this.owner = data.owner
     this.fileHash = data.fileHash
     this.uri = data.uri
     this.docType = data.docType

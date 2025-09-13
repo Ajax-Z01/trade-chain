@@ -1,7 +1,7 @@
 import { db } from "../config/firebase.js"
 
 export const getContractRoles = async (contractAddress: string) => {
-  const contractsLogs = db.collection("contractsLogs")
+  const contractsLogs = db.collection("contractLogs")
   const snapshot = await contractsLogs
     .where("contractAddress", "==", contractAddress)
     .get()
@@ -14,8 +14,8 @@ export const getContractRoles = async (contractAddress: string) => {
 
   if (!deployLog || !deployLog.extra) return { importer: "", exporter: "" }
 
-  return {
-    importer: deployLog.extra.importer?.toLowerCase() || "",
-    exporter: deployLog.extra.exporter?.toLowerCase() || "",
-  }
+  let importer = deployLog.extra.importer || ""
+  let exporter = deployLog.extra.exporter || ""
+
+  return { importer, exporter }
 }

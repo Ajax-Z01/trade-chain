@@ -34,7 +34,10 @@ export function useActivityLogs() {
       if (options?.txHash) params.append('txHash', options.txHash)
 
       const res = await fetch(`${config.public.apiBase}/activity/${account}?${params.toString()}`)
-      const data: ActivityLog[] = await res.json()
+      const json = await res.json()
+
+      // ambil array-nya dari json.data
+      const data: ActivityLog[] = Array.isArray(json.data) ? json.data : []
 
       if (data.length < (options?.limit || 20)) {
         state.finished = true

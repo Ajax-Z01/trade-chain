@@ -1,5 +1,6 @@
 import { ref, readonly, onMounted } from 'vue'
 import { Chain } from '~/config/chain'
+import { getAddress } from 'ethers'
 
 const account = ref<string | null>(null)
 const walletClient = ref<any>(null)
@@ -11,8 +12,7 @@ async function initWallet() {
   try {
     const accounts: string[] = await window.ethereum.request({ method: 'eth_accounts' })
     if (accounts.length > 0) {
-      account.value = accounts[0] as string
-
+      account.value = getAddress(accounts[0] as string)
       if (!walletClient.value) {
         const { createWalletClient, custom } = await import('viem')
         walletClient.value = createWalletClient({
@@ -21,6 +21,7 @@ async function initWallet() {
         })
       }
     }
+    console.log("account", accounts)
   } catch (err) {
     console.warn('Failed to check wallet accounts', err)
   }
@@ -37,7 +38,7 @@ export async function connectWallet() {
   if (!window.ethereum) throw new Error('MetaMask not installed')
 
   const accounts: string[] = await window.ethereum.request({ method: 'eth_requestAccounts' })
-  account.value = accounts[0] ?? null
+  account.value = accounts.length > 0 ? getAddress(accounts[0] as string) : null
 
   if (!walletClient.value) {
     const { createWalletClient, custom } = await import('viem')
@@ -87,8 +88,9 @@ export async function disconnectWallet() {
   walletClient.value = null
 }
 
+// selalu pakai getAddress agar EIP-55
 const handleAccountsChanged = (accounts: string[]) => {
-  account.value = accounts[0] ?? null
+  account.value = accounts.length > 0 ? getAddress(accounts[0] as string) : null
 }
 
 export function useWallet() {
