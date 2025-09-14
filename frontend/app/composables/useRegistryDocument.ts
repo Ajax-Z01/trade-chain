@@ -57,7 +57,7 @@ export function useRegistryDocument() {
 
       const metadataBlob = new Blob([JSON.stringify(metadata)], { type: 'application/json' })
       const metadataFile = new File([metadataBlob], `${file.name}.json`, { type: 'application/json' })
-      const metadataUrl = await uploadToLocal(metadataFile)
+      const metadataUrl = await uploadToLocal(metadataFile, account.value)
 
       const txHash = await walletClient.value.writeContract({
         address: documentRegistryAddress,
@@ -77,7 +77,6 @@ export function useRegistryDocument() {
       await addActivityLog(account.value, {
         type: 'onChain',
         action: 'mintDocument',
-        account: account.value,
         txHash: txHash as `0x${string}`,
         contractAddress: documentRegistryAddress,
         extra: { fileName: file.name, docType },
@@ -125,7 +124,6 @@ export function useRegistryDocument() {
     await addActivityLog(account.value, {
       type: 'onChain',
       action: 'addMinter',
-      account: account.value,
       txHash: txHash as `0x${string}`,
       contractAddress: documentRegistryAddress,
       extra: { newMinter },
@@ -159,7 +157,6 @@ export function useRegistryDocument() {
     await addActivityLog(account.value, {
       type: 'onChain',
       action: 'removeMinter',
-      account: account.value,
       txHash: txHash as `0x${string}`,
       contractAddress: documentRegistryAddress,
       extra: { minter },

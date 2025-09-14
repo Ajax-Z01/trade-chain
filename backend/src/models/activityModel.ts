@@ -1,40 +1,61 @@
 import { db } from '../config/firebase.js';
-import ActivityLogDTO from '../dtos/activityDTO.js';
 import type { ActivityLog } from '../types/Activity.js';
+import type { AggregatedActivityLog } from '../types/AggregatedActivity.js';
+import ActivityLogDTO from '../dtos/activityDTO.js';
 
-const collection = db.collection('activityLogs');
+const activityCollection = db.collection('activityLogs');
+const aggregatedCollection = db.collection('aggregatedActivityLogs');
 
 /**
- * Tambah Activity Log
- * Setiap log menjadi dokumen di subcollection 'history' per account
+ * Tambah Activity Log dan otomatis ke Aggregated Collection
  */
-export const addActivityLog = async (data: Partial<ActivityLog>) => {
-  const dto = new ActivityLogDTO(data);
-  dto.validate();
+export const addActivityLog = async (data: Partial<ActivityLog> & { tags?: string[] }): Promise<ActivityLog> => {
+  const timestamp = Date.now()
+  const entryData: Partial<ActivityLog> = { ...data, timestamp }
+
+  const dto = new ActivityLogDTO(entryData)
+  dto.validate()
 
   const entry: ActivityLog = {
-    timestamp: dto.timestamp ?? Date.now(),
+    timestamp,
     type: dto.type,
     action: dto.action,
     account: dto.account,
     txHash: dto.txHash,
     contractAddress: dto.contractAddress,
-    extra: dto.extra ?? undefined,
+    extra: dto.extra,
     onChainInfo: dto.onChainInfo,
-  };
+  }
 
-  const historyRef = collection.doc(dto.account).collection('history');
-  await historyRef.add(entry);
+  await activityCollection.doc(dto.account).collection('history').add(entry)
 
-  return entry;
-};
+  const aggregatedEntry: AggregatedActivityLog = {
+    id: `${dto.account}_${timestamp}`,
+    timestamp,
+    type: dto.type,
+    action: dto.action,
+    account: dto.account,
+    accountLower: dto.account.toLowerCase(),
+    txHash: dto.txHash,
+    txHashLower: dto.txHash?.toLowerCase(),
+    contractAddress: dto.contractAddress,
+    contractLower: dto.contractAddress?.toLowerCase(),
+    extra: dto.extra,
+    onChainInfo: dto.onChainInfo,
+    tags: data.tags ?? [],
+  }
+
+  await aggregatedCollection.doc(aggregatedEntry.id).set(aggregatedEntry)
+
+  return entry
+}
 
 /**
  * Ambil semua account yang punya activity
  */
 export const getAllAccounts = async (): Promise<string[]> => {
-  const snapshot = await collection.get();
-  return snapshot.docs.map((doc) => doc.id);
+  const snapshot = await activityCollection.get();
+  return snapshot.docs.map(doc => doc.id);
 };
 
 /**
@@ -44,48 +65,76 @@ export const getActivityByAccount = async (
   account: string,
   options?: { limit?: number; startAfterTimestamp?: number }
 ): Promise<ActivityLog[]> => {
-  let query = collection.doc(account).collection('history').orderBy('timestamp', 'desc');
+  let query: FirebaseFirestore.Query = activityCollection
+    .doc(account)
+    .collection('history')
+    .orderBy('timestamp', 'desc');
 
-  if (options?.startAfterTimestamp) {
-    query = query.startAfter(options.startAfterTimestamp);
-  }
-  if (options?.limit) {
-    query = query.limit(options.limit);
-  }
+  if (options?.startAfterTimestamp) query = query.startAfter(options.startAfterTimestamp);
+  if (options?.limit) query = query.limit(options.limit);
 
   const snapshot = await query.get();
-  const logs: ActivityLog[] = snapshot.docs.map((doc) => doc.data() as ActivityLog);
-  return logs;
+  return snapshot.docs.map(doc => doc.data() as ActivityLog);
 };
 
 /**
- * Ambil semua activity log dengan filter (account / txHash / contractAddress) — paginasi optional
+ * Ambil semua activity log global dengan pagination dan filter
  */
-export const getAllActivities = async (
-  filter?: { account?: string; txHash?: string; contractAddress?: string; limit?: number; startAfterTimestamp?: number }
-): Promise<ActivityLog[]> => {
+export const getAllActivities = async (filter?: {
+  account?: string;
+  txHash?: string;
+  contractAddress?: string;
+  limit?: number;
+  startAfterTimestamp?: number;
+}): Promise<ActivityLog[]> => {
+  const limit = filter?.limit ?? 20;
+  const startAfter = filter?.startAfterTimestamp;
+
   let logs: ActivityLog[] = [];
 
   if (filter?.account) {
-    logs = await getActivityByAccount(filter.account, {
-      limit: filter.limit,
-      startAfterTimestamp: filter.startAfterTimestamp,
-    });
+    // Jika account spesifik
+    let query: FirebaseFirestore.Query = activityCollection
+      .doc(filter.account)
+      .collection('history')
+      .orderBy('timestamp', 'desc');
+
+    if (startAfter) query = query.startAfter(startAfter);
+    query = query.limit(limit);
+
+    const snapshot = await query.get();
+    logs = snapshot.docs.map(doc => doc.data() as ActivityLog);
   } else {
-    const snapshot = await collection.get();
-    for (const doc of snapshot.docs) {
-      const accountLogs = await getActivityByAccount(doc.id, {
-        limit: filter?.limit,
-        startAfterTimestamp: filter?.startAfterTimestamp,
-      });
-      logs.push(...accountLogs);
-    }
+    // Global: iterasi semua akun
+    const accountsSnapshot = await activityCollection.get();
+    const accountIds = accountsSnapshot.docs.map(doc => doc.id);
+
+    const promises = accountIds.map(async acc => {
+      let q: FirebaseFirestore.Query = activityCollection
+        .doc(acc)
+        .collection('history')
+        .orderBy('timestamp', 'desc');
+
+      if (startAfter) q = q.startAfter(startAfter);
+      q = q.limit(limit);
+
+      const snap = await q.get();
+      return snap.docs.map(doc => doc.data() as ActivityLog);
+    });
+
+    const results = await Promise.all(promises);
+    logs = results.flat();
   }
 
-  if (filter?.txHash) logs = logs.filter((l) => l.txHash === filter.txHash);
-  if (filter?.contractAddress) logs = logs.filter((l) => l.contractAddress === filter.contractAddress);
+  // Filter txHash / contractAddress di memory
+  if (filter?.txHash) logs = logs.filter(l => l.txHash === filter.txHash);
+  if (filter?.contractAddress) logs = logs.filter(l => l.contractAddress === filter.contractAddress);
 
-  // Sort descending just in case
+  // Sort descending
   logs.sort((a, b) => b.timestamp - a.timestamp);
+
+  // Slice sesuai limit
+  if (logs.length > limit) logs = logs.slice(0, limit);
+
   return logs;
 };

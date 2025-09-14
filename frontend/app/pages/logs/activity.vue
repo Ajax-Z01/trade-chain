@@ -2,7 +2,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useActivityLogs } from '~/composables/useActivityLogs'
 import { formatDistanceToNow } from 'date-fns'
-import { CheckCircle2, XCircle, FileText, FileImage, File, TruckIcon, UserPlus, UserMinus } from 'lucide-vue-next'
+import { CheckCircle2, XCircle, FileText, FileImage, File, TruckIcon, UserPlus, UserMinus, Database } from 'lucide-vue-next'
 
 const account = ref('')
 const { fetchActivityLogs, refreshActivityLogs, getActivityState } = useActivityLogs()
@@ -13,7 +13,8 @@ onMounted(() => {
 
 const state = computed(() => getActivityState(account.value))
 
-const getActionIcon = (action: string) => {
+const getActionIcon = (action: string, type: string) => {
+  if (type === 'backend') return Database
   switch(action) {
     case 'mintDocument': return FileText
     case 'sign': return CheckCircle2
@@ -29,17 +30,16 @@ const getActionIcon = (action: string) => {
 }
 
 const getStatusColor = (action: string, status?: string) => {
-  if (status) {
+  if(status) {
     if(status === 'success') return 'bg-green-100 text-green-700'
     if(status === 'failed') return 'bg-red-100 text-red-700'
   }
-  // color by action type
   switch(action) {
     case 'deposit': return 'bg-blue-100 text-blue-700'
     case 'startShipping': return 'bg-yellow-100 text-yellow-700'
     case 'complete': return 'bg-green-100 text-green-700'
     case 'cancel': return 'bg-red-100 text-red-700'
-    case 'addMinter': return 'bg-purple-100 text-purple-700'
+    case 'addMinter': 
     case 'removeMinter': return 'bg-purple-100 text-purple-700'
     default: return 'bg-gray-100 text-gray-700'
   }
@@ -67,9 +67,9 @@ const getStatusColor = (action: string, status?: string) => {
     </div>
 
     <div class="space-y-4">
-      <div v-for="log in state.logs" :key="log.timestamp + log.txHash!" class="bg-white border rounded-xl shadow p-4 flex gap-4 items-start hover:shadow-lg transition">
+      <div v-for="log in state.logs" :key="log.timestamp + (log.txHash || log.action)" class="bg-white border rounded-xl shadow p-4 flex gap-4 items-start hover:shadow-lg transition">
         <!-- Icon -->
-        <component :is="getActionIcon(log.action)" class="w-6 h-6 text-blue-500 mt-1" />
+        <component :is="getActionIcon(log.action, log.type)" class="w-6 h-6 text-blue-500 mt-1" />
 
         <!-- Main content -->
         <div class="flex-1 space-y-1">
@@ -86,16 +86,24 @@ const getStatusColor = (action: string, status?: string) => {
           <!-- Account & Contract -->
           <div class="text-sm text-gray-600 flex flex-wrap gap-2">
             <span>Account: <code class="bg-gray-100 px-1 rounded">{{ log.account }}</code></span>
-            <span>Contract: <code class="bg-gray-100 px-1 rounded">{{ log.contractAddress }}</code></span>
+            <span v-if="log.contractAddress">Contract: <code class="bg-gray-100 px-1 rounded">{{ log.contractAddress }}</code></span>
           </div>
 
           <!-- Extra info -->
           <div v-if="log.extra" class="text-sm text-gray-700 mt-1 space-y-1">
-            <template v-if="log.action==='mintDocument'">
+            <template v-if="log.type==='backend'">
+              <div v-if="log.extra.count">Count: {{ log.extra.count }}</div>
+              <div v-else-if="log.action==='createCompany'">
+                <div><strong>Company Created:</strong> {{ log.extra.name }}</div>
+                <div>{{ log.extra.address }}, {{ log.extra.city }}, {{ log.extra.country }}</div>
+                <div>Email: {{ log.extra.email }} | Phone: {{ log.extra.phone || '-' }}</div>
+              </div>
+            </template>
+            <template v-else-if="log.action==='mintDocument'">
               <div class="flex items-center gap-2">
                 <span>File:</span>
                 <span class="font-medium">{{ log.extra.fileName }}</span>
-                <span class="px-2 py-0.5 rounded text-xs bg-gray-200">{{ log.extra.docType }}</span>
+                <span v-if="log.extra.docType" class="px-2 py-0.5 rounded text-xs bg-gray-200">{{ log.extra.docType }}</span>
               </div>
             </template>
             <template v-else-if="log.action==='deploy'">
@@ -103,11 +111,15 @@ const getStatusColor = (action: string, status?: string) => {
               <div>Exporter: {{ log.extra.exporter }}</div>
               <div>Required: {{ log.extra.requiredAmount }}</div>
             </template>
+            <template v-else-if="log.extra.amount">
+              <div>Amount: {{ log.extra.amount }}</div>
+              <div>Token: {{ log.extra.token }}</div>
+            </template>
           </div>
 
           <!-- On-chain info -->
           <div v-if="log.onChainInfo" class="flex flex-wrap gap-2 mt-2">
-            <span :class="getStatusColor(log.onChainInfo.status) + ' px-2 py-1 rounded text-xs font-medium'">
+            <span :class="getStatusColor(log.action, log.onChainInfo.status) + ' px-2 py-1 rounded text-xs font-medium'">
               {{ log.onChainInfo.status.toUpperCase() }}
             </span>
             <span class="text-xs text-gray-500">Block: {{ log.onChainInfo.blockNumber }}</span>
@@ -136,7 +148,3 @@ const getStatusColor = (action: string, status?: string) => {
     </div>
   </div>
 </template>
-
-<style scoped>
-/* smooth hover shadow for cards */
-</style>

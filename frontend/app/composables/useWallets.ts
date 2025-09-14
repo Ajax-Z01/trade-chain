@@ -6,8 +6,18 @@ const account = ref<string | null>(null)
 const walletClient = ref<any>(null)
 const listenersAttached = ref(false)
 
+let addActivityLog: ((account: string, log: any) => Promise<any>) | undefined
+
+async function initActivityLogs() {
+  if (!addActivityLog) {
+    const composable = await import('~/composables/useActivityLogs')
+    addActivityLog = composable.useActivityLogs().addActivityLog
+  }
+}
+
 async function initWallet() {
   if (!window.ethereum) return
+  await initActivityLogs()
 
   try {
     const accounts: string[] = await window.ethereum.request({ method: 'eth_accounts' })
@@ -17,11 +27,10 @@ async function initWallet() {
         const { createWalletClient, custom } = await import('viem')
         walletClient.value = createWalletClient({
           transport: custom(window.ethereum),
-          chain: Chain
+          chain: Chain,
         })
       }
     }
-    console.log("account", accounts)
   } catch (err) {
     console.warn('Failed to check wallet accounts', err)
   }
@@ -33,7 +42,7 @@ async function initWallet() {
 }
 
 export async function connectWallet() {
-  const { $apiBase } = useNuxtApp()
+  await initActivityLogs()
 
   if (!window.ethereum) throw new Error('MetaMask not installed')
 
@@ -44,7 +53,7 @@ export async function connectWallet() {
     const { createWalletClient, custom } = await import('viem')
     walletClient.value = createWalletClient({
       transport: custom(window.ethereum),
-      chain: Chain
+      chain: Chain,
     })
   }
 
@@ -53,16 +62,15 @@ export async function connectWallet() {
     listenersAttached.value = true
   }
 
-  // log ke backend
-  if (account.value) {
+  if (account.value && addActivityLog) {
     try {
-      await fetch(`${$apiBase}/wallet/log-login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ account: account.value })
+      await addActivityLog(account.value, {
+        type: 'backend',
+        action: 'walletConnect',
+        tags: ['wallet', 'connect'],
       })
     } catch (err) {
-      console.warn('Failed to log wallet login', err)
+      console.warn('Failed to log wallet connect', err)
     }
   }
 
@@ -70,14 +78,14 @@ export async function connectWallet() {
 }
 
 export async function disconnectWallet() {
-  const { $apiBase } = useNuxtApp()
+  await initActivityLogs()
 
-  if (account.value) {
+  if (account.value && addActivityLog) {
     try {
-      await fetch(`${$apiBase}/wallet/log-disconnect`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ account: account.value })
+      await addActivityLog(account.value, {
+        type: 'backend',
+        action: 'walletDisconnect',
+        tags: ['wallet', 'disconnect'],
       })
     } catch (err) {
       console.warn('Failed to log wallet disconnect', err)
@@ -88,7 +96,6 @@ export async function disconnectWallet() {
   walletClient.value = null
 }
 
-// selalu pakai getAddress agar EIP-55
 const handleAccountsChanged = (accounts: string[]) => {
   account.value = accounts.length > 0 ? getAddress(accounts[0] as string) : null
 }

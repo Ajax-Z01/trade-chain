@@ -8,6 +8,7 @@ import nftRoutes from './routes/nftRoutes.js'
 import companyRoutes from './routes/companyRoutes.js'
 import documentRoutes from './routes/documentRoutes.js'
 import activityRoutes from './routes/activityRoutes.js'
+import aggregatedActivityRoutes from './routes/aggregatedActivityRoutes.js'
 
 dotenv.config()
 
@@ -27,6 +28,7 @@ app.use('/api/nft', nftRoutes)
 app.use('/api/company', companyRoutes)
 app.use('/api/document', documentRoutes)
 app.use('/api/activity', activityRoutes);
+app.use('/api/aggregated', aggregatedActivityRoutes);
 
 const PORT = process.env.PORT || 5000
 app.listen(PORT, () => {

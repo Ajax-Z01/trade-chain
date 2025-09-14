@@ -1,4 +1,6 @@
 import { ref } from 'vue'
+import { useActivityLogs } from './useActivityLogs'
+import { useWallet } from './useWallets'
 
 export function useCompany() {
   const companies = ref<any[]>([])
@@ -7,9 +9,12 @@ export function useCompany() {
   const error = ref<string | null>(null)
 
   const { $apiBase } = useNuxtApp()
+  const { addActivityLog } = useActivityLogs()
+  const { account } = useWallet()
 
   // --- Fetch all companies ---
   const fetchCompanies = async () => {
+    if (!account.value) return
     loading.value = true
     error.value = null
     try {
@@ -26,6 +31,7 @@ export function useCompany() {
 
   // --- Fetch company by ID ---
   const fetchCompanyById = async (id: string) => {
+    if (!account.value) return
     loading.value = true
     error.value = null
     try {
@@ -42,6 +48,7 @@ export function useCompany() {
 
   // --- Create company ---
   const createCompany = async (payload: any) => {
+    if (!account.value) return null
     loading.value = true
     error.value = null
     try {
@@ -52,6 +59,13 @@ export function useCompany() {
       })
       if (!res.ok) throw new Error('Failed to create company')
       const data = await res.json()
+
+      await addActivityLog(account.value, {
+        type: 'backend',
+        action: 'createCompany',
+        extra: { companyId: data.data.id, ...payload }
+      })
+
       return data.data
     } catch (err: any) {
       error.value = err.message || 'Unknown error'
@@ -63,6 +77,7 @@ export function useCompany() {
 
   // --- Update company ---
   const updateCompany = async (id: string, payload: any) => {
+    if (!account.value) return null
     loading.value = true
     error.value = null
     try {
@@ -73,6 +88,13 @@ export function useCompany() {
       })
       if (!res.ok) throw new Error('Failed to update company')
       const data = await res.json()
+
+      await addActivityLog(account.value, {
+        type: 'backend',
+        action: 'updateCompany',
+        extra: { companyId: id, ...payload }
+      })
+
       return data.data
     } catch (err: any) {
       error.value = err.message || 'Unknown error'
@@ -84,14 +106,20 @@ export function useCompany() {
 
   // --- Delete company ---
   const deleteCompany = async (id: string) => {
+    if (!account.value) return false
     loading.value = true
     error.value = null
     try {
-      const res = await fetch(`${$apiBase}/company/${id}`, {
-        method: 'DELETE',
-      })
+      const res = await fetch(`${$apiBase}/company/${id}`, { method: 'DELETE' })
       if (!res.ok) throw new Error('Failed to delete company')
       const data = await res.json()
+
+      await addActivityLog(account.value, {
+        type: 'backend',
+        action: 'deleteCompany',
+        extra: { companyId: id }
+      })
+
       return data.success
     } catch (err: any) {
       error.value = err.message || 'Unknown error'

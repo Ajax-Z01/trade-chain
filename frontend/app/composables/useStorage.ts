@@ -1,5 +1,9 @@
+import { useActivityLogs } from './useActivityLogs'
+
 export function useStorage() {
-  const uploadToLocal = async (file: File): Promise<string> => {
+  const { addActivityLog } = useActivityLogs()
+
+  const uploadToLocal = async (file: File, account: string): Promise<string> => {
     const formData = new FormData()
     formData.append('file', file)
 
@@ -11,7 +15,18 @@ export function useStorage() {
     if (!res.ok) throw new Error('Local upload failed')
 
     const data = await res.json()
-    return data.url
+    const url = data.url
+
+    await addActivityLog(account, {
+      type: 'backend',
+      action: 'uploadFile',
+      extra: {
+        fileName: file.name,
+        url
+      }
+    })
+
+    return url
   }
 
   return { uploadToLocal }

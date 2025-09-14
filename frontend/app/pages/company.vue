@@ -1,66 +1,53 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, watch } from 'vue'
 import { useCompany } from '~/composables/useCompany'
-import { Plus, Edit, Trash2, Loader2 } from 'lucide-vue-next'
+import { useWallet } from '~/composables/useWallets'
 import { useToast } from '~/composables/useToast'
+import { Plus, Edit, Trash2, Eye } from 'lucide-vue-next'
 
-const { 
-  companies, 
-  fetchCompanies, 
-  createCompany, 
-  updateCompany, 
-  deleteCompany, 
-  loading 
-} = useCompany()
+import CompanyFormModal from '~/components/CompanyFormModal.vue'
+import CompanyDetailModal from '~/components/CompanyDetailModal.vue'
 
+const { account } = useWallet()
+const { companies, fetchCompanies, createCompany, updateCompany, deleteCompany, loading } = useCompany()
 const { addToast } = useToast()
 
-const showModal = ref(false)
+const showFormModal = ref(false)
+const showDetailModal = ref(false)
 const editingCompany = ref<any | null>(null)
-const form = ref({
-  name: '',
-  address: '',
-  city: '',
-  stateOrProvince: '',
-  postalCode: '',
-  country: '',
-  email: '',
-  phone: '',
-  taxId: '',
-  registrationNumber: '',
-  businessType: '',
-  website: '',
-  walletAddress: '',
-})
+const detailCompany = ref<any | null>(null)
 
-onMounted(() => {
-  fetchCompanies()
-})
+watch(account, (newAccount) => {
+  if (newAccount) fetchCompanies()
+  else companies.value = []
+}, { immediate: true })
 
 const openCreateModal = () => {
   editingCompany.value = null
-  for (const key in form.value) {
-    form.value[key as keyof typeof form.value] = ''
-  }
-  showModal.value = true
+  showFormModal.value = true
 }
 
 const openEditModal = (company: any) => {
   editingCompany.value = company
-  Object.assign(form.value, company)
-  showModal.value = true
+  showFormModal.value = true
 }
 
-const submitForm = async () => {
+const openDetailModal = (company: any) => {
+  detailCompany.value = company
+  showDetailModal.value = true
+}
+
+const submitForm = async (data: any) => {
   try {
+    if (!account.value) throw new Error('Wallet not connected')
     if (editingCompany.value) {
-      await updateCompany(editingCompany.value.id, form.value)
+      await updateCompany(editingCompany.value.id, data)
       addToast('Company updated successfully', 'success')
     } else {
-      await createCompany(form.value)
+      await createCompany(data)
       addToast('Company created successfully', 'success')
     }
-    showModal.value = false
+    showFormModal.value = false
     fetchCompanies()
   } catch (err: any) {
     addToast(err.message || 'Operation failed', 'error')
@@ -83,103 +70,127 @@ const removeCompany = async (id: string) => {
 
 <template>
   <div class="p-4">
+    <!-- Header -->
     <div class="flex justify-between items-center mb-4">
       <h1 class="text-2xl font-bold">Company Management</h1>
-      <button @click="openCreateModal" class="btn btn-primary flex items-center gap-2">
+      <button @click="openCreateModal" class="btn-primary flex items-center gap-2">
         <Plus :size="16" /> Create Company
       </button>
     </div>
 
-    <!-- Loading state -->
-    <div v-if="loading" class="flex justify-center py-10">
-      <Loader2 class="animate-spin" :size="32" />
+    <!-- Loading -->
+    <div v-if="loading" class="flex flex-col gap-2 py-10">
+      <div v-for="n in 5" :key="n" class="h-8 bg-gray-200 rounded animate-pulse w-full"></div>
     </div>
 
-    <!-- Empty state -->
+    <!-- Empty -->
     <div v-else-if="companies.length === 0" class="text-center py-10 text-gray-500">
       No companies found.
     </div>
 
     <!-- Table -->
-    <table v-else class="w-full table-auto border-collapse border border-gray-200">
+    <table v-else class="w-full border-collapse">
       <thead class="bg-gray-100">
         <tr>
           <th class="border px-4 py-2">Name</th>
           <th class="border px-4 py-2">Country</th>
           <th class="border px-4 py-2">Email</th>
           <th class="border px-4 py-2">Phone</th>
+          <th class="border px-4 py-2">Business Type</th>
           <th class="border px-4 py-2">Actions</th>
         </tr>
       </thead>
       <tbody>
-        <tr v-for="c in companies" :key="c.id">
+        <tr
+          v-for="(c, idx) in companies"
+          :key="c.id"
+          :class="idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'"
+          class="hover:bg-gray-100 transition-colors"
+        >
           <td class="border px-4 py-2">{{ c.name }}</td>
           <td class="border px-4 py-2">{{ c.country }}</td>
           <td class="border px-4 py-2">{{ c.email }}</td>
           <td class="border px-4 py-2">{{ c.phone || '-' }}</td>
-          <td class="border px-4 py-2 flex gap-2">
-            <button @click="openEditModal(c)" class="btn btn-sm btn-warning flex items-center gap-1">
-              <Edit :size="14" /> Edit
+          <td class="border px-4 py-2">{{ c.businessType || '-' }}</td>
+          <td class="border px-4 py-2 flex gap-1">
+            <button @click="openDetailModal(c)" class="btn-info" title="View Details">
+              <Eye :size="14" />
             </button>
-            <button @click="removeCompany(c.id)" class="btn btn-sm btn-danger flex items-center gap-1">
-              <Trash2 :size="14" /> Delete
+            <button @click="openEditModal(c)" class="btn-warning" title="Edit">
+              <Edit :size="14" />
+            </button>
+            <button @click="removeCompany(c.id)" class="btn-danger" title="Delete">
+              <Trash2 :size="14" />
             </button>
           </td>
         </tr>
       </tbody>
     </table>
 
-    <!-- Modal -->
-    <div v-if="showModal" class="fixed inset-0 bg-black/40 flex justify-center items-center z-50">
-      <div class="bg-white p-6 rounded-lg w-full max-w-lg">
-        <h2 class="text-xl font-bold mb-4">{{ editingCompany ? 'Edit Company' : 'Create Company' }}</h2>
-        <div class="grid grid-cols-1 gap-3 max-h-[70vh] overflow-y-auto">
-          <input v-model="form.name" placeholder="Name" class="input" />
-          <input v-model="form.address" placeholder="Address" class="input" />
-          <input v-model="form.city" placeholder="City" class="input" />
-          <input v-model="form.stateOrProvince" placeholder="State / Province" class="input" />
-          <input v-model="form.postalCode" placeholder="Postal Code" class="input" />
-          <input v-model="form.country" placeholder="Country" class="input" />
-          <input v-model="form.email" placeholder="Email" class="input" />
-          <input v-model="form.phone" placeholder="Phone" class="input" />
-          <input v-model="form.taxId" placeholder="Tax ID" class="input" />
-          <input v-model="form.registrationNumber" placeholder="Registration Number" class="input" />
-          <input v-model="form.businessType" placeholder="Business Type" class="input" />
-          <input v-model="form.website" placeholder="Website" class="input" />
-          <input v-model="form.walletAddress" placeholder="Wallet Address" class="input" />
-        </div>
-        <div class="flex justify-end gap-2 mt-4">
-          <button @click="showModal = false" class="btn btn-secondary">Cancel</button>
-          <button @click="submitForm" class="btn btn-primary">{{ editingCompany ? 'Update' : 'Create' }}</button>
-        </div>
-      </div>
-    </div>
+    <!-- Modals -->
+    <CompanyFormModal
+      :show="showFormModal"
+      :model-value="editingCompany || {}"
+      :editing="!!editingCompany"
+      @update:show="val => showFormModal = val"
+      @submit="submitForm"
+    />
+
+    <CompanyDetailModal
+      :show="showDetailModal"
+      :company="detailCompany"
+      @update:show="val => showDetailModal = val"
+    />
   </div>
 </template>
 
 <style scoped>
-.input {
-  border: 1px solid #ccc;
-  padding: 0.5rem;
-  border-radius: 0.375rem;
-  width: 100%;
-}
-.btn {
-  @apply px-3 py-1 rounded-md font-medium;
-}
 .btn-primary {
-  @apply bg-blue-600 text-white hover:bg-blue-700;
+  background-color: #2563eb;
+  color: white;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.375rem;
+  font-weight: 500;
+  border: none;
+  cursor: pointer;
 }
-.btn-secondary {
-  @apply bg-gray-300 text-gray-800 hover:bg-gray-400;
+.btn-primary:hover {
+  background-color: #1e40af;
 }
 .btn-warning {
-  @apply bg-yellow-400 text-white hover:bg-yellow-500;
+  background-color: #f59e0b;
+  color: white;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  border: none;
+  cursor: pointer;
+}
+.btn-warning:hover {
+  background-color: #d97706;
 }
 .btn-danger {
-  @apply bg-red-500 text-white hover:bg-red-600;
+  background-color: #ef4444;
+  color: white;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  border: none;
+  cursor: pointer;
 }
-.btn-sm {
-  @apply text-sm px-2 py-1;
+.btn-danger:hover {
+  background-color: #dc2626;
+}
+.btn-info {
+  background-color: #3b82f6;
+  color: white;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  border: none;
+  cursor: pointer;
+}
+.btn-info:hover {
+  background-color: #1d4ed8;
 }
 </style>
