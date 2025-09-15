@@ -23,7 +23,8 @@ export function useStorage() {
       extra: {
         fileName: file.name,
         url
-      }
+      },
+      tags: ['file', 'upload']
     })
 
     return url

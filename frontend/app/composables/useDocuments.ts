@@ -1,5 +1,6 @@
 import { useNuxtApp } from "#app"
-import type { Document, DocType } from "~/types/Document"
+import type { Document } from "~/types/Document"
+import { useActivityLogs } from "~/composables/useActivityLogs"
 
 // --- Safe parsers ---
 function safeParseDate(value: unknown): number | null {
@@ -73,6 +74,8 @@ export async function getDocumentsByContract(contractAddr: string): Promise<Docu
 
 export async function attachDocument(contractAddr: string, payload: Partial<Document>) {
   const { $apiBase } = useNuxtApp()
+  const { addActivityLog } = useActivityLogs()
+
   try {
     const res = await fetch(`${$apiBase}/document/contract/${contractAddr}/docs`, {
       method: "POST",
@@ -81,9 +84,20 @@ export async function attachDocument(contractAddr: string, payload: Partial<Docu
     })
     if (!res.ok) throw new Error("Failed to attach document")
     const data = await res.json()
-    console.log('attachDocument response', data)
     if (!data) throw new Error('No document data returned from backend')
-    return parseDocument(data)
+
+    const doc = parseDocument(data)
+
+    // --- log activity
+    await addActivityLog(doc.owner, {
+      type: "backend",
+      action: "attachDocument",
+      contractAddress: contractAddr,
+      extra: { tokenId: doc.tokenId, name: doc.name },
+      tags: ["document", "attach"],
+    })
+
+    return doc
   } catch (err) {
     console.error(`Error attaching document to contract ${contractAddr}:`, err)
     throw err
@@ -92,6 +106,8 @@ export async function attachDocument(contractAddr: string, payload: Partial<Docu
 
 export async function updateDocument(tokenId: number, payload: Partial<Document>) {
   const { $apiBase } = useNuxtApp()
+  const { addActivityLog } = useActivityLogs()
+
   try {
     const res = await fetch(`${$apiBase}/document/${tokenId}`, {
       method: "PATCH",
@@ -100,7 +116,18 @@ export async function updateDocument(tokenId: number, payload: Partial<Document>
     })
     if (!res.ok) throw new Error("Failed to update document")
     const data = await res.json()
-    return parseDocument(data.data)
+    const doc = parseDocument(data.data)
+
+    // --- log activity
+    await addActivityLog(doc.owner, {
+      type: "backend",
+      action: "updateDocument",
+      contractAddress: undefined,
+      extra: { tokenId: doc.tokenId, name: doc.name },
+      tags: ["document", "update"],
+    })
+
+    return doc
   } catch (err) {
     console.error(`Error updating document ${tokenId}:`, err)
     throw err
@@ -109,12 +136,23 @@ export async function updateDocument(tokenId: number, payload: Partial<Document>
 
 export async function deleteDocument(tokenId: number) {
   const { $apiBase } = useNuxtApp()
+  const { addActivityLog } = useActivityLogs()
+
   try {
     const res = await fetch(`${$apiBase}/document/${tokenId}`, {
       method: "DELETE",
     })
     if (!res.ok) throw new Error("Failed to delete document")
     const data = await res.json()
+
+    // --- log activity
+    await addActivityLog("", {
+      type: "backend",
+      action: "deleteDocument",
+      extra: { tokenId },
+      tags: ["document", "delete"],
+    })
+
     return data.success ?? true
   } catch (err) {
     console.error(`Error deleting document ${tokenId}:`, err)

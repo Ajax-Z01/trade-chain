@@ -63,7 +63,8 @@ export function useCompany() {
       await addActivityLog(account.value, {
         type: 'backend',
         action: 'createCompany',
-        extra: { companyId: data.data.id, ...payload }
+        tags: ['company', 'create'],
+        extra: { companyId: data.data.id, ...payload },
       })
 
       return data.data
@@ -92,7 +93,8 @@ export function useCompany() {
       await addActivityLog(account.value, {
         type: 'backend',
         action: 'updateCompany',
-        extra: { companyId: id, ...payload }
+        tags: ['company', 'update'],
+        extra: { companyId: id, ...payload },
       })
 
       return data.data
@@ -117,7 +119,8 @@ export function useCompany() {
       await addActivityLog(account.value, {
         type: 'backend',
         action: 'deleteCompany',
-        extra: { companyId: id }
+        tags: ['company', 'delete'],
+        extra: { companyId: id },
       })
 
       return data.success

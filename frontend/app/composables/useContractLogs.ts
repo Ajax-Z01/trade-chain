@@ -52,13 +52,13 @@ export function useContractLogs() {
   }
 
   /** Fetch logs contract dari backend + chain */
-  const fetchContractLogs = async (contract: string, limit = 20) => {
+  const fetchContractLogs = async (contract: string) => {
     const state = getContractState(contract)
     if (state.loading || state.finished) return
 
     state.loading = true
     try {
-      const { backendLogs: backend, chainState } = await getContractLogsByAddress(contract as `0x${string}`)
+      const { backendLogs: backend } = await getContractLogsByAddress(contract as `0x${string}`)
 
       if (backend.length === 0) {
         state.finished = true

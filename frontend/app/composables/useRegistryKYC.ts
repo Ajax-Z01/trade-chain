@@ -86,7 +86,6 @@ export function useRegistry() {
       await addActivityLog(account.value, {
         type: 'onChain',
         action: 'mintKYC',
-        account: account.value,
         txHash: txHash as `0x${string}`,
         contractAddress: registryAddress,
         extra: { fileName: file.name },
@@ -95,6 +94,7 @@ export function useRegistry() {
           blockNumber,
           confirmations,
         },
+        tags: ['KYC', 'mint'],
       })
 
       minting.value = false
@@ -125,7 +125,6 @@ export function useRegistry() {
     await addActivityLog(account.value, {
       type: 'onChain',
       action: 'addMinter',
-      account: account.value,
       txHash: txHash as `0x${string}`,
       contractAddress: registryAddress,
       extra: { newMinter },
@@ -134,6 +133,7 @@ export function useRegistry() {
         blockNumber,
         confirmations,
       },
+      tags: ['KYC', 'add', 'minter'],
     })
 
     return receipt
@@ -158,7 +158,6 @@ export function useRegistry() {
     await addActivityLog(account.value, {
       type: 'onChain',
       action: 'removeMinter',
-      account: account.value,
       txHash: txHash as `0x${string}`,
       contractAddress: registryAddress,
       extra: { minter },
@@ -167,6 +166,7 @@ export function useRegistry() {
         blockNumber,
         confirmations,
       },
+      tags: ['KYC', 'remove', 'minter'],
     })
 
     return receipt

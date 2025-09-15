@@ -317,18 +317,18 @@ const handleNewContract = () => {
     <div class="flex items-center justify-between">
       <h1 class="text-2xl font-semibold text-gray-800">TradeAgreement v2</h1>
       <div class="flex gap-2">
-        <Button @click="handleNewContract" class="bg-indigo-600 hover:bg-indigo-700 text-white rounded py-2 px-4 flex items-center gap-2 shadow">New Contract</Button>
+        <Button class="bg-indigo-600 hover:bg-indigo-700 text-white rounded py-2 px-4 flex items-center gap-2 shadow" @click="handleNewContract">New Contract</Button>
         <Button @click="async()=>{ const res=await fetchDeployedContracts(); console.log(res) }">Refresh Data</Button>
       </div>
     </div>
 
     <!-- Stepper -->
     <ContractStepper
-      :currentStage="currentStage"
-      :userRole="userRole"
-      :importerSigned="stepStatus.sign.importer"
-      :exporterSigned="stepStatus.sign.exporter"
-      :depositDone="stepStatus.deposit"
+      :current-stage="currentStage"
+      :user-role="userRole"
+      :importer-signed="stepStatus.sign.importer"
+      :exporter-signed="stepStatus.sign.exporter"
+      :deposit-done="stepStatus.deposit"
     />
 
     <!-- Contract selection -->
@@ -346,8 +346,7 @@ const handleNewContract = () => {
       <!-- Exporter Address -->
       <div class="flex flex-col relative">
         <label class="text-sm font-medium text-gray-700 mb-1">Exporter Address
-          <input v-model="exporterValue" placeholder="0x..." :disabled="isAutoFilled"
-            class="w-full p-3 border rounded focus:ring-2 focus:ring-indigo-400 outline-none"/>
+          <input v-model="exporterValue" placeholder="0x..." :disabled="isAutoFilled" class="w-full p-3 border rounded focus:ring-2 focus:ring-indigo-400 outline-none"/>
           <span v-if="isAutoFilled" class="absolute right-2 top-1 text-xs text-gray-500 italic">auto-filled</span>
         </label>
       </div>
@@ -356,9 +355,7 @@ const handleNewContract = () => {
       <div class="flex flex-col relative">
         <label class="text-sm font-medium text-gray-700 mb-1">Required Amount
           <div class="flex items-center">
-            <input v-model="requiredAmountValue" type="number" step="0.0001"
-              placeholder="0.5" :disabled="isAutoFilled"
-              class="w-full p-3 border rounded focus:ring-2 focus:ring-indigo-400 outline-none"/>
+            <input v-model="requiredAmountValue" type="number" step="0.0001" placeholder="0.5" :disabled="isAutoFilled" class="w-full p-3 border rounded focus:ring-2 focus:ring-indigo-400 outline-none"/>
           </div>
           <span v-if="isAutoFilled" class="absolute right-2 top-1 text-xs text-gray-500 italic">auto-filled</span>
         </label>
@@ -371,7 +368,8 @@ const handleNewContract = () => {
             {{ paymentTokenValue }}
           </div>
           <span v-if="isAutoFilled" class="absolute right-2 top-1 text-xs text-gray-500 italic">auto-filled</span>
-          <select v-else v-model="paymentTokenValue"
+          <select
+            v-else v-model="paymentTokenValue"
             class="w-full p-3 border rounded focus:ring-2 focus:ring-indigo-400 outline-none">
             <option value="ETH">ETH</option>
             <option value="MUSDC">MUSDC</option>
@@ -384,9 +382,7 @@ const handleNewContract = () => {
     <div class="space-y-3 mt-4">
       <!-- Step 1: Deploy -->
       <Button
-        :disabled="loadingButton==='deploy' || stepStatus.deploy || !canDeploy"
-        @click="handleDeploy"
-        class="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded py-3"
+        :disabled="loadingButton==='deploy' || stepStatus.deploy || !canDeploy" class="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded py-3" @click="handleDeploy"
       >
         <Rocket class="w-5 h-5"/>
         <span v-if="loadingButton!=='deploy'">Deploy Contract</span>
@@ -396,9 +392,7 @@ const handleNewContract = () => {
 
       <!-- Step 2: Sign -->
       <Button
-        :disabled="!stepStatus.deploy || loadingButton==='sign' || signCompleted || !canSign"
-        @click="handleSign"
-        class="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white rounded py-3"
+        :disabled="!stepStatus.deploy || loadingButton==='sign' || signCompleted || !canSign" class="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white rounded py-3" @click="handleSign"
       >
         <span>Sign Agreement</span>
         <Loader2 v-if="loadingButton==='sign'" class="w-5 h-5 animate-spin"/>
@@ -407,9 +401,7 @@ const handleNewContract = () => {
 
       <!-- Step 3: Deposit (by Importer) -->
       <Button
-        :disabled="!isImporter || loadingButton==='deposit' || stepStatus.deposit || !canDeposit"
-        @click="handleDeposit"
-        class="w-full flex items-center justify-center gap-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded py-3"
+        :disabled="!isImporter || loadingButton==='deposit' || stepStatus.deposit || !canDeposit" class="w-full flex items-center justify-center gap-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded py-3" @click="handleDeposit"
       >
         <span>Deposit ETH</span>
         <Loader2 v-if="loadingButton==='deposit'" class="w-5 h-5 animate-spin"/>
@@ -418,9 +410,7 @@ const handleNewContract = () => {
 
       <!-- Step 4: Start Shipping (by Exporter) -->
       <Button
-        :disabled="!isExporter || loadingButton==='shipping' || !stepStatus.deposit || stepStatus.shipping || !canStartShipping"
-        @click="handleStartShipping"
-        class="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white rounded py-3"
+        :disabled="!isExporter || loadingButton==='shipping' || !stepStatus.deposit || stepStatus.shipping || !canStartShipping" class="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white rounded py-3" @click="handleStartShipping"
       >
         <span>Start Shipping</span>
         <Loader2 v-if="loadingButton==='shipping'" class="w-5 h-5 animate-spin"/>
@@ -429,9 +419,7 @@ const handleNewContract = () => {
 
       <!-- Step 5: Complete (by Importer) -->
       <Button
-        :disabled="!stepStatus.shipping || loadingButton==='completed' || stepStatus.completed || !canComplete"
-        @click="handleComplete"
-        class="w-full flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white rounded py-3"
+        :disabled="!stepStatus.shipping || loadingButton==='completed' || stepStatus.completed || !canComplete" class="w-full flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white rounded py-3" @click="handleComplete"
       >
         <span>Complete Contract</span>
         <Loader2 v-if="loadingButton==='completed'" class="w-5 h-5 animate-spin"/>
@@ -440,9 +428,7 @@ const handleNewContract = () => {
 
       <!-- Cancel (anytime before Completed) -->
       <Button
-        :disabled="loadingButton==='cancel' || stepStatus.completed || stepStatus.cancelled || !canCancel"
-        @click="handleCancel"
-        class="w-full flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white rounded py-3"
+        :disabled="loadingButton==='cancel' || stepStatus.completed || stepStatus.cancelled || !canCancel" class="w-full flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white rounded py-3" @click="handleCancel"
       >
         <span>Cancel Contract</span>
         <Loader2 v-if="loadingButton==='cancel'" class="w-5 h-5 animate-spin"/>

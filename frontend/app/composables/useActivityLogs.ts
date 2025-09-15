@@ -1,5 +1,4 @@
-// composables/useActivityLogs.ts
-import { ref, reactive, readonly, onMounted } from 'vue'
+import { reactive, readonly } from 'vue'
 import { useRuntimeConfig } from '#app'
 import type { ActivityLog, ActivityState } from '~/types/Activity'
 

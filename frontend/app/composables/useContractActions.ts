@@ -29,7 +29,6 @@ export function useContractActions() {
   const { addToast } = useToast()
   const { addActivityLog } = useActivityLogs()
   const { addContractLog } = useContractLogs()
-  const { $apiBase } = useNuxtApp()
 
   const stepStatus = reactive({
     deploy: false,
@@ -51,7 +50,7 @@ export function useContractActions() {
     confirmations: Number(receipt.confirmations ?? 0),
   })
 
-  const postLog = async (data: ContractLogPayload, receipt?: any) => {
+  const postLog = async (data: ContractLogPayload, receipt?: any, tags?: string[]) => {
     const acc = requireAccount()
 
     const onChainInfo = receipt
@@ -65,18 +64,21 @@ export function useContractActions() {
         : undefined
 
     try {
+      // Simpan contractLog (sub-collection)
       await addContractLog(acc, { ...data, account: acc, onChainInfo })
+
+      // Simpan ke activityLog (aggregated + history)
       await addActivityLog(acc, {
         type: 'onChain',
-        account: acc,
         action: data.action,
         txHash: data.txHash,
         contractAddress: data.contractAddress,
         extra: data.extra,
         onChainInfo,
+        tags
       })
     } catch (err) {
-      console.warn('Failed to post contract log:', err)
+      console.warn('Failed to post logs:', err)
     }
   }
 
@@ -146,7 +148,8 @@ export function useContractActions() {
         contractAddress: newContractAddress,
         extra: { importer, exporter, requiredAmount: requiredAmount.toString(), importerDocId: importerDocId.toString(), exporterDocId: exporterDocId.toString(), token },
       },
-      receipt
+      receipt,
+      ['deploy', 'tradeAgreement', 'contract', 'importer']
     )
 
     return newContractAddress
@@ -246,7 +249,8 @@ export function useContractActions() {
     const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash })
     await postLog(
       { action: 'deposit', account: account.value, txHash, contractAddress, extra: { amount: amount.toString(), token } },
-      receipt
+      receipt,
+      ['deposit', 'tradeAgreement', 'contract', 'importer']
     )
     return receipt
   }
@@ -262,7 +266,7 @@ export function useContractActions() {
       chain: Chain,
     })
     const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash })
-    await postLog({ action: 'sign', account: account.value, txHash, contractAddress }, receipt)
+    await postLog({ action: 'sign', account: account.value, txHash, contractAddress }, receipt, ['sign', 'tradeAgreement', 'contract', 'importer', 'exporter'])
 
     const importerSigned = Boolean(await publicClient.readContract({
       address: contractAddress,
@@ -291,7 +295,7 @@ export function useContractActions() {
       chain: Chain,
     })
     const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash })
-    await postLog({ action: 'startShipping', account: account.value, txHash, contractAddress }, receipt)
+    await postLog({ action: 'startShipping', account: account.value, txHash, contractAddress }, receipt, ['shipping', 'tradeAgreement', 'contract', 'exporter'])
     return receipt
   }
 
@@ -306,7 +310,7 @@ export function useContractActions() {
       chain: Chain,
     })
     const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash })
-    await postLog({ action: 'complete', account: account.value, txHash, contractAddress }, receipt)
+    await postLog({ action: 'complete', account: account.value, txHash, contractAddress }, receipt, ['complete', 'tradeAgreement', 'contract', 'importer'])
     return receipt
   }
 
@@ -323,7 +327,8 @@ export function useContractActions() {
     const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash })
     await postLog(
       { action: 'cancel', account: account.value, txHash, contractAddress, extra: { reason } },
-      receipt
+      receipt,
+      ['cancel', 'tradeAgreement', 'contract', 'importer', 'exporter']
     )
     return receipt
   }

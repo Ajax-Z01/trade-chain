@@ -71,9 +71,7 @@ onMounted(() => {
     </div>
 
     <button
-      :disabled="minting"
-      @click="handleMint"
-      class="w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600 disabled:opacity-50"
+      :disabled="minting" class="w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600 disabled:opacity-50" @click="handleMint"
     >
       {{ minting ? 'Minting...' : 'Mint USDC' }}
     </button>

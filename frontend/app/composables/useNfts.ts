@@ -1,5 +1,7 @@
 import { useNuxtApp } from "#app"
 import type { NFT } from "~/types/NFT"
+import { useActivityLogs } from "~/composables/useActivityLogs"
+import { useWallet } from "~/composables/useWallets"
 
 // --- Safe parsers ---
 function safeParseHex(value: unknown): `0x${string}` | null {
@@ -33,7 +35,6 @@ function parseNFT(n: any): NFT {
   }
 }
 
-// --- Composables ---
 export async function getAllNfts(): Promise<NFT[]> {
   const { $apiBase } = useNuxtApp()
   try {
@@ -75,6 +76,9 @@ export async function getNftsByOwner(owner: string): Promise<NFT[]> {
 
 export async function createNft(payload: Partial<NFT>) {
   const { $apiBase } = useNuxtApp()
+  const { account } = useWallet()
+  const { addActivityLog } = useActivityLogs()
+
   try {
     const res = await fetch(`${$apiBase}/nft`, {
       method: "POST",
@@ -83,6 +87,17 @@ export async function createNft(payload: Partial<NFT>) {
     })
     if (!res.ok) throw new Error("Failed to create NFT")
     const data = await res.json()
+
+    const nft = parseNFT(data.data)
+
+    // --- log activity
+    await addActivityLog(nft.owner || account.value as string, {
+      type: "backend",
+      action: "createNft",
+      extra: { tokenId: nft.tokenId, name: nft.name },
+      tags: ["nft", "create"],
+    })
+
     return data
   } catch (err) {
     console.error("Error creating NFT:", err)
@@ -92,6 +107,9 @@ export async function createNft(payload: Partial<NFT>) {
 
 export async function updateNft(tokenId: string, payload: Partial<NFT>) {
   const { $apiBase } = useNuxtApp()
+  const { account } = useWallet()
+  const { addActivityLog } = useActivityLogs()
+
   try {
     const res = await fetch(`${$apiBase}/nft/${tokenId}`, {
       method: "PUT",
@@ -100,6 +118,17 @@ export async function updateNft(tokenId: string, payload: Partial<NFT>) {
     })
     if (!res.ok) throw new Error("Failed to update NFT")
     const data = await res.json()
+
+    const nft = parseNFT(data.data)
+
+    // --- log activity
+    await addActivityLog(nft.owner || account.value as string, {
+      type: "backend",
+      action: "updateNft",
+      extra: { tokenId: nft.tokenId, name: nft.name },
+      tags: ["nft", "update"],
+    })
+
     return data
   } catch (err) {
     console.error(`Error updating NFT ${tokenId}:`, err)
@@ -109,12 +138,28 @@ export async function updateNft(tokenId: string, payload: Partial<NFT>) {
 
 export async function deleteNft(tokenId: string) {
   const { $apiBase } = useNuxtApp()
+  const { account } = useWallet()
+  const { addActivityLog } = useActivityLogs()
+
   try {
+    // ambil NFT dulu untuk mengetahui owner
+    const nft = await getNftById(tokenId)
+    const owner = nft?.owner || account.value || "0x0000000000000000000000000000000000000000"
+
     const res = await fetch(`${$apiBase}/nft/${tokenId}`, {
       method: "DELETE",
     })
     if (!res.ok) throw new Error("Failed to delete NFT")
     const data = await res.json()
+
+    // --- log activity
+    await addActivityLog(owner, {
+      type: "backend",
+      action: "deleteNft",
+      extra: { tokenId },
+      tags: ["nft", "delete"],
+    })
+
     return data
   } catch (err) {
     console.error(`Error deleting NFT ${tokenId}:`, err)

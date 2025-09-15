@@ -85,6 +85,7 @@ export function useRegistryDocument() {
           blockNumber,
           confirmations,
         },
+        tags: ['Document', 'mint'],
       })
 
       const eventLog = receipt.logs.find(
@@ -132,6 +133,7 @@ export function useRegistryDocument() {
         blockNumber,
         confirmations,
       },
+      tags: ['Document', 'add', 'minter'],
     })
 
     return receipt
@@ -165,6 +167,7 @@ export function useRegistryDocument() {
         blockNumber,
         confirmations,
       },
+      tags: ['KYC', 'remove', 'minter'],
     })
 
     return receipt

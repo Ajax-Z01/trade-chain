@@ -76,8 +76,7 @@ watch(
   () => props.currentStage,
   (newStage, oldStage) => {
     if (newStage !== oldStage) {
-      const stageLabel = stages.find(s => s.key === newStage)?.label
-      if (stageLabel) addToast(`Contract moved to ${stageLabel}`, "info")
+      addToast(`Contract status: ${statusBadge.value}`, "info")
     }
   }
 )
@@ -152,22 +151,23 @@ const statusBadgeClass = computed(() => {
         </div>
 
         <!-- Label -->
-        <span class="mt-2 text-xs font-medium text-center"
-              :class="[ 
-                isCancelled
-                  ? 'text-red-600'
-                  : isCompleted(idx)
-                    ? 'text-green-600'
-                    : highlightStage() === idx
-                      ? 'text-yellow-600'
-                      : 'text-gray-500'
-              ]">
+        <span
+          class="mt-2 text-xs font-medium text-center"
+          :class="[ 
+            isCancelled
+              ? 'text-red-600'
+              : isCompleted(idx)
+                ? 'text-green-600'
+                : highlightStage() === idx
+                  ? 'text-yellow-600'
+                  : 'text-gray-500'
+          ]"
+        >
           {{ stage.label }}
         </span>
 
         <!-- Connector line -->
-        <div v-if="idx < stages.length - 1" class="h-0.5 w-full mt-2 transition-colors duration-300"
-             :class="[isCancelled ? 'bg-red-500' : isCompleted(idx) ? 'bg-green-500' : 'bg-gray-300']"/>
+        <div v-if="idx < stages.length - 1" class="h-0.5 w-full mt-2 transition-colors duration-300" :class="[isCancelled ? 'bg-red-500' : isCompleted(idx) ? 'bg-green-500' : 'bg-gray-300']"/>
       </div>
     </div>
 

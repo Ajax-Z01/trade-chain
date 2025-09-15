@@ -127,7 +127,7 @@ const handleAttachAndMint = async () => {
       fp.progress = 50
       fp.status = 'uploading'
 
-      const uploadedUrl = await uploadToLocal(fp.file)
+      const uploadedUrl = await uploadToLocal(fp.file, account.value)
       fp.progress = 75
       fp.status = 'attaching'
 
@@ -260,7 +260,7 @@ const handleRemoveMinter = async () => {
           <span v-if="fp.status==='success'" class="text-green-600">✅ Token ID: {{ fp.tokenId }}</span>
           <span v-else-if="fp.status==='error'" class="text-red-600">❌ Failed</span>
           <span v-else class="text-gray-500">{{ fp.status }}</span>
-          <button @click="removeFile(i)" class="text-red-500 hover:text-red-700">✕</button>
+          <button class="text-red-500 hover:text-red-700" @click="removeFile(i)">✕</button>
         </div>
       </div>
       <div class="w-full bg-gray-200 rounded-full h-2">

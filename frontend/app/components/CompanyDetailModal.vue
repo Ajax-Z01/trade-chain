@@ -31,7 +31,7 @@ const close = () => emit('update:show', false)
         <div><strong>Wallet Address:</strong> {{ props.company?.walletAddress || '-' }}</div>
       </div>
       <div class="modal-footer">
-        <button @click="close" class="btn-primary">Close</button>
+        <button class="btn-primary" @click="close">Close</button>
       </div>
     </div>
   </div>

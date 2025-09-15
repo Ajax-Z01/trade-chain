@@ -50,7 +50,6 @@ export function useMockUSDC() {
       await addActivityLog(account.value, {
         type: 'onChain',
         action: 'mintUSDC',
-        account: account.value,
         txHash: txHash as `0x${string}`,
         contractAddress: mockUSDCAddress,
         extra: { amount, to },
@@ -59,6 +58,7 @@ export function useMockUSDC() {
           blockNumber,
           confirmations,
         },
+        tags: ['faucet', 'mockUSDC'],
       })
 
       const balance = await publicClient.readContract({

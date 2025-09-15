@@ -73,7 +73,7 @@ const removeCompany = async (id: string) => {
     <!-- Header -->
     <div class="flex justify-between items-center mb-4">
       <h1 class="text-2xl font-bold">Company Management</h1>
-      <button @click="openCreateModal" class="btn-primary flex items-center gap-2">
+      <button class="btn-primary flex items-center gap-2" @click="openCreateModal">
         <Plus :size="16" /> Create Company
       </button>
     </div>
@@ -113,13 +113,13 @@ const removeCompany = async (id: string) => {
           <td class="border px-4 py-2">{{ c.phone || '-' }}</td>
           <td class="border px-4 py-2">{{ c.businessType || '-' }}</td>
           <td class="border px-4 py-2 flex gap-1">
-            <button @click="openDetailModal(c)" class="btn-info" title="View Details">
+            <button class="btn-info" title="View Details" @click="openDetailModal(c)">
               <Eye :size="14" />
             </button>
-            <button @click="openEditModal(c)" class="btn-warning" title="Edit">
+            <button class="btn-warning" title="Edit" @click="openEditModal(c)">
               <Edit :size="14" />
             </button>
-            <button @click="removeCompany(c.id)" class="btn-danger" title="Delete">
+            <button class="btn-danger" title="Delete" @click="removeCompany(c.id)">
               <Trash2 :size="14" />
             </button>
           </td>

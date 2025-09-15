@@ -47,8 +47,8 @@ const submit = () => {
         <input v-model="form.walletAddress" placeholder="Wallet Address" class="input" />
       </div>
       <div class="modal-footer">
-        <button @click="close" class="btn-secondary">Cancel</button>
-        <button @click="submit" class="btn-primary">{{ props.editing ? 'Update' : 'Create' }}</button>
+        <button class="btn-secondary" @click="close">Cancel</button>
+        <button class="btn-primary" @click="submit">{{ props.editing ? 'Update' : 'Create' }}</button>
       </div>
     </div>
   </div>
