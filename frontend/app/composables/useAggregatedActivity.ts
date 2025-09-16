@@ -2,11 +2,31 @@ import { ref, reactive } from 'vue'
 import { useNuxtApp } from '#app'
 
 export function useAggregatedActivity() {
+  // --- Types ---
+  interface ActivityItem {
+    id: string
+    timestamp: number
+    type: string
+    action: string
+    account: string
+    txHash?: string
+    contractAddress?: string
+    tags: string[]
+    extra?: Record<string, any>
+    onChainInfo?: Record<string, any>
+  }
+
+  interface FetchActivitiesResult {
+    data: ActivityItem[]
+    nextStartAfterTimestamp: number | null
+  }
+
   // --- State ---
-  const activities = ref<any[]>([])
+  const activities = ref<ActivityItem[]>([])
   const loading = ref(false)
   const error = ref<string | null>(null)
   const totalCount = ref(0)
+  const lastTimestamp = ref<number | null>(null)
 
   const filters = reactive({
     account: null as string | null,
@@ -23,22 +43,22 @@ export function useAggregatedActivity() {
     txHash: string | null
     contractAddress: string | null
     tags: string[]
+    offset: number
     limit: number
   }
 
   // --- Fetch aggregated activities ---
   const fetchActivities = async (
     customFilters?: Partial<AggregatedFilters>,
-    startAfterTimestamp?: number | null // pagination helper
-  ) => {
+    startAfterTimestamp?: number | null
+  ): Promise<FetchActivitiesResult> => {
     loading.value = true
-    if (!startAfterTimestamp) activities.value = [] // reset hanya saat fetch pertama
+    if (!startAfterTimestamp) activities.value = []
     error.value = null
 
     try {
       const combinedFilters = { ...filters, ...customFilters }
 
-      // Convert to string query params
       const queryParams: Record<string, string> = {}
       Object.entries(combinedFilters).forEach(([k, v]) => {
         if (v === null || v === '' || (Array.isArray(v) && v.length === 0)) return
@@ -51,20 +71,21 @@ export function useAggregatedActivity() {
       const res = await fetch(`${$apiBase}/aggregated?${query}`)
       if (!res.ok) throw new Error(await res.text())
 
-      const data = await res.json()
-      console.log('Fetched aggregated activities:', data)
+      const data: FetchActivitiesResult = await res.json()
 
-      // Append data saat pagination
       if (startAfterTimestamp) {
-        activities.value.push(...(Array.isArray(data) ? data : []))
+        activities.value.push(...data.data)
       } else {
-        activities.value = Array.isArray(data) ? data : []
+        activities.value = data.data
       }
 
+      lastTimestamp.value = data.nextStartAfterTimestamp
       totalCount.value = activities.value.length
+      return data
     } catch (err: any) {
       error.value = err.message
       console.error('Error fetching aggregated activities:', err)
+      return { data: [], nextStartAfterTimestamp: null }
     } finally {
       loading.value = false
     }
@@ -112,11 +133,10 @@ export function useAggregatedActivity() {
 
   // --- Remove tag ---
   const removeTag = async (id: string, tag: string) => {
+    if (!tag) return
     try {
-      const res = await fetch(`${$apiBase}/aggregated/${id}/tag`, {
+      const res = await fetch(`${$apiBase}/aggregated/${id}/tag?tag=${encodeURIComponent(tag)}`, {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tag }),
       })
       if (!res.ok) throw new Error(await res.text())
 
@@ -142,6 +162,7 @@ export function useAggregatedActivity() {
   return {
     activities,
     totalCount,
+    lastTimestamp,
     loading,
     error,
     filters,

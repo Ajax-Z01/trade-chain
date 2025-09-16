@@ -1,210 +1,184 @@
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { reactive, ref, onMounted, computed } from 'vue'
 import { useAggregatedActivity } from '~/composables/useAggregatedActivity'
 import { useToast } from '~/composables/useToast'
+import { DynamicScroller, DynamicScrollerItem } from 'vue-virtual-scroller'
+import 'vue-virtual-scroller/dist/vue-virtual-scroller.css'
+import { CheckCircle, ArrowRight, PlusCircle, Trash2, AlertCircle } from 'lucide-vue-next'
 
 // --- Composables ---
-const { activities, totalCount, loading, error, filters, fetchActivities, addTag, removeTag } = useAggregatedActivity()
+const { activities, fetchActivities, addTag, removeTag } = useAggregatedActivity()
 const { addToast } = useToast()
 
-// --- Pagination state ---
-const currentPage = ref(1)
-const pageSize = computed(() => filters.limit)
-
-// Cache tiap halaman
-const pagesCache = reactive<Record<number, any[]>>({})
-const lastTimestamps = reactive<Record<number, number | null>>({}) // timestamp terakhir tiap halaman
-
-// --- Jump input state ---
-const jumpPageNumber = ref(currentPage.value)
-
-// Fetch halaman tertentu
-const fetchPage = async (page: number) => {
-  if (page < 1) return
-
-  // Jika halaman sudah ada di cache, pakai cache
-  if (pagesCache[page]) {
-    activities.value = pagesCache[page]
-    currentPage.value = page
-    jumpPageNumber.value = page
-    return
-  }
-
-  // Tentukan startAfterTimestamp
-  let startAfter: number | null = null
-  if (page > 1) {
-    startAfter = lastTimestamps[page - 1] ?? lastTimestamps[page - 2] ?? null
-  }
-
-  const prevActivities = [...activities.value]
-
-  try {
-    await fetchActivities({}, startAfter)
-    if (activities.value.length > 0) {
-      pagesCache[page] = [...activities.value]
-      lastTimestamps[page] = activities.value[activities.value.length - 1]?.timestamp || null
-      currentPage.value = page
-      jumpPageNumber.value = page
-    } else {
-      // rollback jika halaman kosong
-      activities.value = prevActivities
-    }
-  } catch {
-    activities.value = prevActivities
-  }
-}
-
-// --- Next / Prev / Jump ---
-const nextPage = async () => {
-  await fetchPage(currentPage.value + 1)
-}
-
-const prevPage = async () => {
-  if (currentPage.value === 1) return
-  await fetchPage(currentPage.value - 1)
-}
-
-const jumpToPageHandler = async () => {
-  if (jumpPageNumber.value < 1) return
-  await fetchPage(jumpPageNumber.value)
-}
-
-// --- Jump to last page (fetch page terakhir) ---
-const jumpToLastPage = async () => {
-  let page = currentPage.value
-  while (activities.value.length === pageSize.value) {
-    page++
-    await fetchPage(page)
-  }
-}
-
 // --- Filters ---
-const accountFilter = ref(filters.account || '')
-const txHashFilter = ref(filters.txHash || '')
-const contractFilter = ref(filters.contractAddress || '')
+const accountFilter = ref('')
+const txHashFilter = ref('')
+const contractFilter = ref('')
 const tagsFilter = ref('')
-
-const applyFilters = async () => {
-  filters.account = accountFilter.value || null
-  filters.txHash = txHashFilter.value || null
-  filters.contractAddress = contractFilter.value || null
-  filters.tags = tagsFilter.value
-    ? tagsFilter.value.split(',').map(t => t.trim())
-    : []
-
-  // Reset pagination cache
-  currentPage.value = 1
-  Object.keys(pagesCache).forEach(k => delete pagesCache[Number(k)])
-  Object.keys(lastTimestamps).forEach(k => delete lastTimestamps[Number(k)])
-  jumpPageNumber.value = 1
-
-  await fetchPage(1)
-}
 
 // --- Tag management ---
 const newTags = reactive<Record<string, string>>({})
 
-const onAddTag = async (id: string, tag: string) => {
-  if (!tag) return
+// --- Pagination / Infinite scroll ---
+const loading = ref(false)
+const hasMore = ref(true)
+const lastTimestamp = ref<number | null>(null)
+const pageSize = 20
+
+// --- Expanded JSON tracker ---
+const expanded = reactive<Record<string, boolean>>({})
+
+// --- Map action to icon ---
+const actionIconMap: Record<string, any> = {
+  transfer: ArrowRight,
+  mint: PlusCircle,
+  burn: Trash2,
+  approve: CheckCircle,
+  error: AlertCircle,
+}
+
+// --- Load next page ---
+const loadNextPage = async () => {
+  if (loading.value || !hasMore.value) return
+  loading.value = true
   try {
-    await addTag(id, tag)
-    addToast(`Tag "${tag}" added`, 'success')
-    newTags[id] = ''
-  } catch {
-    addToast('Failed to add tag', 'error')
+    const res = await fetchActivities(
+      {
+        account: accountFilter.value || null,
+        txHash: txHashFilter.value || null,
+        contractAddress: contractFilter.value || null,
+        tags: tagsFilter.value ? tagsFilter.value.split(',').map(t => t.trim()) : [],
+        limit: pageSize,
+      },
+      lastTimestamp.value
+    )
+
+    if (res.data.length < pageSize) hasMore.value = false
+    if (res.data.length) {
+      lastTimestamp.value = res.data[res.data.length - 1]?.timestamp || null
+      activities.value.push(...res.data)
+    }
+  } finally {
+    loading.value = false
   }
 }
 
-const onRemoveTag = async (id: string, tag: string) => {
-  try {
-    await removeTag(id, tag)
-    addToast(`Tag "${tag}" removed`, 'info')
-  } catch {
-    addToast('Failed to remove tag', 'error')
-  }
+// --- Apply filters ---
+const applyFilters = async () => {
+  lastTimestamp.value = null
+  hasMore.value = true
+  activities.value = []
+  await loadNextPage()
+}
+
+// --- Toggle JSON expand ---
+const toggleExpand = (id: string) => {
+  expanded[id] = !expanded[id]
 }
 
 // --- Initial fetch ---
-onMounted(async () => {
-  await fetchPage(1)
-})
+onMounted(() => loadNextPage())
 </script>
 
 <template>
   <div class="p-4 max-w-[95vw] mx-auto">
-    <h1 class="text-2xl font-bold mb-6">Aggregated Activity Logs</h1>
+    <h1 class="text-2xl font-bold mb-6 text-gray-900">Aggregated Activity Logs</h1>
 
     <!-- Filters -->
     <div class="mb-4 flex flex-wrap gap-3 items-end">
-      <input v-model="accountFilter" placeholder="Account" class="border px-3 py-2 rounded w-full md:w-auto" />
-      <input v-model="txHashFilter" placeholder="TxHash" class="border px-3 py-2 rounded w-full md:w-auto" />
-      <input v-model="contractFilter" placeholder="Contract Address" class="border px-3 py-2 rounded w-full md:w-auto" />
-      <input v-model="tagsFilter" placeholder="Tags (comma separated)" class="border px-3 py-2 rounded w-full md:w-auto" />
+      <input v-model="accountFilter" placeholder="Account" class="border border-gray-300 px-3 py-2 rounded w-full md:w-auto focus:ring-1 focus:ring-blue-500 focus:outline-none" />
+      <input v-model="txHashFilter" placeholder="TxHash" class="border border-gray-300 px-3 py-2 rounded w-full md:w-auto focus:ring-1 focus:ring-blue-500 focus:outline-none" />
+      <input v-model="contractFilter" placeholder="Contract Address" class="border border-gray-300 px-3 py-2 rounded w-full md:w-auto focus:ring-1 focus:ring-blue-500 focus:outline-none" />
+      <input v-model="tagsFilter" placeholder="Tags (comma separated)" class="border border-gray-300 px-3 py-2 rounded w-full md:w-auto focus:ring-1 focus:ring-blue-500 focus:outline-none" />
       <button @click="applyFilters" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition">Apply</button>
     </div>
 
-    <!-- Table -->
-    <div class="overflow-x-auto border rounded shadow-sm">
-      <table class="min-w-full divide-y divide-gray-200">
-        <thead class="bg-gray-100 sticky top-0 z-10">
-          <tr>
-            <th class="px-3 py-2 text-left text-sm font-medium text-gray-700">Account</th>
-            <th class="px-3 py-2 text-left text-sm font-medium text-gray-700">TxHash</th>
-            <th class="px-3 py-2 text-left text-sm font-medium text-gray-700">Contract</th>
-            <th class="px-3 py-2 text-left text-sm font-medium text-gray-700">Action</th>
-            <th class="px-3 py-2 text-left text-sm font-medium text-gray-700">Tags</th>
-            <th class="px-3 py-2 text-left text-sm font-medium text-gray-700">Timestamp</th>
-            <th class="px-3 py-2 text-left text-sm font-medium text-gray-700">Manage Tags</th>
-          </tr>
-        </thead>
-        <tbody class="bg-white divide-y divide-gray-200">
-          <tr v-if="loading">
-            <td colspan="7" class="text-center py-6 text-gray-500">
-              <span class="animate-pulse">Loading activities...</span>
-            </td>
-          </tr>
+    <!-- Timeline -->
+    <client-only>
+      <DynamicScroller
+        :items="activities"
+        class="timeline-list"
+        :minItemSize="140"
+        key-field="id"
+        @update="(visibleItems: any[]) => {
+          const lastVisible = visibleItems[visibleItems.length - 1]
+          if (lastVisible && lastVisible === activities[activities.length - 1]) loadNextPage()
+        }"
+      >
+        <template #default="{ item, index }">
+          <DynamicScrollerItem :item="item" :key="item.id" :active="true">
+            <div class="mb-4">
 
-          <tr v-for="act in activities" :key="act.id" class="hover:bg-gray-50 transition">
-            <td class="px-3 py-2 text-sm font-medium text-gray-800">{{ act.account }}</td>
-            <td class="px-3 py-2 text-sm text-gray-700 break-all">{{ act.txHash }}</td>
-            <td class="px-3 py-2 text-sm text-gray-700 break-all">{{ act.contractAddress }}</td>
-            <td class="px-3 py-2 text-sm text-gray-700">{{ act.action }}</td>
-            <td class="px-3 py-2 text-sm">
-              <span v-for="tag in act.tags" :key="tag" class="inline-flex items-center bg-blue-100 text-blue-800 rounded-full px-2 py-0.5 mr-1 text-xs font-medium">
-                {{ tag }}
-                <button @click="onRemoveTag(act.id, tag)" class="ml-1 text-red-500 hover:text-red-700">&times;</button>
-              </span>
-            </td>
-            <td class="px-3 py-2 text-sm text-gray-500">{{ new Date(act.timestamp).toLocaleString() }}</td>
-            <td class="px-3 py-2 flex gap-1">
-              <input v-model="newTags[act.id]" placeholder="Tag" class="border px-2 py-1 rounded text-xs w-16" />
-              <button @click="onAddTag(act.id, newTags[act.id] as string)" class="bg-green-500 text-white px-2 rounded text-xs hover:bg-green-600 transition">Add</button>
-            </td>
-          </tr>
+              <!-- Date header -->
+              <div
+                v-if="index === 0 || new Date(item.timestamp).toDateString() !== new Date(activities[index-1]!.timestamp).toDateString()"
+                class="bg-gray-100 text-gray-700 font-semibold px-3 py-1 rounded mb-2 sticky top-0 z-10"
+              >
+                {{ new Date(item.timestamp).toLocaleDateString() }}
+              </div>
 
-          <tr v-if="!loading && activities.length === 0">
-            <td colspan="7" class="text-center py-6 text-gray-400">
-              No activities found
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+              <!-- Activity card -->
+              <div class="flex flex-col md:flex-row justify-between border rounded-lg shadow-sm p-4 mb-3 hover:bg-gray-50 transition gap-4 w-full break-words">
 
-    <!-- Pagination -->
-    <div class="mt-4 flex flex-wrap justify-center items-center gap-3">
-      <button @click="prevPage" :disabled="currentPage === 1" class="px-4 py-2 border rounded hover:bg-gray-100 disabled:opacity-50 transition">Prev</button>
+                <!-- Left: Action + Timestamp + Icon -->
+                <div class="md:w-1/4 flex flex-col md:flex-row md:items-center md:gap-2">
+                  <component :is="actionIconMap[item.action] || CheckCircle" class="w-5 h-5 text-blue-500" />
+                  <div class="font-medium text-gray-800 text-base truncate">{{ item.action }}</div>
+                  <div class="text-gray-500 text-xs md:text-sm mt-1 md:mt-0 truncate">{{ new Date(item.timestamp).toLocaleString() }}</div>
+                </div>
 
-      <div class="flex items-center gap-2">
-        <span class="text-sm font-medium">Page</span>
-        <input type="number" min="1" v-model.number="jumpPageNumber" @keydown.enter="jumpToPageHandler" class="w-16 px-2 py-1 border rounded text-sm" />
-        <button @click="jumpToPageHandler" class="px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm transition">Go</button>
-        <button @click="jumpToLastPage" class="px-2 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-sm transition">Last</button>
-      </div>
+                <!-- Center: Details -->
+                <div class="md:w-1/2 flex flex-col md:flex-row md:gap-6 text-sm text-gray-700 break-words">
+                  <div class="truncate"><span class="font-semibold">Account:</span> {{ item.account }}</div>
+                  <div class="truncate"><span class="font-semibold">TxHash:</span> {{ item.txHash }}</div>
+                  <div class="truncate"><span class="font-semibold">Contract:</span> {{ item.contractAddress }}</div>
+                </div>
 
-      <span class="text-sm font-medium">Current: {{ currentPage }}</span>
+                <!-- Right: Tags + Expand JSON -->
+                <div class="md:w-1/4 flex flex-col gap-2 min-w-[120px]">
+                  <div class="flex flex-wrap gap-2">
+                    <span
+                      v-for="tag in item.tags"
+                      :key="tag"
+                      class="inline-flex items-center bg-blue-100 text-blue-800 rounded-full px-2 py-0.5 text-xs font-medium"
+                    >
+                      {{ tag }}
+                      <button @click="removeTag(item.id, tag)" class="ml-1 text-red-500">&times;</button>
+                    </span>
+                  </div>
+                  <div class="flex gap-2 mt-1">
+                    <input v-model="newTags[item.id]" placeholder="Tag" class="border border-gray-300 px-2 py-1 rounded text-xs flex-1 focus:ring-1 focus:ring-green-400 focus:outline-none" />
+                    <button
+                      @click="addTag(item.id, newTags[item.id] as string)"
+                      class="bg-green-500 text-white px-2 py-1 rounded text-xs hover:bg-green-600 transition"
+                    >
+                      Add
+                    </button>
+                  </div>
+                  <button @click="toggleExpand(item.id)" class="text-blue-500 text-xs mt-1 hover:underline">
+                    {{ expanded[item.id] ? 'Hide JSON' : 'Show JSON' }}
+                  </button>
+                  <pre v-if="expanded[item.id]" class="bg-gray-50 p-2 mt-1 overflow-x-auto text-xs rounded">
+{{ JSON.stringify(item, null, 2) }}
+                  </pre>
+                </div>
 
-      <button @click="nextPage" :disabled="activities.length < pageSize" class="px-4 py-2 border rounded hover:bg-gray-100 disabled:opacity-50 transition">Next</button>
-    </div>
+              </div>
+            </div>
+          </DynamicScrollerItem>
+        </template>
+      </DynamicScroller>
+
+      <div v-if="loading" class="text-center text-gray-500 mt-2">Loading more...</div>
+      <div v-if="!hasMore && activities.length" class="text-center text-gray-400 mt-2">No more activities</div>
+      <div v-if="!activities.length && !loading" class="text-center text-gray-400 mt-2">No activities found</div>
+    </client-only>
   </div>
 </template>
+
+<style scoped>
+.timeline-list {
+  max-height: 80vh;
+  overflow-y: auto;
+}
+</style>
