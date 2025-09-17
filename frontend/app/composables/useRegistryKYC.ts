@@ -83,7 +83,7 @@ export function useRegistry() {
         fileHash: string
       }
 
-      await addActivityLog(account.value, {
+      await addActivityLog(account.value as `0x${string}`, {
         type: 'onChain',
         action: 'mintKYC',
         txHash: txHash as `0x${string}`,

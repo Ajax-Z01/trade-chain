@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { reactive, ref, onMounted, computed } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useAggregatedActivity } from '~/composables/useAggregatedActivity'
 import { useToast } from '~/composables/useToast'
 import { DynamicScroller, DynamicScrollerItem } from 'vue-virtual-scroller'
@@ -7,7 +7,14 @@ import 'vue-virtual-scroller/dist/vue-virtual-scroller.css'
 import { CheckCircle, ArrowRight, PlusCircle, Trash2, AlertCircle } from 'lucide-vue-next'
 
 // --- Composables ---
-const { activities, fetchActivities, addTag, removeTag } = useAggregatedActivity()
+const {
+  activities,
+  loading,
+  lastTimestamp,
+  fetchActivities,
+  addTag,
+  removeTag
+} = useAggregatedActivity()
 const { addToast } = useToast()
 
 // --- Filters ---
@@ -20,9 +27,7 @@ const tagsFilter = ref('')
 const newTags = reactive<Record<string, string>>({})
 
 // --- Pagination / Infinite scroll ---
-const loading = ref(false)
 const hasMore = ref(true)
-const lastTimestamp = ref<number | null>(null)
 const pageSize = 20
 
 // --- Expanded JSON tracker ---
@@ -37,10 +42,14 @@ const actionIconMap: Record<string, any> = {
   error: AlertCircle,
 }
 
+// --- Scroller ref ---
+const scroller = ref<any>(null)
+
 // --- Load next page ---
-const loadNextPage = async () => {
+const loadNextPage = async (isFilterReset = false) => {
   if (loading.value || !hasMore.value) return
   loading.value = true
+
   try {
     const res = await fetchActivities(
       {
@@ -50,14 +59,22 @@ const loadNextPage = async () => {
         tags: tagsFilter.value ? tagsFilter.value.split(',').map(t => t.trim()) : [],
         limit: pageSize,
       },
-      lastTimestamp.value
+      isFilterReset ? null : lastTimestamp.value
     )
 
-    if (res.data.length < pageSize) hasMore.value = false
-    if (res.data.length) {
-      lastTimestamp.value = res.data[res.data.length - 1]?.timestamp || null
+    if (isFilterReset) {
+      // Filter baru → replace list
+      activities.value = res.data
+    } else {
+      // Infinite scroll → append
       activities.value.push(...res.data)
     }
+
+    lastTimestamp.value = res.nextStartAfterTimestamp
+    if (!res.nextStartAfterTimestamp || res.data.length < pageSize) hasMore.value = false
+  } catch (err: any) {
+    addToast('error', err.message || 'Unknown error')
+    hasMore.value = false
   } finally {
     loading.value = false
   }
@@ -65,15 +82,47 @@ const loadNextPage = async () => {
 
 // --- Apply filters ---
 const applyFilters = async () => {
-  lastTimestamp.value = null
+  // Reset pagination & list
   hasMore.value = true
+  lastTimestamp.value = null
   activities.value = []
-  await loadNextPage()
+
+  // Load first page dengan filter baru
+  await loadNextPage(true)
+}
+
+// --- Scroll handler for infinite scroll ---
+const onScroll = () => {
+  if (!scroller.value) return
+  const el = scroller.value.$el as HTMLElement
+  const scrollBottom = el.scrollTop + el.clientHeight
+  const threshold = el.scrollHeight - 50
+  if (scrollBottom >= threshold) loadNextPage()
 }
 
 // --- Toggle JSON expand ---
 const toggleExpand = (id: string) => {
   expanded[id] = !expanded[id]
+}
+
+const handleAddTag = async (id: string, tag: string) => {
+  if (!tag) return
+  try {
+    await addTag(id, tag)
+    newTags[id] = ''
+    addToast(`Tag "${tag}" added!`, 'success')
+  } catch (err: any) {
+    addToast(err.message || 'Failed to add tag', 'error')
+  }
+}
+
+const handleRemoveTag = async (id: string, tag: string) => {
+  try {
+    await removeTag(id, tag)
+    addToast(`Tag "${tag}" removed!`, 'success')
+  } catch (err: any) {
+    addToast(err.message || 'Failed to remove tag', 'error')
+  }
 }
 
 // --- Initial fetch ---
@@ -96,14 +145,12 @@ onMounted(() => loadNextPage())
     <!-- Timeline -->
     <client-only>
       <DynamicScroller
+        ref="scroller"
         :items="activities"
         class="timeline-list"
         :minItemSize="140"
         key-field="id"
-        @update="(visibleItems: any[]) => {
-          const lastVisible = visibleItems[visibleItems.length - 1]
-          if (lastVisible && lastVisible === activities[activities.length - 1]) loadNextPage()
-        }"
+        @scroll="onScroll"
       >
         <template #default="{ item, index }">
           <DynamicScrollerItem :item="item" :key="item.id" :active="true">
@@ -111,31 +158,33 @@ onMounted(() => loadNextPage())
 
               <!-- Date header -->
               <div
-                v-if="index === 0 || new Date(item.timestamp).toDateString() !== new Date(activities[index-1]!.timestamp).toDateString()"
+                v-if="index === 0 || new Date(item.timestamp).toDateString() !== new Date(activities[index-1]?.timestamp ?? 0).toDateString()"
                 class="bg-gray-100 text-gray-700 font-semibold px-3 py-1 rounded mb-2 sticky top-0 z-10"
               >
                 {{ new Date(item.timestamp).toLocaleDateString() }}
               </div>
 
-              <!-- Activity card -->
-              <div class="flex flex-col md:flex-row justify-between border rounded-lg shadow-sm p-4 mb-3 hover:bg-gray-50 transition gap-4 w-full break-words">
+              <!-- Activity card (grid layout) -->
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-4 border rounded-lg shadow-sm p-4 mb-3 hover:bg-gray-50 transition break-words">
 
                 <!-- Left: Action + Timestamp + Icon -->
-                <div class="md:w-1/4 flex flex-col md:flex-row md:items-center md:gap-2">
+                <div class="flex items-center gap-2">
                   <component :is="actionIconMap[item.action] || CheckCircle" class="w-5 h-5 text-blue-500" />
-                  <div class="font-medium text-gray-800 text-base truncate">{{ item.action }}</div>
-                  <div class="text-gray-500 text-xs md:text-sm mt-1 md:mt-0 truncate">{{ new Date(item.timestamp).toLocaleString() }}</div>
+                  <div class="flex flex-col">
+                    <div class="font-medium text-gray-800 text-base truncate">{{ item.action }}</div>
+                    <div class="text-gray-500 text-xs md:text-sm mt-1 truncate">{{ new Date(item.timestamp).toLocaleString() }}</div>
+                  </div>
                 </div>
 
                 <!-- Center: Details -->
-                <div class="md:w-1/2 flex flex-col md:flex-row md:gap-6 text-sm text-gray-700 break-words">
-                  <div class="truncate"><span class="font-semibold">Account:</span> {{ item.account }}</div>
-                  <div class="truncate"><span class="font-semibold">TxHash:</span> {{ item.txHash }}</div>
-                  <div class="truncate"><span class="font-semibold">Contract:</span> {{ item.contractAddress }}</div>
+                <div class="flex flex-col gap-2 text-sm text-gray-700 break-words">
+                  <div><span class="font-semibold">Account:</span> {{ item.account || '-' }}</div>
+                  <div><span class="font-semibold">TxHash:</span> {{ item.txHash || '-' }}</div>
+                  <div><span class="font-semibold">Contract:</span> {{ item.contractAddress || '-' }}</div>
                 </div>
 
                 <!-- Right: Tags + Expand JSON -->
-                <div class="md:w-1/4 flex flex-col gap-2 min-w-[120px]">
+                <div class="flex flex-col gap-2 min-w-[140px]">
                   <div class="flex flex-wrap gap-2">
                     <span
                       v-for="tag in item.tags"
@@ -143,13 +192,13 @@ onMounted(() => loadNextPage())
                       class="inline-flex items-center bg-blue-100 text-blue-800 rounded-full px-2 py-0.5 text-xs font-medium"
                     >
                       {{ tag }}
-                      <button @click="removeTag(item.id, tag)" class="ml-1 text-red-500">&times;</button>
+                      <button @click="handleRemoveTag(item.id, tag)" class="ml-1 text-red-500">&times;</button>
                     </span>
                   </div>
                   <div class="flex gap-2 mt-1">
                     <input v-model="newTags[item.id]" placeholder="Tag" class="border border-gray-300 px-2 py-1 rounded text-xs flex-1 focus:ring-1 focus:ring-green-400 focus:outline-none" />
                     <button
-                      @click="addTag(item.id, newTags[item.id] as string)"
+                      @click="handleAddTag(item.id, newTags[item.id] as string)"
                       class="bg-green-500 text-white px-2 py-1 rounded text-xs hover:bg-green-600 transition"
                     >
                       Add

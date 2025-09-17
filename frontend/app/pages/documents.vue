@@ -6,6 +6,7 @@ import { useStorage } from '~/composables/useStorage'
 import { useRegistryDocument } from '~/composables/useRegistryDocument'
 import { useContractActions } from '~/composables/useContractActions'
 import type { Document as DocType } from '~/types/Document'
+import DocumentViewer from '~/components/DocumentViewer.vue'
 
 // Lucide icons
 import { Loader2, FileUp } from 'lucide-vue-next'
@@ -40,6 +41,18 @@ const success = ref<string | null>(null)
 const minterAddress = ref<string>('')
 const mintingMinter = ref(false)
 const minterFeedback = ref<string | null>(null)
+
+const showViewer = ref(false)
+const selectedDocSrc = ref<string | null>(null)
+
+const selectedDoc = ref<DocType | null>(null)
+
+const openViewer = (doc: DocType) => {
+  selectedDoc.value = doc
+  selectedDocSrc.value = doc.uri
+  showViewer.value = true
+}
+
 
 // --- Helpers
 const getContractRoles = async (contract: string) => {
@@ -301,19 +314,34 @@ const handleRemoveMinter = async () => {
           :key="doc.tokenId"
           class="p-3 border rounded-lg bg-gray-50 flex items-center gap-4"
         >
-          <div class="w-16 h-16 flex items-center justify-center border rounded bg-white overflow-hidden">
-            <img v-if="doc.uri.match(/\.(png|jpg|jpeg|webp)$/i)" :src="doc.uri" alt="preview" class="object-cover w-full h-full" />
-            <embed v-else-if="doc.uri.endsWith('.pdf')" :src="doc.uri" type="application/pdf" class="w-full h-full" />
-            <FileUp v-else class="w-6 h-6 text-gray-400" />
+          <div
+            class="w-16 h-16 flex items-center justify-center border rounded bg-white overflow-hidden cursor-pointer"
+            @click="openViewer(doc)"
+          >
+            <!-- Thumbnail: kalau image tampilkan, selainnya ikon -->
+            <img v-if="doc.uri.match(/\.(png|jpg|jpeg|webp)$/i)" :src="doc.uri" class="object-cover w-full h-full" />
+            <span v-else class="text-gray-400">📄</span>
           </div>
+
           <div class="flex-1">
             <p class="font-medium">{{ doc.name }}</p>
             <p class="text-xs text-gray-500">{{ doc.docType }}</p>
           </div>
+
           <a :href="doc.uri" target="_blank" class="text-blue-600 underline">View</a>
         </li>
       </ul>
       <div v-else class="text-gray-500 text-sm">No documents attached yet.</div>
+
+      <!-- Document Viewer Modal -->
+      <DocumentViewer
+        v-if="selectedDocSrc"
+        v-model="showViewer"
+        :src="selectedDocSrc"
+        :name="selectedDoc?.name"
+        :tokenId="selectedDoc?.tokenId"
+        :hash="selectedDoc?.fileHash"
+      />
     </div>
 
     <!-- Minter Management -->

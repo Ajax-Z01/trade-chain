@@ -43,17 +43,35 @@ export default {
     tags?: string[]
     limit?: number
     startAfterTimestamp?: number
-  }): Promise<AggregatedActivityLog[]> => {
-    let query: FirebaseFirestore.Query = collection.orderBy('timestamp', 'desc')
+  }): Promise<{ data: AggregatedActivityLog[]; nextStartAfterTimestamp: number | null }> => {
+    let query: FirebaseFirestore.Query = collection.orderBy('timestamp', 'desc');
 
-    if (filter?.account) query = query.where('accountLower', '==', filter.account.toLowerCase())
-    if (filter?.txHash) query = query.where('txHashLower', '==', filter.txHash.toLowerCase())
-    if (filter?.contractAddress) query = query.where('contractLower', '==', filter.contractAddress.toLowerCase())
-    if (filter?.startAfterTimestamp) query = query.startAfter(filter.startAfterTimestamp)
-    if (filter?.limit) query = query.limit(filter.limit)
+    if (filter?.account) query = query.where('accountLower', '==', filter.account.toLowerCase());
+    if (filter?.txHash) query = query.where('txHashLower', '==', filter.txHash.toLowerCase());
+    if (filter?.contractAddress) query = query.where('contractLower', '==', filter.contractAddress.toLowerCase());
 
-    const snapshot = await query.get()
-    return snapshot.docs.map(doc => doc.data() as AggregatedActivityLog)
+    // Ambil data berdasarkan tag pertama saja
+    if (filter?.tags?.length) {
+      query = query.where('tags', 'array-contains', filter.tags[0]);
+    }
+
+    if (filter?.startAfterTimestamp) {
+      query = query.startAfter(filter.startAfterTimestamp);
+    }
+
+    if (filter?.limit) query = query.limit(filter.limit);
+
+    const snapshot = await query.get();
+    let data = snapshot.docs.map(doc => doc.data() as AggregatedActivityLog);
+
+    // Filter tambahan untuk AND tags
+    if (filter?.tags?.length && filter.tags.length > 1) {
+      data = data.filter(log => filter.tags!.every(tag => log.tags!.includes(tag)));
+    }
+
+    const nextStartAfterTimestamp = data.length ? data[data.length - 1].timestamp : null;
+
+    return { data, nextStartAfterTimestamp };
   },
 
   addTag: async (id: string, tag: string) => {

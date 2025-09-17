@@ -30,14 +30,14 @@ export const getAggregatedActivities = async (req: Request, res: Response) => {
       txHash: req.query.txHash as string | undefined,
       contractAddress: req.query.contractAddress as string | undefined,
       tags: req.query.tags ? (req.query.tags as string).split(',') : undefined,
-      limit: req.query.limit ? parseInt(req.query.limit as string) : undefined,
+      limit: req.query.limit ? parseInt(req.query.limit as string) : 20,
       startAfterTimestamp: req.query.startAfterTimestamp
         ? parseInt(req.query.startAfterTimestamp as string)
         : undefined,
     }
 
-    const logs = await aggregatedActivityModel.getAll(filter)
-    res.json(logs)
+    const result = await aggregatedActivityModel.getAll(filter)
+    res.json(result)
   } catch (err: any) {
     res.status(400).json({ error: err.message })
   }

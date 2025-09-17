@@ -57,6 +57,7 @@ export function useActivityLogs() {
     try {
       // Backend yang handle timestamp, aggregated, lowercase, tags
       const payload = { ...log, account }
+      console.log('Adding activity log:', payload)
       const res = await fetch(`${config.public.apiBase}/activity`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

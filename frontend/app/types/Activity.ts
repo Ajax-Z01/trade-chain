@@ -1,4 +1,3 @@
-// types/Activity.ts
 export interface ActivityLog {
   timestamp: number
   type: 'onChain' | 'backend'

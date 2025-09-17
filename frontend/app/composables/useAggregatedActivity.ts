@@ -16,6 +16,14 @@ export function useAggregatedActivity() {
     onChainInfo?: Record<string, any>
   }
 
+  interface AggregatedFilters {
+    account?: string | null
+    txHash?: string | null
+    contractAddress?: string | null
+    tags?: string[]
+    limit?: number
+  }
+
   interface FetchActivitiesResult {
     data: ActivityItem[]
     nextStartAfterTimestamp: number | null
@@ -28,41 +36,32 @@ export function useAggregatedActivity() {
   const totalCount = ref(0)
   const lastTimestamp = ref<number | null>(null)
 
-  const filters = reactive({
-    account: null as string | null,
-    txHash: null as string | null,
-    contractAddress: null as string | null,
-    tags: [] as string[],
+  const filters = reactive<AggregatedFilters>({
+    account: null,
+    txHash: null,
+    contractAddress: null,
+    tags: [],
     limit: 20,
   })
 
   const { $apiBase } = useNuxtApp()
 
-  type AggregatedFilters = {
-    account: string | null
-    txHash: string | null
-    contractAddress: string | null
-    tags: string[]
-    offset: number
-    limit: number
-  }
-
-  // --- Fetch aggregated activities ---
+  // --- Fetch activities with filters & pagination ---
   const fetchActivities = async (
     customFilters?: Partial<AggregatedFilters>,
     startAfterTimestamp?: number | null
   ): Promise<FetchActivitiesResult> => {
     loading.value = true
-    if (!startAfterTimestamp) activities.value = []
     error.value = null
+    if (!startAfterTimestamp) activities.value = []
 
     try {
       const combinedFilters = { ...filters, ...customFilters }
 
       const queryParams: Record<string, string> = {}
-      Object.entries(combinedFilters).forEach(([k, v]) => {
-        if (v === null || v === '' || (Array.isArray(v) && v.length === 0)) return
-        queryParams[k] = Array.isArray(v) ? v.join(',') : String(v)
+      Object.entries(combinedFilters).forEach(([key, value]) => {
+        if (value === null || value === '' || (Array.isArray(value) && value.length === 0)) return
+        queryParams[key] = Array.isArray(value) ? value.join(',') : String(value)
       })
 
       if (startAfterTimestamp) queryParams['startAfterTimestamp'] = String(startAfterTimestamp)
@@ -71,17 +70,19 @@ export function useAggregatedActivity() {
       const res = await fetch(`${$apiBase}/aggregated?${query}`)
       if (!res.ok) throw new Error(await res.text())
 
-      const data: FetchActivitiesResult = await res.json()
+      const resJson = (await res.json()) as FetchActivitiesResult
+      const { data, nextStartAfterTimestamp } = resJson
 
       if (startAfterTimestamp) {
-        activities.value.push(...data.data)
+        activities.value.push(...data)
       } else {
-        activities.value = data.data
+        activities.value = data
       }
 
-      lastTimestamp.value = data.nextStartAfterTimestamp
+      lastTimestamp.value = nextStartAfterTimestamp
       totalCount.value = activities.value.length
-      return data
+
+      return { data, nextStartAfterTimestamp }
     } catch (err: any) {
       error.value = err.message
       console.error('Error fetching aggregated activities:', err)
@@ -92,13 +93,13 @@ export function useAggregatedActivity() {
   }
 
   // --- Fetch single activity by ID ---
-  const fetchActivityById = async (id: string) => {
+  const fetchActivityById = async (id: string): Promise<ActivityItem | null> => {
     loading.value = true
     error.value = null
     try {
       const res = await fetch(`${$apiBase}/aggregated/${id}`)
       if (!res.ok) throw new Error(await res.text())
-      const data = await res.json()
+      const data = (await res.json()) as ActivityItem
       return { ...data, tags: data.tags || [] }
     } catch (err: any) {
       error.value = err.message
@@ -109,7 +110,7 @@ export function useAggregatedActivity() {
     }
   }
 
-  // --- Add tag ---
+  // --- Add tag to activity ---
   const addTag = async (id: string, tag: string) => {
     if (!tag) return
     try {
@@ -131,7 +132,7 @@ export function useAggregatedActivity() {
     }
   }
 
-  // --- Remove tag ---
+  // --- Remove tag from activity ---
   const removeTag = async (id: string, tag: string) => {
     if (!tag) return
     try {
@@ -142,7 +143,7 @@ export function useAggregatedActivity() {
 
       const activity = activities.value.find(a => a.id === id)
       if (activity && activity.tags) {
-        activity.tags = activity.tags.filter((t: string) => t !== tag)
+        activity.tags = activity.tags.filter(t => t !== tag)
       }
     } catch (err: any) {
       console.error('Failed to remove tag:', err)
@@ -150,13 +151,14 @@ export function useAggregatedActivity() {
     }
   }
 
-  // --- Reset filters ---
+  // --- Reset all filters ---
   const resetFilters = () => {
     filters.account = null
     filters.txHash = null
     filters.contractAddress = null
     filters.tags = []
     filters.limit = 20
+    lastTimestamp.value = null
   }
 
   return {

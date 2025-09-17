@@ -4,10 +4,9 @@ import documentRegistryArtifact from '../../../artifacts/contracts/DocumentRegis
 import { Chain } from '../config/chain'
 import { useWallet } from '~/composables/useWallets'
 import { useActivityLogs } from '~/composables/useActivityLogs'
-import type { MintResult } from '~/types/Mint'
 import { useStorage } from '~/composables/useStorage'
+import type { MintResult } from '~/types/Mint'
 
-const { uploadToLocal } = useStorage()
 const { abi } = documentRegistryArtifact
 const documentRegistryAddress = '0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0' as `0x${string}`
 
@@ -19,8 +18,11 @@ const publicClient = createPublicClient({
 export function useRegistryDocument() {
   const { account, walletClient } = useWallet()
   const { addActivityLog } = useActivityLogs()
+  const { uploadToLocal } = useStorage()
+
   const minting = ref(false)
 
+  // --- Get tokenId by file hash ---
   const getTokenIdByHash = async (fileHash: string) => {
     try {
       const tokenId = await publicClient.readContract({
@@ -36,16 +38,19 @@ export function useRegistryDocument() {
     }
   }
 
+  // --- Mint document ---
   const mintDocument = async (to: `0x${string}`, file: File, docType: string): Promise<MintResult> => {
     if (!walletClient.value || !account.value) throw new Error('Wallet not connected')
     minting.value = true
 
     try {
+      // Hash file
       const arrayBuffer = await file.arrayBuffer()
       const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer)
       const hashArray = Array.from(new Uint8Array(hashBuffer))
       const fileHash = '0x' + hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
 
+      // Prepare metadata
       const metadata = {
         name: file.name,
         description: `Verified document ${file.name}`,
@@ -54,11 +59,11 @@ export function useRegistryDocument() {
           { trait_type: 'DocType', value: docType },
         ],
       }
-
       const metadataBlob = new Blob([JSON.stringify(metadata)], { type: 'application/json' })
       const metadataFile = new File([metadataBlob], `${file.name}.json`, { type: 'application/json' })
       const metadataUrl = await uploadToLocal(metadataFile, account.value)
 
+      // Mint via contract
       const txHash = await walletClient.value.writeContract({
         address: documentRegistryAddress,
         abi,
@@ -73,7 +78,7 @@ export function useRegistryDocument() {
       const blockNumber = Number(receipt.blockNumber)
       const confirmations = latestBlock - blockNumber + 1
 
-      // --- Add activity log
+      // Add activity log
       await addActivityLog(account.value, {
         type: 'onChain',
         action: 'mintDocument',
@@ -88,11 +93,9 @@ export function useRegistryDocument() {
         tags: ['Document', 'mint'],
       })
 
-      const eventLog = receipt.logs.find(
-        log => log.address === documentRegistryAddress
-      )
+      // Decode tokenId
+      const eventLog = receipt.logs.find(log => log.address === documentRegistryAddress)
       if (!eventLog) throw new Error('No DocumentVerified event found')
-
       const decodedRaw = decodeEventLog({ abi, data: eventLog.data, topics: eventLog.topics }) as unknown
       const decodedArgs = (decodedRaw as { args: any }).args as { owner: `0x${string}`, tokenId: bigint, fileHash: string, docType: string }
 
@@ -105,9 +108,9 @@ export function useRegistryDocument() {
     }
   }
 
+  // --- Minter management ---
   const addMinter = async (newMinter: `0x${string}`) => {
     if (!walletClient.value || !account.value) throw new Error('Wallet not connected')
-
     const txHash = await walletClient.value.writeContract({
       address: documentRegistryAddress,
       abi,
@@ -116,7 +119,6 @@ export function useRegistryDocument() {
       account: account.value as `0x${string}`,
       chain: Chain,
     })
-
     const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash as `0x${string}` })
     const latestBlock = Number(await publicClient.getBlockNumber())
     const blockNumber = Number(receipt.blockNumber)
@@ -128,11 +130,7 @@ export function useRegistryDocument() {
       txHash: txHash as `0x${string}`,
       contractAddress: documentRegistryAddress,
       extra: { newMinter },
-      onChainInfo: {
-        status: receipt.status === 'success' ? 'success' : 'failed',
-        blockNumber,
-        confirmations,
-      },
+      onChainInfo: { status: receipt.status === 'success' ? 'success' : 'failed', blockNumber, confirmations },
       tags: ['Document', 'add', 'minter'],
     })
 
@@ -141,7 +139,6 @@ export function useRegistryDocument() {
 
   const removeMinter = async (minter: `0x${string}`) => {
     if (!walletClient.value || !account.value) throw new Error('Wallet not connected')
-
     const txHash = await walletClient.value.writeContract({
       address: documentRegistryAddress,
       abi,
@@ -150,7 +147,6 @@ export function useRegistryDocument() {
       account: account.value as `0x${string}`,
       chain: Chain,
     })
-
     const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash as `0x${string}` })
     const latestBlock = Number(await publicClient.getBlockNumber())
     const blockNumber = Number(receipt.blockNumber)
@@ -162,12 +158,8 @@ export function useRegistryDocument() {
       txHash: txHash as `0x${string}`,
       contractAddress: documentRegistryAddress,
       extra: { minter },
-      onChainInfo: {
-        status: receipt.status === 'success' ? 'success' : 'failed',
-        blockNumber,
-        confirmations,
-      },
-      tags: ['KYC', 'remove', 'minter'],
+      onChainInfo: { status: receipt.status === 'success' ? 'success' : 'failed', blockNumber, confirmations },
+      tags: ['Document', 'remove', 'minter'],
     })
 
     return receipt
@@ -199,5 +191,13 @@ export function useRegistryDocument() {
     }
   }
 
-  return { mintDocument, getTokenIdByHash, minting, addMinter, removeMinter, isMinter, quickCheckNFT }
+  return {
+    mintDocument,
+    getTokenIdByHash,
+    minting,
+    addMinter,
+    removeMinter,
+    isMinter,
+    quickCheckNFT,
+  }
 }
