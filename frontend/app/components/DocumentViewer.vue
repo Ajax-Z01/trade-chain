@@ -23,7 +23,6 @@ const { addToast } = useToast()
 // --- State ---
 const zoom = ref(1)
 const rotation = ref(0)
-const loading = ref(false)
 
 // --- File type detection ---
 const fileType = computed<"pdf" | "image" | "other">(() => {
@@ -100,25 +99,25 @@ const copyToClipboard = (text: string | number | undefined, label?: string) => {
 
     <!-- Controls -->
     <div class="flex gap-2 mb-2">
-      <button class="p-2 bg-white rounded-full hover:bg-gray-200" @click="zoomIn" title="Zoom In">
+      <button title="Zoom In" class="p-2 bg-white rounded-full hover:bg-gray-200" @click="zoomIn">
         <ZoomIn class="w-5 h-5" />
       </button>
-      <button class="p-2 bg-white rounded-full hover:bg-gray-200" @click="zoomOut" title="Zoom Out">
+      <button title="Zoom Out" class="p-2 bg-white rounded-full hover:bg-gray-200" @click="zoomOut">
         <ZoomOut class="w-5 h-5" />
       </button>
-      <button class="p-2 bg-white rounded-full hover:bg-gray-200" @click="rotate" title="Rotate 90°">
+      <button title="Rotate 90°" class="p-2 bg-white rounded-full hover:bg-gray-200" @click="rotate">
         <RotateCw class="w-5 h-5" />
       </button>
-      <button class="p-2 bg-white rounded-full hover:bg-gray-200" @click="download" title="Download File">
+      <button title="Download File" class="p-2 bg-white rounded-full hover:bg-gray-200" @click="download">
         <Download class="w-5 h-5" />
       </button>
-      <button class="p-2 bg-white rounded-full hover:bg-gray-200" @click="copyToClipboard(props.tokenId, 'TokenID')" title="Copy TokenID">
+      <button title="Copy TokenID" class="p-2 bg-white rounded-full hover:bg-gray-200" @click="copyToClipboard(props.tokenId, 'TokenID')">
         <Copy class="w-5 h-5" />
       </button>
-      <button class="p-2 bg-white rounded-full hover:bg-gray-200" @click="copyToClipboard(props.hash, 'File Hash')" title="Copy File Hash">
+      <button title="Copy File Hash" class="p-2 bg-white rounded-full hover:bg-gray-200" @click="copyToClipboard(props.hash, 'File Hash')">
         <Copy class="w-5 h-5" />
       </button>
-      <button class="p-2 bg-white rounded-full hover:bg-gray-200" @click="copyToClipboard(props.name, 'File Name')" title="Copy File Name">
+      <button title="Copy File Name" class="p-2 bg-white rounded-full hover:bg-gray-200" @click="copyToClipboard(props.name, 'File Name')">
         <Copy class="w-5 h-5" />
       </button>
     </div>

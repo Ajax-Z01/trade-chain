@@ -339,7 +339,7 @@ const handleRemoveMinter = async () => {
         v-model="showViewer"
         :src="selectedDocSrc"
         :name="selectedDoc?.name"
-        :tokenId="selectedDoc?.tokenId"
+        :token-id="selectedDoc?.tokenId"
         :hash="selectedDoc?.fileHash"
       />
     </div>

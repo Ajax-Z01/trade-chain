@@ -139,7 +139,7 @@ onMounted(() => loadNextPage())
       <input v-model="txHashFilter" placeholder="TxHash" class="border border-gray-300 px-3 py-2 rounded w-full md:w-auto focus:ring-1 focus:ring-blue-500 focus:outline-none" />
       <input v-model="contractFilter" placeholder="Contract Address" class="border border-gray-300 px-3 py-2 rounded w-full md:w-auto focus:ring-1 focus:ring-blue-500 focus:outline-none" />
       <input v-model="tagsFilter" placeholder="Tags (comma separated)" class="border border-gray-300 px-3 py-2 rounded w-full md:w-auto focus:ring-1 focus:ring-blue-500 focus:outline-none" />
-      <button @click="applyFilters" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition">Apply</button>
+      <button class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition" @click="applyFilters">Apply</button>
     </div>
 
     <!-- Timeline -->
@@ -148,12 +148,12 @@ onMounted(() => loadNextPage())
         ref="scroller"
         :items="activities"
         class="timeline-list"
-        :minItemSize="140"
+        :min-item-size="140"
         key-field="id"
         @scroll="onScroll"
       >
         <template #default="{ item, index }">
-          <DynamicScrollerItem :item="item" :key="item.id" :active="true">
+          <DynamicScrollerItem :key="item.id" :item="item" :active="true">
             <div class="mb-4">
 
               <!-- Date header -->
@@ -192,19 +192,19 @@ onMounted(() => loadNextPage())
                       class="inline-flex items-center bg-blue-100 text-blue-800 rounded-full px-2 py-0.5 text-xs font-medium"
                     >
                       {{ tag }}
-                      <button @click="handleRemoveTag(item.id, tag)" class="ml-1 text-red-500">&times;</button>
+                      <button class="ml-1 text-red-500" @click="handleRemoveTag(item.id, tag)">&times;</button>
                     </span>
                   </div>
                   <div class="flex gap-2 mt-1">
                     <input v-model="newTags[item.id]" placeholder="Tag" class="border border-gray-300 px-2 py-1 rounded text-xs flex-1 focus:ring-1 focus:ring-green-400 focus:outline-none" />
                     <button
-                      @click="handleAddTag(item.id, newTags[item.id] as string)"
                       class="bg-green-500 text-white px-2 py-1 rounded text-xs hover:bg-green-600 transition"
+                      @click="handleAddTag(item.id, newTags[item.id] as string)"
                     >
                       Add
                     </button>
                   </div>
-                  <button @click="toggleExpand(item.id)" class="text-blue-500 text-xs mt-1 hover:underline">
+                  <button class="text-blue-500 text-xs mt-1 hover:underline" @click="toggleExpand(item.id)">
                     {{ expanded[item.id] ? 'Hide JSON' : 'Show JSON' }}
                   </button>
                   <pre v-if="expanded[item.id]" class="bg-gray-50 p-2 mt-1 overflow-x-auto text-xs rounded">

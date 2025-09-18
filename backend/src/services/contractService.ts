@@ -14,8 +14,8 @@ export const getContractRoles = async (contractAddress: string) => {
 
   if (!deployLog || !deployLog.extra) return { importer: "", exporter: "" }
 
-  let importer = deployLog.extra.importer || ""
-  let exporter = deployLog.extra.exporter || ""
+  const importer = deployLog.extra.importer || ""
+  const exporter = deployLog.extra.exporter || ""
 
   return { importer, exporter }
 }
