@@ -110,6 +110,8 @@ contract TradeAgreement {
 
     // ------------------ Deposit ------------------
     function deposit(uint256 _amount) external payable atStage(Stage.SignedByBoth) {
+        require(_amount >= requiredAmount, "amount too low");
+        
         if (token == address(0)) {
             // ETH
             require(msg.value == _amount, "Incorrect ETH amount");

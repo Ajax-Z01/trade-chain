@@ -80,7 +80,8 @@ const verifyAndMint = async () => {
 
     // --- 3. Upload file to IPFS
     const metadataUrl = await uploadToLocal(
-      selectedFile.value
+      selectedFile.value,
+      account.value
     )
 
     // --- 4. Mint NFT di smart contract
@@ -143,6 +144,8 @@ const handleRemoveMinter = async () => {
 
 <template>
   <div class="p-6 max-w-lg mx-auto space-y-6 bg-white rounded-xl shadow-lg">
+
+    <!-- Header -->
     <h2 class="text-2xl font-bold text-gray-800 flex items-center gap-2">
       <FileUp class="w-6 h-6" /> Document Verification & Minting
     </h2>
@@ -155,6 +158,14 @@ const handleRemoveMinter = async () => {
         class="block w-full text-sm text-gray-700 border border-gray-300 rounded-lg cursor-pointer focus:ring focus:ring-blue-200"
         @change="onFileChange"
       />
+
+      <!-- File Preview -->
+      <div v-if="selectedFile" class="flex items-center gap-3 mt-2 p-2 border rounded bg-gray-50">
+        <span class="text-gray-700">{{ selectedFile.name }}</span>
+        <span class="text-xs text-gray-500">{{ (selectedFile.size / 1024).toFixed(1) }} KB</span>
+      </div>
+
+      <!-- Attach / Mint Button -->
       <button
         class="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50"
         :disabled="!selectedFile || minting"
@@ -164,6 +175,19 @@ const handleRemoveMinter = async () => {
         <FileUp v-else class="w-4 h-4" />
         {{ minting ? 'Minting...' : 'Verify & Mint' }}
       </button>
+
+      <!-- Progress bar -->
+      <div v-if="minting" class="w-full h-2 bg-gray-200 rounded-full overflow-hidden mt-2">
+        <div class="h-2 bg-blue-600 animate-pulse w-2/5"></div>
+      </div>
+    </div>
+
+    <!-- Feedback -->
+    <div v-if="success" class="mt-2 p-3 flex items-center gap-2 border rounded bg-green-50 text-green-700">
+      <CheckCircle2 class="w-5 h-5" /> {{ success }}
+    </div>
+    <div v-if="error" class="mt-2 p-3 flex items-center gap-2 border rounded bg-red-50 text-red-700">
+      <XCircle class="w-5 h-5" /> {{ error }}
     </div>
 
     <!-- Manage Minters -->
@@ -197,41 +221,42 @@ const handleRemoveMinter = async () => {
       </div>
     </div>
 
-    <!-- Feedback -->
-    <div v-if="success" class="mt-4 p-3 flex items-center gap-2 border rounded bg-green-50 text-green-700">
-      <CheckCircle2 class="w-5 h-5" /> {{ success }}
-    </div>
-
-    <div v-if="error" class="mt-4 p-3 flex items-center gap-2 border rounded bg-red-50 text-red-700">
-      <XCircle class="w-5 h-5" /> {{ error }}
-    </div>
-
     <!-- Quick Check NFT -->
     <div class="border-t pt-4 space-y-3">
       <h3 class="font-semibold text-gray-800 flex items-center gap-2">
         <Search class="w-5 h-5" /> Quick Check NFT
       </h3>
-      <button
-        class="w-full bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50"
-        :disabled="!tokenId"
-        @click="checkNFT"
-      >
-        <Search class="w-4 h-4" /> Check NFT
-      </button>
+      <div class="flex gap-2">
+        <input
+          type="number"
+          v-model="tokenId"
+          placeholder="Enter token ID"
+          class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring focus:ring-blue-200"
+        />
+        <button
+          class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"
+          :disabled="!tokenId"
+          @click="checkNFT"
+        >
+          <Search class="w-4 h-4" /> Check
+        </button>
+      </div>
 
-      <div
-        v-if="tokenId && nftInfo"
-        class="p-4 rounded-lg bg-blue-50 border border-blue-200 text-blue-800 space-y-2"
-      >
+      <!-- NFT Info -->
+      <div v-if="nftInfo" class="p-4 rounded-lg bg-blue-50 border border-blue-200 text-blue-800 space-y-2 mt-2">
         <p><strong>Owner:</strong> {{ nftInfo.owner }}</p>
         <p><strong>Name:</strong> {{ nftInfo.metadata.name }}</p>
         <p><strong>Description:</strong> {{ nftInfo.metadata.description }}</p>
         <img
+          v-if="nftInfo.metadata.image"
           :src="nftInfo.metadata.image"
           alt="NFT image"
           class="mt-2 w-32 h-32 object-contain rounded border"
         />
       </div>
+
+      <!-- Skeleton / Loading NFT -->
+      <div v-else-if="minting" class="animate-pulse h-32 bg-gray-200 rounded-lg"></div>
     </div>
   </div>
 </template>

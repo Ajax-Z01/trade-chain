@@ -12,9 +12,9 @@ const formatDate = (ts: number) => new Date(ts).toLocaleString()
   <div class="p-6 max-w-7xl mx-auto space-y-6">
     <h1 class="text-2xl font-bold mb-6 text-gray-800">📜 Contract Logs</h1>
 
-    <!-- Loading -->
-    <div v-if="loading" class="text-gray-500 text-center py-10">
-      Loading contracts...
+    <!-- Loading skeleton for contracts -->
+    <div v-if="loading" class="space-y-4">
+      <div v-for="i in 3" :key="i" class="h-12 bg-gray-200 rounded animate-pulse"></div>
     </div>
 
     <!-- Empty -->
@@ -44,12 +44,12 @@ const formatDate = (ts: number) => new Date(ts).toLocaleString()
         <!-- Body -->
         <transition name="accordion">
           <div v-show="getContractState(contract).isOpen" class="p-4 border-t bg-white">
-            <!-- Loading skeleton -->
-            <div v-if="getContractState(contract).loading" class="text-gray-500">
-              Loading history...
+            <!-- Loading skeleton for history -->
+            <div v-if="getContractState(contract).loading" class="space-y-2">
+              <div v-for="i in 3" :key="i" class="h-4 bg-gray-200 rounded w-full animate-pulse"></div>
             </div>
 
-            <!-- Empty -->
+            <!-- Empty history -->
             <div v-else-if="getContractState(contract).history.length === 0" class="text-gray-500">
               No history found.
             </div>

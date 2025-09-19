@@ -75,6 +75,13 @@ const toggleMobile = () => {
         </li>
         <li>
           <NuxtLink
+            to="/logs/aggregatedactivity"
+            class="px-2 py-1 rounded hover:bg-indigo-50 hover:text-indigo-600 transition"
+            >Aggregated Activity Logs</NuxtLink
+          >
+        </li>
+        <li>
+          <NuxtLink
             to="/documents"
             class="px-2 py-1 rounded hover:bg-indigo-50 hover:text-indigo-600 transition"
             >Document</NuxtLink
@@ -92,6 +99,13 @@ const toggleMobile = () => {
             to="/faucet"
             class="px-2 py-1 rounded hover:bg-indigo-50 hover:text-indigo-600 transition"
             >Faucet</NuxtLink
+          >
+        </li>
+        <li>
+          <NuxtLink
+            to="/company"
+            class="px-2 py-1 rounded hover:bg-indigo-50 hover:text-indigo-600 transition"
+            >Company</NuxtLink
           >
         </li>
       </ul>
@@ -141,6 +155,9 @@ const toggleMobile = () => {
           <NuxtLink to="/logs/activity" class="block px-2 py-1 rounded hover:bg-indigo-50 hover:text-indigo-600 transition" @click="mobileOpen=false">Activity Logs</NuxtLink>
         </li>
         <li>
+          <NuxtLink to="/logs/aggregatedactivity" class="block px-2 py-1 rounded hover:bg-indigo-50 hover:text-indigo-600 transition" @click="mobileOpen=false">Aggregated Activity Logs</NuxtLink>
+        </li>
+        <li>
           <NuxtLink to="/documents" class="block px-2 py-1 rounded hover:bg-indigo-50 hover:text-indigo-600 transition" @click="mobileOpen=false">Document</NuxtLink>
         </li>
         <li>
@@ -148,6 +165,9 @@ const toggleMobile = () => {
         </li>
         <li>
           <NuxtLink to="/faucet" class="block px-2 py-1 rounded hover:bg-indigo-50 hover:text-indigo-600 transition" @click="mobileOpen=false">Faucet</NuxtLink>
+        </li>
+        <li>
+          <NuxtLink to="/company" class="block px-2 py-1 rounded hover:bg-indigo-50 hover:text-indigo-600 transition" @click="mobileOpen=false">Company</NuxtLink>
         </li>
       </ul>
 

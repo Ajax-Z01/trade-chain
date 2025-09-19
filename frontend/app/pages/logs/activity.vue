@@ -44,12 +44,15 @@ const getStatusColor = (action: string, status?: string) => {
     default: return 'bg-gray-100 text-gray-700'
   }
 }
+
+const isRecent = (ts: number) => Date.now() - ts < 24 * 60 * 60 * 1000
 </script>
 
 <template>
   <div class="p-6 max-w-4xl mx-auto space-y-6">
     <h1 class="text-3xl font-bold mb-6">Activity Logs</h1>
 
+    <!-- Account input -->
     <div class="mb-4">
       <label class="block font-semibold mb-2">Account:</label>
       <input
@@ -61,13 +64,25 @@ const getStatusColor = (action: string, status?: string) => {
       />
     </div>
 
-    <div v-if="state.loading" class="text-gray-500 mb-2">Loading...</div>
-    <div v-if="state.logs.length === 0 && !state.loading" class="text-gray-400">
+    <!-- Skeleton loading -->
+    <div v-if="state.loading" class="space-y-3">
+      <div v-for="i in 5" :key="i" class="h-16 bg-gray-200 rounded animate-pulse"></div>
+    </div>
+
+    <!-- Empty state -->
+    <div v-else-if="state.logs.length === 0" class="text-gray-400 text-center py-10">
+      <XCircle class="mx-auto w-12 h-12 mb-2" />
       No activity logs found.
     </div>
 
-    <div class="space-y-4">
-      <div v-for="log in state.logs" :key="log.timestamp + (log.txHash || log.action)" class="bg-white border rounded-xl shadow p-4 flex gap-4 items-start hover:shadow-lg transition">
+    <!-- Logs -->
+    <div v-else class="space-y-4">
+      <div
+        v-for="log in state.logs"
+        :key="log.timestamp + (log.txHash || log.action)"
+        :class="['bg-white border rounded-xl shadow p-4 flex gap-4 items-start transition hover:shadow-lg',
+                 isRecent(log.timestamp) ? 'border-l-4 border-indigo-400' : '']"
+      >
         <!-- Icon -->
         <component :is="getActionIcon(log.action, log.type)" class="w-6 h-6 text-blue-500 mt-1" />
 
@@ -134,9 +149,10 @@ const getStatusColor = (action: string, status?: string) => {
       </div>
     </div>
 
+    <!-- Load More -->
     <div v-if="!state.finished && !state.loading" class="mt-6 text-center">
       <button
-        class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+        class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition"
         @click="fetchActivityLogs(account, { limit: 20 })"
       >
         Load More

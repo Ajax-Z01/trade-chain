@@ -3,6 +3,9 @@ import { ref, watch, onMounted } from 'vue'
 import { useMockUSDC } from '~/composables/useMockUSDC'
 import { useWallet } from '~/composables/useWallets'
 
+// Lucide icons
+import { Loader2, CheckCircle2, XCircle, Users } from 'lucide-vue-next'
+
 const { mint, getBalance, minting } = useMockUSDC()
 const { account } = useWallet()
 
@@ -47,42 +50,61 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="max-w-md mx-auto mt-10 p-6 bg-white shadow-md rounded-lg">
-    <h1 class="text-2xl font-bold mb-4">USDC Faucet</h1>
+  <div class="max-w-md mx-auto mt-10 p-6 bg-white shadow-md rounded-xl space-y-6">
 
-    <div class="mb-4">
-      <label class="block mb-1 font-semibold">Recipient Address</label>
+    <h1 class="text-2xl font-bold mb-2 flex items-center gap-2">
+      <Users class="w-6 h-6" /> USDC Faucet
+    </h1>
+
+    <!-- Recipient -->
+    <div class="space-y-1">
+      <label class="block font-semibold text-gray-700">Recipient Address</label>
       <input
         v-model="recipient"
         type="text"
         placeholder="0x..."
-        class="w-full border rounded px-3 py-2"
+        class="w-full border rounded-lg px-3 py-2 text-sm focus:ring focus:ring-blue-200"
       />
     </div>
 
-    <div class="mb-4">
-      <label class="block mb-1 font-semibold">Amount (USDC)</label>
+    <!-- Amount -->
+    <div class="space-y-1">
+      <label class="block font-semibold text-gray-700">Amount (USDC)</label>
       <input
         v-model="amount"
         type="number"
         min="1"
-        class="w-full border rounded px-3 py-2"
+        class="w-full border rounded-lg px-3 py-2 text-sm focus:ring focus:ring-blue-200"
       />
     </div>
 
+    <!-- Mint Button -->
     <button
-      :disabled="minting" class="w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600 disabled:opacity-50" @click="handleMint"
+      :disabled="minting" 
+      class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50"
+      @click="handleMint"
     >
+      <Loader2 v-if="minting" class="w-4 h-4 animate-spin" />
       {{ minting ? 'Minting...' : 'Mint USDC' }}
     </button>
 
-    <div v-if="message" class="mt-4 p-2 bg-gray-100 rounded">
-      {{ message }}
+    <!-- Message / Feedback -->
+    <div v-if="message" 
+         :class="['p-3 rounded', message.includes('Minted') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200']"
+         class="flex items-center gap-2"
+    >
+      <CheckCircle2 v-if="message.includes('Minted')" class="w-5 h-5" />
+      <XCircle v-else class="w-5 h-5" />
+      <span>{{ message }}</span>
     </div>
 
-    <div v-if="balance !== null" class="mt-2 text-gray-700">
-      Current Balance: {{ balance }} USDC
+    <!-- Current Balance -->
+    <div class="mt-2 text-gray-700 space-y-1">
+      <p class="font-medium">Current Balance:</p>
+      <div v-if="balance === null" class="h-6 w-full bg-gray-200 rounded animate-pulse"></div>
+      <div v-else class="text-lg font-semibold">{{ balance }} USDC</div>
     </div>
+
   </div>
 </template>
 

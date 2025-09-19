@@ -1,20 +1,12 @@
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, nextTick } from 'vue'
 import { useAggregatedActivity } from '~/composables/useAggregatedActivity'
 import { useToast } from '~/composables/useToast'
 import { DynamicScroller, DynamicScrollerItem } from 'vue-virtual-scroller'
 import 'vue-virtual-scroller/dist/vue-virtual-scroller.css'
 import { CheckCircle, ArrowRight, PlusCircle, Trash2, AlertCircle } from 'lucide-vue-next'
 
-// --- Composables ---
-const {
-  activities,
-  loading,
-  lastTimestamp,
-  fetchActivities,
-  addTag,
-  removeTag
-} = useAggregatedActivity()
+const { activities, loading, lastTimestamp, fetchActivities, addTag, removeTag } = useAggregatedActivity()
 const { addToast } = useToast()
 
 // --- Filters ---
@@ -22,18 +14,15 @@ const accountFilter = ref('')
 const txHashFilter = ref('')
 const contractFilter = ref('')
 const tagsFilter = ref('')
-
-// --- Tag management ---
 const newTags = reactive<Record<string, string>>({})
 
-// --- Pagination / Infinite scroll ---
-const hasMore = ref(true)
-const pageSize = 20
-
-// --- Expanded JSON tracker ---
+// --- State ---
 const expanded = reactive<Record<string, boolean>>({})
+const hasMore = ref(true)
+const scroller = ref<any>(null)
+const fetching = ref(false)
 
-// --- Map action to icon ---
+// --- Icons map ---
 const actionIconMap: Record<string, any> = {
   transfer: ArrowRight,
   mint: PlusCircle,
@@ -42,12 +31,13 @@ const actionIconMap: Record<string, any> = {
   error: AlertCircle,
 }
 
-// --- Scroller ref ---
-const scroller = ref<any>(null)
+// --- Helpers ---
+const isRecent = (ts: number) => Date.now() - ts < 24 * 60 * 60 * 1000
 
 // --- Load next page ---
 const loadNextPage = async (isFilterReset = false) => {
-  if (loading.value || !hasMore.value) return
+  if (loading.value || fetching.value || !hasMore.value) return
+  fetching.value = true
   loading.value = true
 
   try {
@@ -57,54 +47,57 @@ const loadNextPage = async (isFilterReset = false) => {
         txHash: txHashFilter.value || null,
         contractAddress: contractFilter.value || null,
         tags: tagsFilter.value ? tagsFilter.value.split(',').map(t => t.trim()) : [],
-        limit: pageSize,
       },
       isFilterReset ? null : lastTimestamp.value
     )
 
-    if (isFilterReset) {
-      // Filter baru → replace list
-      activities.value = res.data
-    } else {
-      // Infinite scroll → append
-      activities.value.push(...res.data)
-    }
+    const el = scroller.value?.$el as HTMLElement
+    const prevScroll = el?.scrollTop || 0
+
+    // --- Filter duplikat sebelum push ---
+    const newItems = res.data.filter(item => !activities.value.find(a => a.id === item.id))
+
+    if (isFilterReset) activities.value = newItems
+    else activities.value.push(...newItems)
 
     lastTimestamp.value = res.nextStartAfterTimestamp
-    if (!res.nextStartAfterTimestamp || res.data.length < pageSize) hasMore.value = false
+    if (!res.nextStartAfterTimestamp) hasMore.value = false
+
+    await nextTick()
+    if (!isFilterReset && el) el.scrollTop = prevScroll
   } catch (err: any) {
     addToast('error', err.message || 'Unknown error')
     hasMore.value = false
   } finally {
     loading.value = false
+    fetching.value = false
   }
 }
 
 // --- Apply filters ---
 const applyFilters = async () => {
-  // Reset pagination & list
   hasMore.value = true
   lastTimestamp.value = null
   activities.value = []
-
-  // Load first page dengan filter baru
   await loadNextPage(true)
 }
 
-// --- Scroll handler for infinite scroll ---
+// --- Scroll handler ---
+let scrollScheduled = false
 const onScroll = () => {
-  if (!scroller.value) return
-  const el = scroller.value.$el as HTMLElement
-  const scrollBottom = el.scrollTop + el.clientHeight
-  const threshold = el.scrollHeight - 50
-  if (scrollBottom >= threshold) loadNextPage()
+  if (!scroller.value || scrollScheduled) return
+  scrollScheduled = true
+  requestAnimationFrame(() => {
+    const el = scroller.value.$el as HTMLElement
+    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 50) loadNextPage()
+    scrollScheduled = false
+  })
 }
 
-// --- Toggle JSON expand ---
-const toggleExpand = (id: string) => {
-  expanded[id] = !expanded[id]
-}
+// --- Expand JSON ---
+const toggleExpand = (id: string) => { expanded[id] = !expanded[id] }
 
+// --- Tag management ---
 const handleAddTag = async (id: string, tag: string) => {
   if (!tag) return
   try {
@@ -130,7 +123,7 @@ onMounted(() => loadNextPage())
 </script>
 
 <template>
-  <div class="p-4 max-w-[95vw] mx-auto">
+  <div class="p-6 max-w-[95vw] mx-auto">
     <h1 class="text-2xl font-bold mb-6 text-gray-900">Aggregated Activity Logs</h1>
 
     <!-- Filters -->
@@ -140,6 +133,11 @@ onMounted(() => loadNextPage())
       <input v-model="contractFilter" placeholder="Contract Address" class="border border-gray-300 px-3 py-2 rounded w-full md:w-auto focus:ring-1 focus:ring-blue-500 focus:outline-none" />
       <input v-model="tagsFilter" placeholder="Tags (comma separated)" class="border border-gray-300 px-3 py-2 rounded w-full md:w-auto focus:ring-1 focus:ring-blue-500 focus:outline-none" />
       <button class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition" @click="applyFilters">Apply</button>
+    </div>
+
+    <!-- Skeleton loading -->
+    <div v-if="loading && !activities.length" class="space-y-4">
+      <div v-for="i in 5" :key="i" class="h-36 rounded-lg bg-gray-200 animate-pulse"></div>
     </div>
 
     <!-- Timeline -->
@@ -164,14 +162,18 @@ onMounted(() => loadNextPage())
                 {{ new Date(item.timestamp).toLocaleDateString() }}
               </div>
 
-              <!-- Activity card (grid layout) -->
-              <div class="grid grid-cols-1 md:grid-cols-3 gap-4 border rounded-lg shadow-sm p-4 mb-3 hover:bg-gray-50 transition break-words">
-
-                <!-- Left: Action + Timestamp + Icon -->
-                <div class="flex items-center gap-2">
+              <!-- Activity card -->
+              <div
+                :class="[
+                  'grid grid-cols-1 md:grid-cols-3 gap-4 border rounded-lg shadow p-4 mb-3 transition hover:shadow-lg hover:bg-gray-50 break-words',
+                  isRecent(item.timestamp) ? 'border-l-4 border-indigo-500' : 'border-gray-300'
+                ]"
+              >
+                <!-- Left: Icon + Action -->
+                <div class="flex items-center gap-3">
                   <component :is="actionIconMap[item.action] || CheckCircle" class="w-5 h-5 text-blue-500" />
                   <div class="flex flex-col">
-                    <div class="font-medium text-gray-800 text-base truncate">{{ item.action }}</div>
+                    <div class="font-medium text-gray-800 truncate">{{ item.action }}</div>
                     <div class="text-gray-500 text-xs md:text-sm mt-1 truncate">{{ new Date(item.timestamp).toLocaleString() }}</div>
                   </div>
                 </div>
@@ -183,7 +185,7 @@ onMounted(() => loadNextPage())
                   <div><span class="font-semibold">Contract:</span> {{ item.contractAddress || '-' }}</div>
                 </div>
 
-                <!-- Right: Tags + Expand JSON -->
+                <!-- Right: Tags + JSON -->
                 <div class="flex flex-col gap-2 min-w-[140px]">
                   <div class="flex flex-wrap gap-2">
                     <span
@@ -192,7 +194,7 @@ onMounted(() => loadNextPage())
                       class="inline-flex items-center bg-blue-100 text-blue-800 rounded-full px-2 py-0.5 text-xs font-medium"
                     >
                       {{ tag }}
-                      <button class="ml-1 text-red-500" @click="handleRemoveTag(item.id, tag)">&times;</button>
+                      <button class="ml-1 text-red-500 hover:text-red-700 transition" @click="handleRemoveTag(item.id, tag)">&times;</button>
                     </span>
                   </div>
                   <div class="flex gap-2 mt-1">
@@ -207,9 +209,11 @@ onMounted(() => loadNextPage())
                   <button class="text-blue-500 text-xs mt-1 hover:underline" @click="toggleExpand(item.id)">
                     {{ expanded[item.id] ? 'Hide JSON' : 'Show JSON' }}
                   </button>
-                  <pre v-if="expanded[item.id]" class="bg-gray-50 p-2 mt-1 overflow-x-auto text-xs rounded">
+                  <transition name="fade">
+                    <pre v-if="expanded[item.id]" class="bg-gray-50 p-2 mt-1 overflow-x-auto text-xs rounded shadow-inner">
 {{ JSON.stringify(item, null, 2) }}
-                  </pre>
+                    </pre>
+                  </transition>
                 </div>
 
               </div>
@@ -218,7 +222,7 @@ onMounted(() => loadNextPage())
         </template>
       </DynamicScroller>
 
-      <div v-if="loading" class="text-center text-gray-500 mt-2">Loading more...</div>
+      <div v-if="loading && activities.length" class="text-center text-gray-500 mt-2">Loading more...</div>
       <div v-if="!hasMore && activities.length" class="text-center text-gray-400 mt-2">No more activities</div>
       <div v-if="!activities.length && !loading" class="text-center text-gray-400 mt-2">No activities found</div>
     </client-only>
@@ -230,4 +234,10 @@ onMounted(() => loadNextPage())
   max-height: 80vh;
   overflow-y: auto;
 }
+
+.fade-enter-active, .fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+.fade-enter-from, .fade-leave-to { opacity: 0; }
+.fade-enter-to, .fade-leave-from { opacity: 1; }
 </style>

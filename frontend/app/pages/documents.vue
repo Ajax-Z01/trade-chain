@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, computed } from 'vue'
+import { ref, reactive, watch, computed, nextTick } from 'vue'
 import { useWallet } from '~/composables/useWallets'
 import { useDocuments } from '~/composables/useDocuments'
 import { useStorage } from '~/composables/useStorage'
@@ -7,19 +7,21 @@ import { useRegistryDocument } from '~/composables/useRegistryDocument'
 import { useContractActions } from '~/composables/useContractActions'
 import type { Document as DocType } from '~/types/Document'
 import DocumentViewer from '~/components/DocumentViewer.vue'
+import { useToast } from '~/composables/useToast'
 
-// Lucide icons
-import { Loader2, FileUp } from 'lucide-vue-next'
+// Icons
+import { Loader2, FileUp, CheckCircle2, XCircle } from 'lucide-vue-next'
 
 // Composables
+const { addToast } = useToast()
 const { account } = useWallet()
 const { attachDocument, getDocumentsByContract } = useDocuments()
 const { mintDocument, minting, addMinter, removeMinter } = useRegistryDocument()
 const { uploadToLocal } = useStorage()
 const { deployedContracts, fetchContractDetails, fetchDeployedContracts } = useContractActions()
 
-// State
-const currentContract = ref<string | null>(null)   // gabungan contractAddress & selectedContract
+// --- State ---
+const currentContract = ref<string | null>(null)
 const isImporter = ref(false)
 const isExporter = ref(false)
 const userRole = computed<'importer'|'exporter'|null>(() => {
@@ -37,24 +39,22 @@ const loadingDocs = ref(false)
 const error = ref<string | null>(null)
 const success = ref<string | null>(null)
 
-// --- Minter management
-const minterAddress = ref<string>('')
-const mintingMinter = ref(false)
-const minterFeedback = ref<string | null>(null)
-
+// --- Viewer ---
 const showViewer = ref(false)
 const selectedDocSrc = ref<string | null>(null)
-
 const selectedDoc = ref<DocType | null>(null)
-
 const openViewer = (doc: DocType) => {
   selectedDoc.value = doc
   selectedDocSrc.value = doc.uri
   showViewer.value = true
 }
 
+// --- Minter management ---
+const minterAddress = ref<string>('')
+const mintingMinter = ref(false)
+const minterFeedback = ref<string | null>(null)
 
-// --- Helpers
+// --- Helpers ---
 const getContractRoles = async (contract: string) => {
   try {
     const data = await fetchContractDetails(contract as `0x${string}`)
@@ -68,10 +68,10 @@ const getContractRoles = async (contract: string) => {
   }
 }
 
-// Fetch contracts on wallet connect
+// Fetch contracts when wallet connected
 watch(account, (acc) => { if (acc) fetchDeployedContracts() }, { immediate: true })
 
-// --- Watch contract & account to fetch roles & documents
+// --- Watch contract & account ---
 watch([currentContract, account], async ([contract, acc]) => {
   if (!contract || !acc) {
     documents.value = []
@@ -81,22 +81,22 @@ watch([currentContract, account], async ([contract, acc]) => {
   }
 
   documents.value = []
+  loadingDocs.value = true
 
-  // fetch roles
-  const roles = await getContractRoles(contract)
-  isImporter.value = acc === roles.importer
-  isExporter.value = acc === roles.exporter
-
-  // fetch documents
   try {
-    loadingDocs.value = true
+    const roles = await getContractRoles(contract)
+    isImporter.value = acc === roles.importer
+    isExporter.value = acc === roles.exporter
+
     documents.value = await getDocumentsByContract(contract)
+  } catch (err: any) {
+    addToast('error', err.message || 'Failed to fetch documents')
   } finally {
     loadingDocs.value = false
   }
 }, { immediate: true })
 
-// --- File handling
+// --- File handling ---
 const onFilesChange = (e: Event) => {
   const files = (e.target as HTMLInputElement).files
   if (!files) return
@@ -114,20 +114,20 @@ const removeFile = (index: number) => {
   fileProgresses.value.splice(index, 1)
 }
 
-// --- Attach & Mint Multi-File
+// --- Attach & Mint ---
 const handleAttachAndMint = async () => {
   if (!selectedFiles.value.length || !currentContract.value || !account.value) {
-    error.value = 'Please select files, connect wallet, and choose contract'
-    return
-  }
-  
-  if (!userRole.value) {
-    error.value = 'You are not authorized to attach or mint documents for this contract'
+    addToast('Select files, connect wallet, and choose a contract', 'error')
     return
   }
 
-  error.value = null
+  if (!userRole.value) {
+    addToast('You are not authorized for this contract', 'error')
+    return
+  }
+
   success.value = null
+  error.value = null
 
   for (let i = 0; i < selectedFiles.value.length; i++) {
     const fp = fileProgresses.value[i]
@@ -162,18 +162,19 @@ const handleAttachAndMint = async () => {
       fp.progress = 100
       fp.status = 'success'
       fp.tokenId = tokenId
-    } catch (err) {
+    } catch (err: any) {
       console.error(err)
       fp.progress = 100
       fp.status = 'error'
+      addToast(`Failed to mint ${fp.file.name}`, 'error')
     }
   }
 
-  success.value = 'All files processed!'
   selectedFiles.value = []
+  addToast('All files processed!', 'success')
 }
 
-// --- Add / Remove Minter
+// --- Minter actions ---
 const handleAddMinter = async () => {
   if (!minterAddress.value) return
   mintingMinter.value = true
@@ -182,9 +183,11 @@ const handleAddMinter = async () => {
     await addMinter(minterAddress.value as `0x${string}`)
     minterFeedback.value = `Added minter: ${minterAddress.value}`
     minterAddress.value = ''
+    addToast('Minter added!', 'success')
   } catch (err: any) {
     console.error(err)
     minterFeedback.value = err.message || 'Add minter failed'
+    addToast(`${minterFeedback.value}`, 'error')
   } finally {
     mintingMinter.value = false
   }
@@ -198,9 +201,11 @@ const handleRemoveMinter = async () => {
     await removeMinter(minterAddress.value as `0x${string}`)
     minterFeedback.value = `Removed minter: ${minterAddress.value}`
     minterAddress.value = ''
+    addToast('Minter removed!', 'success')
   } catch (err: any) {
     console.error(err)
     minterFeedback.value = err.message || 'Remove minter failed'
+    addToast(`${minterFeedback.value}`, 'error')
   } finally {
     mintingMinter.value = false
   }
@@ -296,29 +301,25 @@ const handleRemoveMinter = async () => {
       {{ minting ? 'Minting...' : 'Attach & Mint Documents' }}
     </button>
 
-    <!-- Feedback -->
-    <div v-if="success" class="mt-4 p-3 flex items-center gap-2 border rounded bg-green-50 text-green-700">
-      <CheckCircle2 class="w-5 h-5" /> {{ success }}
-    </div>
-    <div v-if="error" class="mt-4 p-3 flex items-center gap-2 border rounded bg-red-50 text-red-700">
-      <XCircle class="w-5 h-5" /> {{ error }}
-    </div>
-
     <!-- Attached Documents -->
     <div class="mt-6">
       <h3 class="font-semibold text-gray-800 mb-2">Attached Documents</h3>
-      <div v-if="loadingDocs" class="text-gray-500 text-sm">Loading documents...</div>
+
+      <!-- Skeleton / Loading -->
+      <div v-if="loadingDocs" class="space-y-2 animate-pulse">
+        <div v-for="n in 3" :key="n" class="h-16 bg-gray-200 rounded-lg"></div>
+      </div>
+
       <ul v-else-if="documents.length" class="space-y-2">
         <li
           v-for="doc in documents"
           :key="doc.tokenId"
-          class="p-3 border rounded-lg bg-gray-50 flex items-center gap-4"
+          class="p-3 border rounded-lg bg-gray-50 flex items-center gap-4 hover:shadow transition"
         >
           <div
             class="w-16 h-16 flex items-center justify-center border rounded bg-white overflow-hidden cursor-pointer"
             @click="openViewer(doc)"
           >
-            <!-- Thumbnail: kalau image tampilkan, selainnya ikon -->
             <img v-if="doc.uri.match(/\.(png|jpg|jpeg|webp)$/i)" :src="doc.uri" class="object-cover w-full h-full" />
             <span v-else class="text-gray-400">📄</span>
           </div>
@@ -331,6 +332,7 @@ const handleRemoveMinter = async () => {
           <a :href="doc.uri" target="_blank" class="text-blue-600 underline">View</a>
         </li>
       </ul>
+
       <div v-else class="text-gray-500 text-sm">No documents attached yet.</div>
 
       <!-- Document Viewer Modal -->
@@ -370,6 +372,9 @@ const handleRemoveMinter = async () => {
         >
           Remove
         </button>
+      </div>
+      <div v-if="mintingMinter" class="text-sm text-gray-500 flex items-center gap-2">
+        <Loader2 class="w-4 h-4 animate-spin" /> Processing...
       </div>
       <div v-if="minterFeedback" class="text-sm mt-2 text-gray-700">{{ minterFeedback }}</div>
     </div>
