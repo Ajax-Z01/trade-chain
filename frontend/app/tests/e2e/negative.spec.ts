@@ -1,17 +1,22 @@
 import { test, expect } from '@playwright/test'
-import {
-  makeWalletImporter,
-  makeWalleExporter,
-  makeWalletRandom,
-  deployFixtureContracts,
-  addMinterKYC,
-  addMinterDocument,
-  mintUSDC,
-  mintKYC,
-  publicClient
+import { 
+  makeWalletImporter, 
+  makeWalleExporter, 
+  makeWalletRandom, 
+  deployFixtureContracts, 
+  addMinterKYC, 
+  addMinterDocument, 
+  mintUSDC, 
+  mintKYC, 
+  publicClient 
 } from './fixture-chain'
-import { deployAgreement, depositAgreement, signAgreement } from './fixture-tradeAgreement'
+import { 
+  deployAgreement, 
+  depositAgreement, 
+  signAgreement 
+} from './fixture-tradeAgreement'
 
+// --- Wallets & Contracts ---
 let walletImporter: Awaited<ReturnType<typeof makeWalletImporter>>
 let walletExporter: Awaited<ReturnType<typeof makeWalleExporter>>
 let walletRandom: Awaited<ReturnType<typeof makeWalletRandom>>
@@ -24,23 +29,22 @@ test.beforeAll(async () => {
   walletRandom = await makeWalletRandom()
   contracts = await deployFixtureContracts(walletImporter)
 
-  // --- Add KYC only for importer & exporter
+  // --- Add KYC ---
   await addMinterKYC(walletImporter, contracts.kycRegistryAddress, walletImporter.account!.address)
   await addMinterKYC(walletImporter, contracts.kycRegistryAddress, walletExporter.account!.address)
-  
-  // --- Mint KYC documents ---
-  const txHashImporter = await mintKYC(walletImporter, contracts.kycRegistryAddress, walletImporter.account!.address, 'QmImporter123', 'https://example.com/metadata.json')
 
-  const txHashExporter = await mintKYC(walletExporter, contracts.kycRegistryAddress, walletExporter.account!.address, 'QmExporter456', 'https://example.com/metadata.json')
+  // --- Mint KYC docs ---
+  await mintKYC(walletImporter, contracts.kycRegistryAddress, walletImporter.account!.address, 'QmImporter123', 'https://example.com/metadata.json')
+  await mintKYC(walletExporter, contracts.kycRegistryAddress, walletExporter.account!.address, 'QmExporter456', 'https://example.com/metadata.json')
 
-  // --- Add document minter roles
+  // --- Add document minters ---
   await addMinterDocument(walletImporter, contracts.documentRegistryAddress, walletImporter.account!.address)
   await addMinterDocument(walletImporter, contracts.documentRegistryAddress, walletExporter.account!.address)
 
-  // --- Mint USDC for importer
+  // --- Mint USDC ---
   await mintUSDC(walletImporter, contracts.mockUSDCAddress, walletImporter.account!.address, 1_000_000n)
 
-  // --- Deploy agreement (after KYC)
+  // --- Deploy agreement ---
   agreementAddress = await deployAgreement(
     walletImporter,
     contracts.factoryAddress,
@@ -52,66 +56,59 @@ test.beforeAll(async () => {
     contracts.mockUSDCAddress
   )
 
-  // --- Sign agreement by both parties
+  // --- Sign by both parties ---
   await signAgreement(walletImporter, agreementAddress)
   await signAgreement(walletExporter, agreementAddress)
 })
 
-// --- Negative Test 1: Non-KYC wallet trying to deposit
+// --- Negative: Non-KYC wallet deposit should fail ---
 test('Negative: non-KYC wallet trying to deposit should fail', async () => {
-  type DepositResult = { txHash: `0x${string}` } | { error: any }
-
-  const result: DepositResult = await (async () => {
-    try {
-      const tx = await depositAgreement(walletRandom, agreementAddress, 1000n, contracts.mockUSDCAddress)
-      return { txHash: tx }
-    } catch (e: any) {
-      return { error: e }
-    }
-  })()
-
-  expect('error' in result).toBe(true)
-  if ('error' in result) {
-    expect(result.error.cause?.message).toMatch(/not approved|revert|Internal error/)
+  let error: any
+  try {
+    await depositAgreement(walletRandom, agreementAddress, 1000n, contracts.mockUSDCAddress)
+  } catch (e) {
+    error = e
   }
+  expect(error).toBeDefined()
+  expect(error?.message || error?.cause?.message).toMatch(/revert|not approved|Internal error/)
 })
 
-// --- Negative Test 2: Deposit kurang dari required amount
-test('Negative: deposit less than required amount should fail', async () => {
-  type DepositResult = { txHash: `0x${string}` } | { error: any }
+// --- Negative: Partial deposit does not change stage to Deposited ---
+test('Deposit less than required amount does not complete stage', async () => {
+  const partialAmount = 500n
+  const stageBefore = await publicClient.readContract({
+    address: agreementAddress,
+    abi: [{ inputs: [], name: 'currentStage', outputs: [{ type: 'uint8' }], stateMutability: 'view', type: 'function' }],
+    functionName: 'currentStage',
+  })
 
-  const result: DepositResult = await (async () => {
-    try {
-      const tx = await depositAgreement(walletImporter, agreementAddress, 500n, contracts.mockUSDCAddress)
-      return { txHash: tx }
-    } catch (e: any) {
-      return { error: e }
-    }
-  })()
+  await depositAgreement(walletImporter, agreementAddress, partialAmount, contracts.mockUSDCAddress)
 
-  expect('error' in result).toBe(true)
-  if ('error' in result) {
-    const msg = result.error.cause?.message || result.error.message || ''
-    expect(msg).toMatch(/amount too low|revert|Internal error/)
-  }
+  const stageAfter = await publicClient.readContract({
+    address: agreementAddress,
+    abi: [{ inputs: [], name: 'currentStage', outputs: [{ type: 'uint8' }], stateMutability: 'view', type: 'function' }],
+    functionName: 'currentStage',
+  })
+
+  expect(stageAfter).toBe(stageBefore) // stage belum Deposited
+
+  const totalDeposited = await publicClient.readContract({
+    address: agreementAddress,
+    abi: [{ inputs: [], name: 'totalDeposited', outputs: [{ type: 'uint256' }], stateMutability: 'view', type: 'function' }],
+    functionName: 'totalDeposited',
+  })
+
+  expect(totalDeposited).toBe(partialAmount)
 })
 
-// --- Negative Test 3: Wallet on wrong network
+// --- Negative: Wallet on wrong network ---
 test('Negative: wallet on wrong network should fail', async () => {
-  type DepositResult = { txHash: `0x${string}` } | { error: any }
-
-  // Gunakan wallet asli tapi panggil fungsi yang sengaja reject
-  const result: DepositResult = await (async () => {
-    try {
-      // simulate network mismatch
-      throw new Error('network mismatch')
-    } catch (e: any) {
-      return { error: e }
-    }
-  })()
-
-  expect('error' in result).toBe(true)
-  if ('error' in result) {
-    expect(result.error.message).toMatch(/network mismatch/)
+  let error: any
+  try {
+    throw new Error('network mismatch')
+  } catch (e) {
+    error = e
   }
+  expect(error).toBeDefined()
+  expect(error.message).toMatch(/network mismatch/)
 })

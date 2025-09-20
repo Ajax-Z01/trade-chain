@@ -225,3 +225,37 @@ export async function mintAndLinkDocument(
 
   return { txHashMint, tokenId, txHashLink }
 }
+
+export async function revokeKYC(
+  walletClient: WalletClient,
+  kycRegistryAddress: `0x${string}`,
+  tokenId: bigint
+): Promise<`0x${string}`> {
+  const txHash = await walletClient.writeContract({
+    account: walletClient.account!.address as `0x${string}`,
+    chain: Chain,
+    address: kycRegistryAddress,
+    abi: kycRegistryAbi,
+    functionName: 'revokeKYC',
+    args: [tokenId],
+  })
+  await publicClient.waitForTransactionReceipt({ hash: txHash })
+  return txHash
+}
+
+export async function revokeDocument(
+  walletClient: WalletClient,
+  documentRegistryAddress: `0x${string}`,
+  tokenId: bigint
+): Promise<`0x${string}`> {
+  const txHash = await walletClient.writeContract({
+    account: walletClient.account!.address as `0x${string}`,
+    chain: Chain,
+    address: documentRegistryAddress,
+    abi: documentRegistryAbi,
+    functionName: 'revokeDocument',
+    args: [tokenId],
+  })
+  await publicClient.waitForTransactionReceipt({ hash: txHash })
+  return txHash
+}

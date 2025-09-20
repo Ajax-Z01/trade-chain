@@ -13,12 +13,14 @@ contract KYCRegistry is ERC721URIStorage, Ownable {
     // Mapping untuk akun yang diperbolehkan mint (importir & eksportir)
     mapping(address => bool) public approvedMinters;
 
+    // ---------------- Events ----------------
     event DocumentVerified(address indexed owner, uint256 tokenId, string fileHash);
+    event DocumentRevoked(uint256 tokenId);
 
     // v5: Ownable wajib initialOwner
     constructor(address initialOwner) ERC721("VerifiedDocument", "VDOC") Ownable(initialOwner) {}
 
-    // --- Owner bisa menambahkan minter
+    // ---------------- Minter Management ----------------
     function addMinter(address minter) external onlyOwner {
         approvedMinters[minter] = true;
     }
@@ -27,13 +29,12 @@ contract KYCRegistry is ERC721URIStorage, Ownable {
         approvedMinters[minter] = false;
     }
 
-    // --- Modifier untuk akun yang diperbolehkan
     modifier onlyApprovedMinter() {
         require(approvedMinters[msg.sender], "Not an approved minter");
         _;
     }
 
-    // --- Mint dokumen, bisa dilakukan oleh importir atau eksportir
+    // ---------------- Mint ----------------
     function verifyAndMint(
         address to,
         string memory fileHash,
@@ -54,6 +55,26 @@ contract KYCRegistry is ERC721URIStorage, Ownable {
         return newTokenId;
     }
 
+    // ---------------- Revoke ----------------
+    function revokeDocument(uint256 tokenId) external onlyOwner {
+        require(ERC721.ownerOf(tokenId) != address(0), "Token does not exist");
+        
+        // Hapus mapping hash -> tokenId
+        string memory fileHash;
+        // loop untuk cari hash yang sesuai (karena mapping hash -> tokenId tidak ada reverse mapping)
+        // minimal untuk simple contract
+        for (uint256 i = 1; i <= nextTokenId; i++) {
+            if (hashToTokenId[fileHash] == tokenId) {
+                delete hashToTokenId[fileHash];
+                break;
+            }
+        }
+
+        _burn(tokenId);
+        emit DocumentRevoked(tokenId);
+    }
+
+    // ---------------- View Helpers ----------------
     function getTokenIdByHash(string memory fileHash) external view returns (uint256) {
         return hashToTokenId[fileHash];
     }

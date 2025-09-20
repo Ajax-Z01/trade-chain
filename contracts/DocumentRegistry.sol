@@ -7,26 +7,21 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 contract DocumentRegistry is ERC721URIStorage, Ownable {
     uint256 public nextTokenId;
 
-    // Mapping hash -> tokenId (untuk dokumen unik)
     mapping(string => uint256) public hashToTokenId;
-
-    // Mapping tokenId -> docType (Invoice, B/L, COO, dll)
     mapping(uint256 => string) public tokenIdToDocType;
-
-    // Mapping untuk akun yang diperbolehkan mint (importir & eksportir)
     mapping(address => bool) public approvedMinters;
 
     event DocumentVerified(address indexed owner, uint256 tokenId, string fileHash);
-    event DocumentLinked(
-        address indexed contractAddress,
-        uint256 indexed tokenId,
-        string docType,
-        string uri
-    );
+    event DocumentLinked(address indexed contractAddress, uint256 indexed tokenId, string docType, string uri);
+    event DocumentRevoked(uint256 tokenId);
 
     constructor(address initialOwner) ERC721("TradeDocument", "TDOC") Ownable(initialOwner) {}
 
-    // --- Owner bisa menambahkan minter
+    modifier onlyApprovedMinter() {
+        require(approvedMinters[msg.sender], "Not an approved minter");
+        _;
+    }
+
     function addMinter(address minter) external onlyOwner {
         approvedMinters[minter] = true;
     }
@@ -35,16 +30,10 @@ contract DocumentRegistry is ERC721URIStorage, Ownable {
         approvedMinters[minter] = false;
     }
 
-    modifier onlyApprovedMinter() {
-        require(approvedMinters[msg.sender], "Not an approved minter");
-        _;
-    }
-
-    // --- Mint NFT dokumen
     function verifyAndMint(
         address to,
         string memory fileHash,
-        string memory tokenURI,
+        string memory docTokenURI,
         string memory docType
     ) external onlyApprovedMinter returns (uint256) {
         require(hashToTokenId[fileHash] == 0, "Document already verified");
@@ -53,30 +42,27 @@ contract DocumentRegistry is ERC721URIStorage, Ownable {
         uint256 newTokenId = nextTokenId;
 
         _safeMint(to, newTokenId);
-        _setTokenURI(newTokenId, tokenURI);
+        _setTokenURI(newTokenId, docTokenURI);
         tokenIdToDocType[newTokenId] = docType;
-
         hashToTokenId[fileHash] = newTokenId;
 
         emit DocumentVerified(to, newTokenId, fileHash);
-
         return newTokenId;
     }
 
-    // --- Link dokumen ke kontrak trade (emit event saja)
     function linkDocumentToContract(address contractAddress, uint256 tokenId) external onlyApprovedMinter {
-        try this.ownerOf(tokenId) returns (address) {
-        } catch {
-            revert("Token does not exist");
-        }
+        require(ERC721.ownerOf(tokenId) != address(0), "Token does not exist");
 
-        string memory uri = tokenURI(tokenId);
-        string memory docType = tokenIdToDocType[tokenId];
 
-        emit DocumentLinked(contractAddress, tokenId, docType, uri);
+        emit DocumentLinked(contractAddress, tokenId, tokenIdToDocType[tokenId], tokenURI(tokenId));
     }
 
-    // --- View helpers
+    function revokeDocument(uint256 tokenId) external onlyOwner {
+        require(ERC721.ownerOf(tokenId) != address(0), "Token does not exist");
+        _burn(tokenId);
+        emit DocumentRevoked(tokenId);
+    }
+
     function getTokenIdByHash(string memory fileHash) external view returns (uint256) {
         return hashToTokenId[fileHash];
     }

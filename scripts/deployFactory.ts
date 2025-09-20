@@ -14,7 +14,6 @@ const artifactPath = path.resolve(
   '../artifacts/contracts/TradeAgreementFactory.sol/TradeAgreementFactory.json'
 )
 const artifact = JSON.parse(fs.readFileSync(artifactPath, 'utf-8'))
-const { abi, bytecode } = artifact
 
 // --- Setup chain
 const chain = {
@@ -27,38 +26,33 @@ const chain = {
 
 // --- Public & Wallet clients
 const publicClient = createPublicClient({ chain, transport: http(chain.rpcUrls.default.http[0]) })
-
 const walletClient = createWalletClient({
   chain,
   transport: http(chain.rpcUrls.default.http[0]),
-  account: privateKeyToAccount('0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80')
+  account: privateKeyToAccount(
+    '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'
+  ),
 })
 
-// --- Registry address (deployed in deployRegistry.ts)
+// --- Registry address (bisa deploy KYCRegistry dulu manual atau di script lain)
 const registryAddress = '0x5fbdb2315678afecb367f032d93f642f64180aa3'
 
 // --- Deploy factory
 async function deployFactory() {
-  try {
-    const deployer = walletClient.account.address
-    console.log('Deploying TradeAgreementFactory from:', deployer)
+  const deployer = walletClient.account.address
+  console.log('Deploying TradeAgreementFactory from:', deployer)
 
-    const txHash = await walletClient.deployContract({
-      abi,
-      bytecode: `0x${bytecode.replace(/^0x/, '')}` as `0x${string}`,
-      account: deployer,
-      args: [registryAddress],
-      gas: 3_000_000n
-    })
+  const txHash = await walletClient.deployContract({
+    abi: artifact.abi,
+    bytecode: `0x${artifact.bytecode.replace(/^0x/, '')}` as `0x${string}`,
+    account: deployer,
+    args: [registryAddress],
+    gas: 5_000_000n,
+  })
 
-    console.log('Transaction hash:', txHash)
-    const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash })
-    console.log('Factory deployed at:', receipt.contractAddress)
-    return receipt.contractAddress
-  } catch (err) {
-    console.error('Deploy error:', err)
-    throw err
-  }
+  const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash })
+  console.log('Factory deployed at:', receipt.contractAddress)
+  return receipt.contractAddress
 }
 
-deployFactory()
+deployFactory().catch(console.error)
