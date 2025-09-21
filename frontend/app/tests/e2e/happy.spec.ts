@@ -1,15 +1,26 @@
 import { test, expect } from '@playwright/test'
 import { 
   makeWalletImporter,
-  makeWalleExporter,
+  makeWalletExporter,
   deployFixtureContracts,
-  addMinterKYC,
-  mintKYC,
-  addMinterDocument,
-  mintAndLinkDocument,
   publicClient,
   mintUSDC
 } from './fixture-chain'
+import {
+  addMinterKYC,
+  mintKYC,
+  getTokenIdByHash,
+  isMinter as isKYCApproved
+} from './fixture-kyc'
+import {
+  mintAndLinkDocument,
+  addMinterDocument,
+  getStatus as getDocumentStatus,
+  getTokenIdByHash as getDocumentTokenId,
+  getDocType,
+  reviewDocument,
+  signDocument,
+} from './fixture-document'
 import {
   deployAgreement,
   signAgreement,
@@ -19,12 +30,12 @@ import {
 } from './fixture-tradeAgreement'
 
 let walletImporter: Awaited<ReturnType<typeof makeWalletImporter>>
-let walletExporter: Awaited<ReturnType<typeof makeWalleExporter>>
+let walletExporter: Awaited<ReturnType<typeof makeWalletExporter>>
 let contracts: Awaited<ReturnType<typeof deployFixtureContracts>>
 
 test.beforeAll(async () => {
   walletImporter = await makeWalletImporter()
-  walletExporter = await makeWalleExporter()
+  walletExporter = await makeWalletExporter()
   contracts = await deployFixtureContracts(walletImporter)
 
   // Add minter role to both wallets
@@ -36,38 +47,36 @@ test.beforeAll(async () => {
   await mintUSDC(walletImporter, contracts.mockUSDCAddress, walletImporter.account!.address, 1_000_000n)
 })
 
-test('Happy path: full trade agreement flow with document linking', async () => {
+test('Happy path: full trade agreement flow with KYC & document verification', async () => {
   const importerAddress = walletImporter.account!.address as `0x${string}`
   const exporterAddress = walletExporter.account!.address as `0x${string}`
 
   // --- Mint KYC documents ---
-  const txHashImporter = await mintKYC(walletImporter, contracts.kycRegistryAddress, importerAddress, 'QmImporter123', 'https://example.com/metadata.json')
-  const receiptImporter = await publicClient.waitForTransactionReceipt({ hash: txHashImporter })
-  expect(receiptImporter.status).toBe('success')
+  await mintKYC(walletImporter, contracts.kycRegistryAddress, importerAddress, 'QmImporter123', 'https://example.com/metadata.json')
+  await mintKYC(walletExporter, contracts.kycRegistryAddress, exporterAddress, 'QmExporter456', 'https://example.com/metadata.json')
 
-  const txHashExporter = await mintKYC(walletExporter, contracts.kycRegistryAddress, exporterAddress, 'QmExporter456', 'https://example.com/metadata.json')
-  const receiptExporter = await publicClient.waitForTransactionReceipt({ hash: txHashExporter })
-  expect(receiptExporter.status).toBe('success')
+  // --- Check KYC token IDs ---
+  const importerKycTokenId = await getTokenIdByHash('QmImporter123', contracts.kycRegistryAddress)
+  const exporterKycTokenId = await getTokenIdByHash('QmExporter456', contracts.kycRegistryAddress)
+  expect(importerKycTokenId).toBe(1n)
+  expect(exporterKycTokenId).toBe(2n)
 
   // --- Deploy trade agreement ---
   const requiredAmount = 1000n
-  const importerDocId = 1n
-  const exporterDocId = 2n
-
   const agreementAddress = await deployAgreement(
     walletImporter,
     contracts.factoryAddress,
     importerAddress,
     exporterAddress,
     requiredAmount,
-    importerDocId,
-    exporterDocId,
+    importerKycTokenId,
+    exporterKycTokenId,
     contracts.mockUSDCAddress
   )
   expect(agreementAddress).toMatch(/^0x[a-fA-F0-9]{40}$/)
 
   // --- Mint & link trade documents ---
-  const { tokenId: importerTokenId } = await mintAndLinkDocument(
+  const { tokenId: importerDocId } = await mintAndLinkDocument(
     walletImporter,
     contracts.documentRegistryAddress,
     importerAddress,
@@ -76,9 +85,7 @@ test('Happy path: full trade agreement flow with document linking', async () => 
     'https://example.com/importerDoc.json',
     'Invoice'
   )
-  expect(importerTokenId).toBe(1n)
-  
-  const { tokenId: exporterTokenId } = await mintAndLinkDocument(
+  const { tokenId: exporterDocId } = await mintAndLinkDocument(
     walletExporter,
     contracts.documentRegistryAddress,
     exporterAddress,
@@ -87,29 +94,36 @@ test('Happy path: full trade agreement flow with document linking', async () => 
     'https://example.com/exporterDoc.json',
     'Invoice'
   )
-  expect(exporterTokenId).toBe(2n)
 
-  // --- Both parties sign ---
-  const hashSignImporter = await signAgreement(walletImporter, agreementAddress)
-  const receiptSignImporter = await publicClient.waitForTransactionReceipt({ hash: hashSignImporter })
-  expect(receiptSignImporter.status).toBe('success')
+  expect(importerDocId).toBe(1n)
+  expect(exporterDocId).toBe(2n)
 
-  const hashSignExporter = await signAgreement(walletExporter, agreementAddress)
-  const receiptSignExporter = await publicClient.waitForTransactionReceipt({ hash: hashSignExporter })
-  expect(receiptSignExporter.status).toBe('success')
+  // --- Verify document types & initial status ---
+  expect(await getDocType(importerDocId, contracts.documentRegistryAddress)).toBe('Invoice')
+  expect(await getDocType(exporterDocId, contracts.documentRegistryAddress)).toBe('Invoice')
+  expect(await getDocumentStatus(contracts.documentRegistryAddress, importerDocId)).toBe(0) // Draft
+  expect(await getDocumentStatus(contracts.documentRegistryAddress, exporterDocId)).toBe(0) // Draft
+
+  // --- Review documents ---
+  await reviewDocument(walletImporter, contracts.documentRegistryAddress, importerDocId)
+  await reviewDocument(walletExporter, contracts.documentRegistryAddress, exporterDocId)
+  expect(await getDocumentStatus(contracts.documentRegistryAddress, importerDocId)).toBe(1) // Reviewed
+  expect(await getDocumentStatus(contracts.documentRegistryAddress, exporterDocId)).toBe(1) // Reviewed
+
+  // --- Sign documents ---
+  await signDocument(walletImporter, contracts.documentRegistryAddress, importerDocId)
+  await signDocument(walletExporter, contracts.documentRegistryAddress, exporterDocId)
+  expect(await getDocumentStatus(contracts.documentRegistryAddress, importerDocId)).toBe(2) // Signed
+  expect(await getDocumentStatus(contracts.documentRegistryAddress, exporterDocId)).toBe(2) // Signed
+
+  // --- Both parties sign agreement ---
+  await signAgreement(walletImporter, agreementAddress)
+  await signAgreement(walletExporter, agreementAddress)
 
   // --- Deposit by importer ---
-  const hashDeposit = await depositAgreement(walletImporter, agreementAddress, 1000n, contracts.mockUSDCAddress)
-  const receiptDeposit = await publicClient.waitForTransactionReceipt({ hash: hashDeposit })
-  expect(receiptDeposit.status).toBe('success')
+  await depositAgreement(walletImporter, agreementAddress, 1000n, contracts.mockUSDCAddress)
 
-  // --- Start shipping ---
-  const hashShipping = await startShipping(walletExporter, agreementAddress)
-  const receiptShipping = await publicClient.waitForTransactionReceipt({ hash: hashShipping })
-  expect(receiptShipping.status).toBe('success')
-
-  // --- Complete agreement ---
-  const hashComplete = await completeAgreement(walletImporter, agreementAddress)
-  const receiptComplete = await publicClient.waitForTransactionReceipt({ hash: hashComplete })
-  expect(receiptComplete.status).toBe('success')
+  // --- Start shipping & complete agreement ---
+  await startShipping(walletExporter, agreementAddress)
+  await completeAgreement(walletImporter, agreementAddress)
 })
