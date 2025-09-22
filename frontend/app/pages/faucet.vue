@@ -89,7 +89,8 @@ onMounted(() => {
     </button>
 
     <!-- Message / Feedback -->
-    <div v-if="message" 
+    <div
+v-if="message" 
          :class="['p-3 rounded', message.includes('Minted') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200']"
          class="flex items-center gap-2"
     >

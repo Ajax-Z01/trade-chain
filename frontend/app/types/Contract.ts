@@ -1,8 +1,4 @@
-export interface OnChainInfo {
-  status: string | number
-  blockNumber?: number
-  confirmations?: number
-}
+import type { OnChainInfo } from './Info'
 
 export interface ContractLogEntry {
   action: string

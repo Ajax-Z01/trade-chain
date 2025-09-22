@@ -103,7 +103,8 @@ const removeCompany = async (id: string) => {
           </tr>
         </thead>
         <tbody>
-          <tr v-for="(c, idx) in companies" :key="c.id"
+          <tr
+              v-for="(c, idx) in companies" :key="c.id"
               :class="idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'"
               class="hover:bg-gray-100 transition-colors"
           >

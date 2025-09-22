@@ -1,8 +1,4 @@
-export interface OnChainInfo {
-  status: string | number;
-  blockNumber?: number;
-  confirmations?: number;
-}
+import { OnChainInfo } from './Info.js';
 
 export interface ContractLogEntry {
   action: string;

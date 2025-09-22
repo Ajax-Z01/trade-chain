@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive, watch, computed, nextTick } from 'vue'
+import { ref, watch, computed } from 'vue'
 import { useWallet } from '~/composables/useWallets'
 import { useDocuments } from '~/composables/useDocuments'
 import { useStorage } from '~/composables/useStorage'
@@ -10,7 +10,7 @@ import DocumentViewer from '~/components/DocumentViewer.vue'
 import { useToast } from '~/composables/useToast'
 
 // Icons
-import { Loader2, FileUp, CheckCircle2, XCircle } from 'lucide-vue-next'
+import { Loader2, FileUp } from 'lucide-vue-next'
 
 // Composables
 const { addToast } = useToast()

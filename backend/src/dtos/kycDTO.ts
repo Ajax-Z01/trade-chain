@@ -1,6 +1,6 @@
-import { NFT } from "../types/NFT"
+import { KYC } from "../types/Kyc.js"
 
-export default class NFTDTO {
+export default class KYCDTO {
   tokenId: string
   owner: string
   fileHash: string
@@ -11,7 +11,7 @@ export default class NFTDTO {
   createdAt: number
   updatedAt?: number
 
-  constructor(data: Partial<NFT>) {
+  constructor(data: Partial<KYC>) {
     if (!data.tokenId) throw new Error("tokenId is required")
     if (!data.owner) throw new Error("owner is required")
     if (!data.fileHash) throw new Error("fileHash is required")
@@ -28,7 +28,7 @@ export default class NFTDTO {
     this.updatedAt = data.updatedAt || Date.now()
   }
 
-  toFirestore(): NFT {
+  toFirestore(): KYC {
     return {
       tokenId: this.tokenId,
       owner: this.owner,

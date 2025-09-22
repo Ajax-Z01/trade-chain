@@ -1,4 +1,5 @@
-import type { ContractLogEntry, OnChainInfo } from '../types/Contract.js';
+import type { ContractLogEntry } from '../types/Contract.js';
+import type { OnChainInfo } from '../types/Info.js';
 
 export default class ContractLogDTO {
   contractAddress!: string;

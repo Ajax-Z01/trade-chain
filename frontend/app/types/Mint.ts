@@ -3,4 +3,5 @@ export interface MintResult {
   tokenId: bigint
   metadataUrl: string
   fileHash: string
+  txHash: `0x${string}`
 }

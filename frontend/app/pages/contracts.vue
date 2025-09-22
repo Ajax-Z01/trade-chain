@@ -6,7 +6,7 @@ import { useContractActions } from '~/composables/useContractActions'
 import { useWallet } from '~/composables/useWallets'
 import { useToast } from '~/composables/useToast'
 import { useTx } from '~/composables/useTx'
-import { getNftsByOwner } from '~/composables/useNfts'
+import { getKycsByOwner } from '~/composables/useKycs'
 import ContractStepper from '~/components/ContractStepper.vue'
 
 // Composables
@@ -106,7 +106,7 @@ const canCancel = computed(() => stepStatus.deploy && !stepStatus.completed && !
 
 // Helpers
 const getFirstTokenIdByOwner = async (owner: `0x${string}`): Promise<bigint | null> => {
-  const nfts = await getNftsByOwner(owner)
+  const nfts = await getKycsByOwner(owner)
   return nfts.length ? BigInt(nfts[0]!.tokenId) : null
 }
 

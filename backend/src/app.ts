@@ -4,7 +4,7 @@ import dotenv from 'dotenv'
 import morgan from 'morgan'
 import contractRoutes from './routes/contractRoutes.js'
 import walletRoutes from './routes/walletRoutes.js'
-import nftRoutes from './routes/nftRoutes.js'
+import kycRoutes from './routes/kycRoutes.js'
 import companyRoutes from './routes/companyRoutes.js'
 import documentRoutes from './routes/documentRoutes.js'
 import activityRoutes from './routes/activityRoutes.js'
@@ -24,7 +24,7 @@ app.get('/', (req, res) => res.send('Backend is running'))
 
 app.use('/api/contract', contractRoutes)
 app.use('/api/wallet', walletRoutes)
-app.use('/api/nft', nftRoutes)
+app.use('/api/kyc', kycRoutes)
 app.use('/api/company', companyRoutes)
 app.use('/api/document', documentRoutes)
 app.use('/api/activity', activityRoutes);

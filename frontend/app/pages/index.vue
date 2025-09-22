@@ -43,8 +43,8 @@ onMounted(async () => {
       <button
         class="bg-white text-indigo-600 px-4 py-2 rounded-lg shadow hover:bg-indigo-50 transition-all duration-200 flex items-center gap-2"
         :disabled="loading"
-        @click="fetchDashboard"
         title="Refresh dashboard data"
+        @click="fetchDashboard"
       >
         <Loader2 v-if="loading" class="w-5 h-5 animate-spin" />
         {{ loading ? 'Refreshing...' : 'Refresh Data' }}

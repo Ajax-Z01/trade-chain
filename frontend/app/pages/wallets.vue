@@ -62,8 +62,8 @@ const copyAddress = async () => {
             <span :title="account">{{ shortenAddress(account) }}</span>
             <button
               class="flex items-center gap-1 text-gray-500 hover:text-indigo-600 transition"
-              @click="copyAddress"
               :title="'Copy full address'"
+              @click="copyAddress"
             >
               <Copy class="w-4 h-4" />
               <span v-if="copied" class="text-xs text-green-600">Copied!</span>
@@ -101,8 +101,8 @@ const copyAddress = async () => {
         <!-- Disconnect -->
         <Button
           class="flex items-center justify-center gap-2 w-full px-4 py-2 rounded-xl bg-red-600 text-white hover:bg-red-700 active:bg-red-800 transition"
-          @click="handleDisconnect"
           title="Disconnect wallet"
+          @click="handleDisconnect"
         >
           <LogOut class="w-5 h-5" /> Disconnect
         </Button>
@@ -114,8 +114,8 @@ const copyAddress = async () => {
         <Button
           class="flex items-center justify-center gap-2 w-full px-4 py-2 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 active:bg-indigo-800 transition"
           :disabled="loadingConnect"
-          @click="handleConnect"
           title="Connect your wallet"
+          @click="handleConnect"
         >
           <PlugZap class="w-5 h-5" />
           <span v-if="!loadingConnect">Connect Wallet</span>

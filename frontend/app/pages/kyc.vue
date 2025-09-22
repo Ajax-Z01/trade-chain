@@ -2,7 +2,7 @@
 import { ref } from 'vue'
 import { useRegistry } from '~/composables/useRegistryKYC'
 import { useWallet } from '~/composables/useWallets'
-import { createNft } from '~/composables/useNfts'
+import { useKYC } from '~/composables/useKycs'
 import { useStorage } from '~/composables/useStorage'
 
 // Lucide icons
@@ -11,6 +11,7 @@ import { Loader2, CheckCircle2, XCircle, Plus, Minus, FileUp, Search, Users } fr
 const { walletClient, account } = useWallet()
 const { mintDocument, getTokenIdByHash, minting, addMinter, removeMinter, isMinter, quickCheckNFT } = useRegistry()
 const { uploadToLocal } = useStorage()
+const { createKyc } = useKYC()
 
 const selectedFile = ref<File | null>(null)
 const tokenId = ref<bigint | null>(null)
@@ -19,7 +20,6 @@ const success = ref<string | null>(null)
 const minterAddress = ref('')
 const addingMinter = ref(false)
 const removingMinter = ref(false)
-
 const nftInfo = ref<{ owner: string; metadata: any } | null>(null)
 
 const onFileChange = (e: Event) => {
@@ -33,16 +33,11 @@ const checkNFT = async () => {
   const info = await quickCheckNFT(tokenId.value)
   if (info) {
     let metadata: any = info.metadata
-
     if (typeof metadata === 'string' && metadata.startsWith('data:application/json;base64,')) {
       const base64 = metadata.split(',')[1] ?? ''
       metadata = base64 ? JSON.parse(atob(base64)) : {}
     }
-
-    nftInfo.value = {
-      owner: info.owner as string,
-      metadata
-    }
+    nftInfo.value = { owner: info.owner as string, metadata }
   }
 }
 
@@ -78,24 +73,22 @@ const verifyAndMint = async () => {
       return
     }
 
-    // --- 3. Upload file to IPFS
-    const metadataUrl = await uploadToLocal(
-      selectedFile.value,
-      account.value
-    )
+    // --- 3. Upload file to local/IPFS
+    const metadataUrl = await uploadToLocal(selectedFile.value, account.value)
 
-    // --- 4. Mint NFT di smart contract
-    const { tokenId: mintedId } = await mintDocument(account.value as `0x${string}`, selectedFile.value)
+    // --- 4. Mint NFT on-chain
+    const { tokenId: mintedId, txHash } = await mintDocument(account.value as `0x${string}`, selectedFile.value)
     tokenId.value = mintedId
 
-    // --- 5. Simpan ke backend
-    await createNft({
+    // --- 5. Save to backend KYC
+    await createKyc({
       tokenId: mintedId.toString(),
       owner: account.value,
       fileHash,
       metadataUrl,
       name: selectedFile.value.name,
       description: `Verified document ${selectedFile.value.name}`,
+      txHash,
       createdAt: Date.now(),
     })
 
@@ -112,7 +105,6 @@ const handleAddMinter = async () => {
   addingMinter.value = true
   error.value = null
   success.value = null
-
   try {
     await addMinter(minterAddress.value as `0x${string}`)
     success.value = `Minter added: ${minterAddress.value}`
@@ -129,7 +121,6 @@ const handleRemoveMinter = async () => {
   removingMinter.value = true
   error.value = null
   success.value = null
-
   try {
     await removeMinter(minterAddress.value as `0x${string}`)
     success.value = `Minter removed: ${minterAddress.value}`
@@ -228,8 +219,8 @@ const handleRemoveMinter = async () => {
       </h3>
       <div class="flex gap-2">
         <input
-          type="number"
           v-model="tokenId"
+          type="number"
           placeholder="Enter token ID"
           class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring focus:ring-blue-200"
         />

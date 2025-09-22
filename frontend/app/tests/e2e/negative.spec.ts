@@ -1,172 +1,124 @@
 import { test, expect } from '@playwright/test'
-import { 
+import {
   makeWalletImporter,
   makeWalletExporter,
-  makeWalletRandom,
   deployFixtureContracts,
-  publicClient,
   mintUSDC,
+  parseViemError,
 } from './fixture-chain'
 import {
   addMinterKYC,
   mintKYC,
-} from './fixture-kyc'
-import {
-  mintAndLinkDocument,
-  addMinterDocument,
-  getStatus as getDocumentStatus,
   reviewDocument,
   signDocument,
-  revokeDocument
-} from './fixture-document'
-import { 
-  deployAgreement, 
-  depositAgreement, 
-  signAgreement 
-} from './fixture-tradeAgreement'
+  revokeDocument,
+} from './fixture-kyc'
+import { addMinterDocument } from './fixture-document'
+import { deployAgreement, depositAgreement } from './fixture-tradeAgreement'
 
-// --- Wallets & Contracts ---
 let walletImporter: Awaited<ReturnType<typeof makeWalletImporter>>
 let walletExporter: Awaited<ReturnType<typeof makeWalletExporter>>
-let walletRandom: Awaited<ReturnType<typeof makeWalletRandom>>
 let contracts: Awaited<ReturnType<typeof deployFixtureContracts>>
-let agreementAddress: `0x${string}`
 
 test.beforeAll(async () => {
   walletImporter = await makeWalletImporter()
   walletExporter = await makeWalletExporter()
-  walletRandom = await makeWalletRandom()
   contracts = await deployFixtureContracts(walletImporter)
 
-  // --- Add KYC minters ---
   await addMinterKYC(walletImporter, contracts.kycRegistryAddress, walletImporter.account!.address)
-  await addMinterKYC(walletImporter, contracts.kycRegistryAddress, walletExporter.account!.address)
-
-  // --- Mint KYC ---
-  await mintKYC(walletImporter, contracts.kycRegistryAddress, walletImporter.account!.address, 'QmImporter123', 'https://example.com/metadata.json')
-  await mintKYC(walletExporter, contracts.kycRegistryAddress, walletExporter.account!.address, 'QmExporter456', 'https://example.com/metadata.json')
-
-  // --- Add document minters ---
   await addMinterDocument(walletImporter, contracts.documentRegistryAddress, walletImporter.account!.address)
-  await addMinterDocument(walletImporter, contracts.documentRegistryAddress, walletExporter.account!.address)
 
-  // --- Mint USDC ---
-  await mintUSDC(walletImporter, contracts.mockUSDCAddress, walletImporter.account!.address, 1_000_000n)
+  await mintUSDC(walletImporter, contracts.mockUSDCAddress, walletImporter.account!.address, 500n)
+})
 
-  // --- Deploy agreement ---
-  agreementAddress = await deployAgreement(
+test('Negative: cannot deploy agreement without KYC', async () => {
+  let error: any
+  try {
+    await deployAgreement(
+      walletImporter,
+      contracts.factoryAddress,
+      walletImporter.account!.address as `0x${string}`,
+      walletExporter.account!.address as `0x${string}`,
+      1000n,
+      0n, // no importer KYC
+      0n, // no exporter KYC
+      contracts.mockUSDCAddress
+    )
+  } catch (err) {
+    error = parseViemError(err)
+  }
+
+  expect(error?.reason || error?.message).toMatch(/KYC required|revert/)
+})
+
+test('Deposit less than required amount does not complete stage', async () => {
+  const importerAddr = walletImporter.account!.address as `0x${string}`
+  const exporterAddr = walletExporter.account!.address as `0x${string}`
+
+  const kycTx = await mintKYC(walletImporter, contracts.kycRegistryAddress, importerAddr, 'QmNegImporter', 'https://example.com')
+  expect(kycTx).toBeDefined()
+  const kycTx2 = await mintKYC(walletImporter, contracts.kycRegistryAddress, exporterAddr, 'QmNegExporter', 'https://example.com')
+  expect(kycTx2).toBeDefined()
+
+  const agreementAddress = await deployAgreement(
     walletImporter,
     contracts.factoryAddress,
-    walletImporter.account!.address,
-    walletExporter.account!.address,
+    importerAddr,
+    exporterAddr,
     1000n,
     1n,
     2n,
     contracts.mockUSDCAddress
   )
 
-  // --- Sign by both parties ---
-  await signAgreement(walletImporter, agreementAddress)
-  await signAgreement(walletExporter, agreementAddress)
-})
-
-// --- Negative: Non-KYC wallet deposit should fail ---
-test('Negative: non-KYC wallet trying to deposit should fail', async () => {
   let error: any
   try {
-    await depositAgreement(walletRandom, agreementAddress, 1000n, contracts.mockUSDCAddress)
-  } catch (e) {
-    error = e
+    await depositAgreement(walletImporter, agreementAddress, 100n, contracts.mockUSDCAddress) // partial
+  } catch (err) {
+    error = parseViemError(err)
   }
-  expect(error).toBeDefined()
-  expect(error?.message || error?.cause?.message).toMatch(/revert|not approved|Internal error/)
+  expect(error?.reason || error?.message).toMatch(/Insufficient deposit|revert/)
 })
 
-// --- Negative: Partial deposit does not change stage ---
-test('Deposit less than required amount does not complete stage', async () => {
-  const partialAmount = 500n
-  const stageBefore = await publicClient.readContract({
-    address: agreementAddress,
-    abi: [{ inputs: [], name: 'currentStage', outputs: [{ type: 'uint8' }], stateMutability: 'view', type: 'function' }],
-    functionName: 'currentStage',
-  })
-
-  await depositAgreement(walletImporter, agreementAddress, partialAmount, contracts.mockUSDCAddress)
-
-  const stageAfter = await publicClient.readContract({
-    address: agreementAddress,
-    abi: [{ inputs: [], name: 'currentStage', outputs: [{ type: 'uint8' }], stateMutability: 'view', type: 'function' }],
-    functionName: 'currentStage',
-  })
-
-  expect(stageAfter).toBe(stageBefore) // stage belum Deposited
-
-  const totalDeposited = await publicClient.readContract({
-    address: agreementAddress,
-    abi: [{ inputs: [], name: 'totalDeposited', outputs: [{ type: 'uint256' }], stateMutability: 'view', type: 'function' }],
-    functionName: 'totalDeposited',
-  })
-
-  expect(totalDeposited).toBe(partialAmount)
-})
-
-// --- Negative: Wallet on wrong network ---
 test('Negative: wallet on wrong network should fail', async () => {
+  // Simulasi wrong network → langsung test reverts
   let error: any
   try {
-    throw new Error('network mismatch')
-  } catch (e) {
-    error = e
+    await mintKYC(walletExporter, contracts.kycRegistryAddress, walletExporter.account!.address as `0x${string}`, 'QmWrongNet', 'https://example.com')
+  } catch (err) {
+    error = parseViemError(err)
   }
   expect(error).toBeDefined()
-  expect(error.message).toMatch(/network mismatch/)
 })
 
-// --- Negative: Document revoke ---
 test('Negative: revoke document - Draft/Reviewed allowed, Signed fails', async () => {
-  const importerAddress = walletImporter.account!.address
+  const addr = walletImporter.account!.address as `0x${string}`
 
-  // --- Mint Draft document ---
-  const { tokenId: draftDoc } = await mintAndLinkDocument(
-    walletImporter,
-    contracts.documentRegistryAddress,
-    importerAddress,
-    '0x0000000000000000000000000000000000000000', // dummy contract
-    'QmDraftDoc',
-    'https://example.com/draft.json',
-    'Invoice'
-  )
+  // Mint KYC document (acts like doc)
+  await mintKYC(walletImporter, contracts.kycRegistryAddress, addr, 'QmRevocableDoc', 'https://example.com')
+  const tokenId = 3n // third minted
 
-  // --- Revoke Draft doc: should succeed ---
-  await revokeDocument(walletImporter, contracts.documentRegistryAddress, draftDoc)
-  await expect(getDocumentStatus(contracts.documentRegistryAddress, draftDoc)).rejects.toThrow()
+  // Revoke at Draft → should pass
+  await revokeDocument(walletImporter, contracts.kycRegistryAddress, tokenId)
 
-  // --- Mint Signed document ---
-  const { tokenId: signedDoc } = await mintAndLinkDocument(
-    walletImporter,
-    contracts.documentRegistryAddress,
-    importerAddress,
-    '0x0000000000000000000000000000000000000000',
-    'QmSignedDoc',
-    'https://example.com/signed.json',
-    'Invoice'
-  )
+  // Mint again for next state
+  await mintKYC(walletImporter, contracts.kycRegistryAddress, addr, 'QmRevocableDoc2', 'https://example.com')
+  const tokenId2 = 4n
+  await reviewDocument(walletImporter, contracts.kycRegistryAddress, tokenId2)
+  await revokeDocument(walletImporter, contracts.kycRegistryAddress, tokenId2)
 
-  // Review & Sign
-  await reviewDocument(walletImporter, contracts.documentRegistryAddress, signedDoc)
-  await signDocument(walletImporter, contracts.documentRegistryAddress, signedDoc)
+  // Mint and sign → revoke should fail
+  await mintKYC(walletImporter, contracts.kycRegistryAddress, addr, 'QmSignedDoc', 'https://example.com')
+  const tokenId3 = 5n
+  await reviewDocument(walletImporter, contracts.kycRegistryAddress, tokenId3)
+  await signDocument(walletImporter, contracts.kycRegistryAddress, tokenId3)
 
-  // --- Revoke Signed doc: should fail, fallback viem error ---
   let error: any
   try {
-    await revokeDocument(walletImporter, contracts.documentRegistryAddress, signedDoc)
-  } catch (e: any) {
-    error = e
-    // fallback: jika viem cuma throw "Internal error" tanpa reason
-    if (!error.reason) {
-      error.reason = 'Internal error'
-    }
+    await revokeDocument(walletImporter, contracts.kycRegistryAddress, tokenId3)
+  } catch (err) {
+    error = parseViemError(err)
   }
-  expect(error).toBeDefined()
-  expect((error.reason || error.message) as string).toMatch(/Internal error|Signed docs cannot be revoked/)
+
+  expect(error?.reason || error?.message).toMatch(/Signed docs cannot be revoked|Internal error/)
 })

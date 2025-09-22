@@ -19,38 +19,45 @@ export function useRegistryDocument() {
   const { account, walletClient } = useWallet()
   const { addActivityLog } = useActivityLogs()
   const { uploadToLocal } = useStorage()
-
   const minting = ref(false)
 
-  // --- Get tokenId by file hash ---
+  // ---------------- Core Functions ----------------
   const getTokenIdByHash = async (fileHash: string) => {
     try {
-      const tokenId = await publicClient.readContract({
+      return await publicClient.readContract({
         address: documentRegistryAddress,
         abi,
         functionName: 'getTokenIdByHash',
         args: [fileHash],
-      })
-      return tokenId as bigint
+      }) as bigint
     } catch (err) {
       console.error('Failed to get tokenId by hash:', err)
       return 0n
     }
   }
 
-  // --- Mint document ---
+  const getStatus = async (tokenId: bigint) => {
+    try {
+      return await publicClient.readContract({
+        address: documentRegistryAddress,
+        abi,
+        functionName: 'getStatus',
+        args: [tokenId],
+      }) as number
+    } catch (err) {
+      console.error('Failed to get document status:', err)
+      return null
+    }
+  }
+
   const mintDocument = async (to: `0x${string}`, file: File, docType: string): Promise<MintResult> => {
     if (!walletClient.value || !account.value) throw new Error('Wallet not connected')
     minting.value = true
-
     try {
-      // Hash file
       const arrayBuffer = await file.arrayBuffer()
       const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer)
-      const hashArray = Array.from(new Uint8Array(hashBuffer))
-      const fileHash = '0x' + hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+      const fileHash = '0x' + Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('')
 
-      // Prepare metadata
       const metadata = {
         name: file.name,
         description: `Verified document ${file.name}`,
@@ -63,7 +70,6 @@ export function useRegistryDocument() {
       const metadataFile = new File([metadataBlob], `${file.name}.json`, { type: 'application/json' })
       const metadataUrl = await uploadToLocal(metadataFile, account.value)
 
-      // Mint via contract
       const txHash = await walletClient.value.writeContract({
         address: documentRegistryAddress,
         abi,
@@ -74,33 +80,24 @@ export function useRegistryDocument() {
       })
 
       const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash as `0x${string}` })
-      const latestBlock = Number(await publicClient.getBlockNumber())
-      const blockNumber = Number(receipt.blockNumber)
-      const confirmations = latestBlock - blockNumber + 1
 
-      // Add activity log
       await addActivityLog(account.value, {
         type: 'onChain',
         action: 'mintDocument',
-        txHash: txHash as `0x${string}`,
+        txHash,
         contractAddress: documentRegistryAddress,
         extra: { fileName: file.name, docType },
-        onChainInfo: {
-          status: receipt.status === 'success' ? 'success' : 'failed',
-          blockNumber,
-          confirmations,
-        },
+        onChainInfo: { status: receipt.status === 'success' ? 'success' : 'failed', blockNumber: Number(receipt.blockNumber), confirmations: 1 },
         tags: ['Document', 'mint'],
       })
 
-      // Decode tokenId
       const eventLog = receipt.logs.find(log => log.address === documentRegistryAddress)
       if (!eventLog) throw new Error('No DocumentVerified event found')
-      const decodedRaw = decodeEventLog({ abi, data: eventLog.data, topics: eventLog.topics }) as unknown
-      const decodedArgs = (decodedRaw as { args: any }).args as { owner: `0x${string}`, tokenId: bigint, fileHash: string, docType: string }
+      const decodedRaw = decodeEventLog({ abi, data: eventLog.data, topics: eventLog.topics }) as any
+      const { tokenId } = decodedRaw.args
 
       minting.value = false
-      return { receipt, tokenId: decodedArgs.tokenId, metadataUrl, fileHash }
+      return { receipt, tokenId, metadataUrl, fileHash }
     } catch (err) {
       minting.value = false
       console.error('Minting error:', err)
@@ -108,93 +105,108 @@ export function useRegistryDocument() {
     }
   }
 
-  // --- Minter management ---
-  const addMinter = async (newMinter: `0x${string}`) => {
+  // ---------------- Lifecycle Functions ----------------
+  const reviewDocument = async (tokenId: bigint) => {
     if (!walletClient.value || !account.value) throw new Error('Wallet not connected')
     const txHash = await walletClient.value.writeContract({
       address: documentRegistryAddress,
       abi,
-      functionName: 'addMinter',
-      args: [newMinter],
+      functionName: 'reviewDocument',
+      args: [tokenId],
       account: account.value as `0x${string}`,
       chain: Chain,
     })
     const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash as `0x${string}` })
-    const latestBlock = Number(await publicClient.getBlockNumber())
-    const blockNumber = Number(receipt.blockNumber)
-    const confirmations = latestBlock - blockNumber + 1
+    await addActivityLog(account.value, { type: 'onChain', action: 'reviewDocument', txHash, contractAddress: documentRegistryAddress, extra: { tokenId }, onChainInfo: { status: receipt.status === 'success' ? 'success' : 'failed', blockNumber: Number(receipt.blockNumber), confirmations: 1 }, tags: ['Document', 'review'] })
+    return receipt
+  }
 
-    await addActivityLog(account.value, {
-      type: 'onChain',
-      action: 'addMinter',
-      txHash: txHash as `0x${string}`,
-      contractAddress: documentRegistryAddress,
-      extra: { newMinter },
-      onChainInfo: { status: receipt.status === 'success' ? 'success' : 'failed', blockNumber, confirmations },
-      tags: ['Document', 'add', 'minter'],
+  const signDocument = async (tokenId: bigint) => {
+    if (!walletClient.value || !account.value) throw new Error('Wallet not connected')
+    const txHash = await walletClient.value.writeContract({
+      address: documentRegistryAddress,
+      abi,
+      functionName: 'signDocument',
+      args: [tokenId],
+      account: account.value as `0x${string}`,
+      chain: Chain,
     })
+    const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash as `0x${string}` })
+    await addActivityLog(account.value, { type: 'onChain', action: 'signDocument', txHash, contractAddress: documentRegistryAddress, extra: { tokenId }, onChainInfo: { status: receipt.status === 'success' ? 'success' : 'failed', blockNumber: Number(receipt.blockNumber), confirmations: 1 }, tags: ['Document', 'sign'] })
+    return receipt
+  }
 
+  const linkDocumentToContract = async (contractAddress: `0x${string}`, tokenId: bigint) => {
+    if (!walletClient.value || !account.value) throw new Error('Wallet not connected')
+    const txHash = await walletClient.value.writeContract({
+      address: documentRegistryAddress,
+      abi,
+      functionName: 'linkDocumentToContract',
+      args: [contractAddress, tokenId],
+      account: account.value as `0x${string}`,
+      chain: Chain,
+    })
+    const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash as `0x${string}` })
+    await addActivityLog(account.value, { type: 'onChain', action: 'linkDocument', txHash, contractAddress: documentRegistryAddress, extra: { tokenId, linkedTo: contractAddress }, onChainInfo: { status: receipt.status === 'success' ? 'success' : 'failed', blockNumber: Number(receipt.blockNumber), confirmations: 1 }, tags: ['Document', 'link'] })
+    return receipt
+  }
+
+  const revokeDocument = async (tokenId: bigint) => {
+    if (!walletClient.value || !account.value) throw new Error('Wallet not connected')
+    const txHash = await walletClient.value.writeContract({
+      address: documentRegistryAddress,
+      abi,
+      functionName: 'revokeDocument',
+      args: [tokenId],
+      account: account.value as `0x${string}`,
+      chain: Chain,
+    })
+    const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash as `0x${string}` })
+    await addActivityLog(account.value, { type: 'onChain', action: 'revokeDocument', txHash, contractAddress: documentRegistryAddress, extra: { tokenId }, onChainInfo: { status: receipt.status === 'success' ? 'success' : 'failed', blockNumber: Number(receipt.blockNumber), confirmations: 1 }, tags: ['Document', 'revoke'] })
+    return receipt
+  }
+
+  // ---------------- Minter Management ----------------
+  const addMinter = async (newMinter: `0x${string}`) => {
+    if (!walletClient.value || !account.value) throw new Error('Wallet not connected')
+    const txHash = await walletClient.value.writeContract({ address: documentRegistryAddress, abi, functionName: 'addMinter', args: [newMinter], account: account.value as `0x${string}`, chain: Chain })
+    const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash as `0x${string}` })
+    await addActivityLog(account.value, { type: 'onChain', action: 'addMinter', txHash, contractAddress: documentRegistryAddress, extra: { newMinter }, onChainInfo: { status: receipt.status === 'success' ? 'success' : 'failed', blockNumber: Number(receipt.blockNumber), confirmations: 1 }, tags: ['Document', 'add', 'minter'] })
     return receipt
   }
 
   const removeMinter = async (minter: `0x${string}`) => {
     if (!walletClient.value || !account.value) throw new Error('Wallet not connected')
-    const txHash = await walletClient.value.writeContract({
-      address: documentRegistryAddress,
-      abi,
-      functionName: 'removeMinter',
-      args: [minter],
-      account: account.value as `0x${string}`,
-      chain: Chain,
-    })
+    const txHash = await walletClient.value.writeContract({ address: documentRegistryAddress, abi, functionName: 'removeMinter', args: [minter], account: account.value as `0x${string}`, chain: Chain })
     const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash as `0x${string}` })
-    const latestBlock = Number(await publicClient.getBlockNumber())
-    const blockNumber = Number(receipt.blockNumber)
-    const confirmations = latestBlock - blockNumber + 1
-
-    await addActivityLog(account.value, {
-      type: 'onChain',
-      action: 'removeMinter',
-      txHash: txHash as `0x${string}`,
-      contractAddress: documentRegistryAddress,
-      extra: { minter },
-      onChainInfo: { status: receipt.status === 'success' ? 'success' : 'failed', blockNumber, confirmations },
-      tags: ['Document', 'remove', 'minter'],
-    })
-
+    await addActivityLog(account.value, { type: 'onChain', action: 'removeMinter', txHash, contractAddress: documentRegistryAddress, extra: { minter }, onChainInfo: { status: receipt.status === 'success' ? 'success' : 'failed', blockNumber: Number(receipt.blockNumber), confirmations: 1 }, tags: ['Document', 'remove', 'minter'] })
     return receipt
   }
 
   const isMinter = async (addr: `0x${string}`): Promise<boolean> => {
-    try {
-      const result = await publicClient.readContract({
-        address: documentRegistryAddress,
-        abi,
-        functionName: 'isMinter',
-        args: [addr],
-      })
-      return result as boolean
-    } catch (err) {
-      console.error('Failed to check minter status:', err)
-      return false
-    }
+    try { return await publicClient.readContract({ address: documentRegistryAddress, abi, functionName: 'isMinter', args: [addr] }) as boolean } 
+    catch (err) { console.error('Failed to check minter status:', err); return false }
   }
 
   const quickCheckNFT = async (tokenId: bigint) => {
     try {
       const owner = await publicClient.readContract({ address: documentRegistryAddress, abi, functionName: 'ownerOf', args: [tokenId] })
       const tokenURI = await publicClient.readContract({ address: documentRegistryAddress, abi, functionName: 'tokenURI', args: [tokenId] })
-      return { owner, metadata: tokenURI }
-    } catch (err) {
-      console.error('Quick check NFT failed:', err)
-      return null
-    }
+      const docType = await publicClient.readContract({ address: documentRegistryAddress, abi, functionName: 'getDocType', args: [tokenId] })
+      const status = await getStatus(tokenId)
+      return { owner, metadata: tokenURI, docType, status }
+    } catch (err) { console.error('Quick check NFT failed:', err); return null }
   }
 
   return {
     mintDocument,
     getTokenIdByHash,
+    getStatus,
     minting,
+    reviewDocument,
+    signDocument,
+    linkDocumentToContract,
+    revokeDocument,
     addMinter,
     removeMinter,
     isMinter,

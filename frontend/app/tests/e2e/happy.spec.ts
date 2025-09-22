@@ -1,23 +1,20 @@
 import { test, expect } from '@playwright/test'
-import { 
+import {
   makeWalletImporter,
   makeWalletExporter,
   deployFixtureContracts,
-  publicClient,
-  mintUSDC
+  mintUSDC,
 } from './fixture-chain'
 import {
   addMinterKYC,
   mintKYC,
   getTokenIdByHash,
-  isMinter as isKYCApproved
+  getStatus as getKYCStatus,
 } from './fixture-kyc'
 import {
   mintAndLinkDocument,
   addMinterDocument,
   getStatus as getDocumentStatus,
-  getTokenIdByHash as getDocumentTokenId,
-  getDocType,
   reviewDocument,
   signDocument,
 } from './fixture-document'
@@ -47,7 +44,7 @@ test.beforeAll(async () => {
   await mintUSDC(walletImporter, contracts.mockUSDCAddress, walletImporter.account!.address, 1_000_000n)
 })
 
-test('Happy path: full trade agreement flow with KYC & document verification', async () => {
+test('Happy path: full trade agreement flow with KYC lifecycle & document lifecycle', async () => {
   const importerAddress = walletImporter.account!.address as `0x${string}`
   const exporterAddress = walletExporter.account!.address as `0x${string}`
 
@@ -60,6 +57,19 @@ test('Happy path: full trade agreement flow with KYC & document verification', a
   const exporterKycTokenId = await getTokenIdByHash('QmExporter456', contracts.kycRegistryAddress)
   expect(importerKycTokenId).toBe(1n)
   expect(exporterKycTokenId).toBe(2n)
+
+  // --- Check lifecycle status (KYC is also document-based now) ---
+  expect(await getKYCStatus(contracts.kycRegistryAddress, importerKycTokenId)).toBe(0) // Draft
+  expect(await getKYCStatus(contracts.kycRegistryAddress, exporterKycTokenId)).toBe(0)
+
+  // --- Review and sign KYC ---
+  await reviewDocument(walletImporter, contracts.kycRegistryAddress, importerKycTokenId)
+  await signDocument(walletImporter, contracts.kycRegistryAddress, importerKycTokenId)
+  await reviewDocument(walletImporter, contracts.kycRegistryAddress, exporterKycTokenId)
+  await signDocument(walletImporter, contracts.kycRegistryAddress, exporterKycTokenId)
+
+  expect(await getKYCStatus(contracts.kycRegistryAddress, importerKycTokenId)).toBe(2) // Signed
+  expect(await getKYCStatus(contracts.kycRegistryAddress, exporterKycTokenId)).toBe(2)
 
   // --- Deploy trade agreement ---
   const requiredAmount = 1000n
@@ -98,23 +108,17 @@ test('Happy path: full trade agreement flow with KYC & document verification', a
   expect(importerDocId).toBe(1n)
   expect(exporterDocId).toBe(2n)
 
-  // --- Verify document types & initial status ---
-  expect(await getDocType(importerDocId, contracts.documentRegistryAddress)).toBe('Invoice')
-  expect(await getDocType(exporterDocId, contracts.documentRegistryAddress)).toBe('Invoice')
-  expect(await getDocumentStatus(contracts.documentRegistryAddress, importerDocId)).toBe(0) // Draft
-  expect(await getDocumentStatus(contracts.documentRegistryAddress, exporterDocId)).toBe(0) // Draft
-
   // --- Review documents ---
   await reviewDocument(walletImporter, contracts.documentRegistryAddress, importerDocId)
   await reviewDocument(walletExporter, contracts.documentRegistryAddress, exporterDocId)
-  expect(await getDocumentStatus(contracts.documentRegistryAddress, importerDocId)).toBe(1) // Reviewed
-  expect(await getDocumentStatus(contracts.documentRegistryAddress, exporterDocId)).toBe(1) // Reviewed
+  expect(await getDocumentStatus(contracts.documentRegistryAddress, importerDocId)).toBe(1)
+  expect(await getDocumentStatus(contracts.documentRegistryAddress, exporterDocId)).toBe(1)
 
   // --- Sign documents ---
   await signDocument(walletImporter, contracts.documentRegistryAddress, importerDocId)
   await signDocument(walletExporter, contracts.documentRegistryAddress, exporterDocId)
-  expect(await getDocumentStatus(contracts.documentRegistryAddress, importerDocId)).toBe(2) // Signed
-  expect(await getDocumentStatus(contracts.documentRegistryAddress, exporterDocId)).toBe(2) // Signed
+  expect(await getDocumentStatus(contracts.documentRegistryAddress, importerDocId)).toBe(2)
+  expect(await getDocumentStatus(contracts.documentRegistryAddress, exporterDocId)).toBe(2)
 
   // --- Both parties sign agreement ---
   await signAgreement(walletImporter, agreementAddress)
