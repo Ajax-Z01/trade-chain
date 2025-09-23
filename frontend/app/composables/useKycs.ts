@@ -1,42 +1,51 @@
-import { useNuxtApp } from "#app"
-import type { KYC, KYCLogs } from "~/types/Kyc"
-import { useActivityLogs } from "~/composables/useActivityLogs"
-import { useWallet } from "~/composables/useWallets"
+import { useRuntimeConfig } from '#app'
+import { useActivityLogs } from '~/composables/useActivityLogs'
+import { useWallet } from '~/composables/useWallets'
+import type { KYC, KYCLogs } from '~/types/Kyc'
 
 // --- Safe parsers ---
 function safeParseHex(value: unknown): `0x${string}` | null {
-  if (typeof value === "string" && value.startsWith("0x")) return value as `0x${string}`
+  if (typeof value === 'string' && value.startsWith('0x')) return value as `0x${string}`
   return null
 }
 
 function safeParseDate(value: unknown): number {
-  if (typeof value === "number") return value
-  if (typeof value === "string") return Number(value)
+  if (typeof value === 'number') return value
+  if (typeof value === 'string') return Number(value)
   return Date.now()
 }
 
 // --- Parse raw KYC from backend ---
 function parseKYC(n: any): KYC {
   return {
-    tokenId: n.tokenId,
-    owner: safeParseHex(n.owner) ?? "",
-    fileHash: n.fileHash,
-    metadataUrl: n.metadataUrl,
+    tokenId: String(n.tokenId),
+    owner: n.owner ?? '',
+    fileHash: n.fileHash ?? '',
+    metadataUrl: n.metadataUrl ?? '',
     documentUrl: n.documentUrl ?? null,
     name: n.name ?? `KYC-${n.tokenId}`,
-    description: n.description ?? "",
-    createdAt: safeParseDate(n.createdAt),
-    updatedAt: safeParseDate(n.updatedAt),
+    description: n.description ?? '',
+    createdAt: n.createdAt ? Number(n.createdAt) : Date.now(),
+    updatedAt: n.updatedAt ? Number(n.updatedAt) : Date.now(),
+    history: Array.isArray(n.history)
+      ? n.history.map((log: any) => ({
+          action: log.action,
+          txHash: log.txHash,
+          account: log.account,
+          timestamp: Number(log.timestamp),
+          extra: log.extra ?? {},
+        }))
+      : [],
   }
 }
 
 // --- Composable ---
 export function useKYC() {
-  const { $apiBase } = useNuxtApp()
+  const config = useRuntimeConfig()
+  const $apiBase = config.public.apiBase
   const { account } = useWallet()
   const { addActivityLog } = useActivityLogs()
 
-  // --- CRUD ---
   const getAllKycs = async (): Promise<KYC[]> => {
     try {
       const res = await fetch(`${$apiBase}/kyc`)
@@ -44,7 +53,7 @@ export function useKYC() {
       const data = await res.json()
       return Array.isArray(data.data) ? data.data.map(parseKYC) : []
     } catch (err) {
-      console.error("Error fetching KYCs:", err)
+      console.error('[getAllKycs] Error:', err)
       return []
     }
   }
@@ -56,20 +65,8 @@ export function useKYC() {
       const data = await res.json()
       return data?.data ? parseKYC(data.data) : null
     } catch (err) {
-      console.error(`Error fetching KYC ${tokenId}:`, err)
+      console.error(`[getKycById] Error ${tokenId}:`, err)
       return null
-    }
-  }
-
-  const getKycsByOwner = async (owner: string): Promise<KYC[]> => {
-    try {
-      const res = await fetch(`${$apiBase}/kyc/owner/${owner}`)
-      if (!res.ok) return []
-      const data = await res.json()
-      return Array.isArray(data.data) ? data.data.map(parseKYC) : []
-    } catch (err) {
-      console.error(`Error fetching KYCs by owner ${owner}:`, err)
-      return []
     }
   }
 
@@ -80,91 +77,79 @@ export function useKYC() {
       const data = await res.json()
       return data?.data ?? null
     } catch (err) {
-      console.error(`Error fetching KYC logs ${tokenId}:`, err)
+      console.error(`[getKycLogs] Error ${tokenId}:`, err)
       return null
     }
   }
 
-  const createKyc = async (payload: Partial<KYC>) => {
-    try {
-      const res = await fetch(`${$apiBase}/kyc`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      })
-      if (!res.ok) throw new Error("Failed to create KYC")
-      const data = await res.json()
-      const kyc = parseKYC(data.data)
+  const createKyc = async (payload: Partial<KYC> & { action: string; executor: string }) => {
+    const res = await fetch(`${$apiBase}/kyc`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    if (!res.ok) throw new Error('Failed to create KYC')
+    const data = await res.json()
+    const kyc = parseKYC(data.data)
 
-      // log activity
-      await addActivityLog(kyc.owner || account.value as string, {
-        type: "backend",
-        action: "createKyc",
-        extra: { tokenId: kyc.tokenId, name: kyc.name },
-        tags: ["kyc", "create"],
-      })
+    await addActivityLog(kyc.owner || (account.value as string), {
+      type: 'backend',
+      action: payload.action,
+      extra: { tokenId: kyc.tokenId, name: kyc.name, executor: payload.executor },
+      tags: ['kyc', 'create'],
+    })
 
-      return kyc
-    } catch (err) {
-      console.error("Error creating KYC:", err)
-      throw err
-    }
+    return kyc
   }
 
-  const updateKyc = async (tokenId: string, payload: Partial<KYC>) => {
-    try {
-      const res = await fetch(`${$apiBase}/kyc/${tokenId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      })
-      if (!res.ok) throw new Error("Failed to update KYC")
-      const data = await res.json()
-      const kyc = parseKYC(data.data)
+  const updateKyc = async (
+    tokenId: string,
+    payload: Partial<KYC> & { action: string; executor: string }
+  ) => {
+    const res = await fetch(`${$apiBase}/kyc/${tokenId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    if (!res.ok) throw new Error('Failed to update KYC')
+    const data = await res.json()
+    const kyc = parseKYC(data.data)
 
-      // log activity
-      await addActivityLog(kyc.owner || account.value as string, {
-        type: "backend",
-        action: "updateKyc",
-        extra: { tokenId: kyc.tokenId, name: kyc.name },
-        tags: ["kyc", "update"],
-      })
+    await addActivityLog(kyc.owner || (account.value as string), {
+      type: 'backend',
+      action: payload.action,
+      extra: { tokenId: kyc.tokenId, name: kyc.name, executor: payload.executor },
+      tags: ['kyc', 'update'],
+    })
 
-      return kyc
-    } catch (err) {
-      console.error(`Error updating KYC ${tokenId}:`, err)
-      throw err
-    }
+    return kyc
   }
 
-  const deleteKyc = async (tokenId: string) => {
-    try {
-      const kyc = await getKycById(tokenId)
-      const owner = kyc?.owner || account.value || "0x0000000000000000000000000000000000000000"
+  const deleteKyc = async (tokenId: string, executor: string) => {
+    const kyc = await getKycById(tokenId)
+    const owner = kyc?.owner || (account.value as string)
 
-      const res = await fetch(`${$apiBase}/kyc/${tokenId}`, { method: "DELETE" })
-      if (!res.ok) throw new Error("Failed to delete KYC")
-      const data = await res.json()
+    const res = await fetch(`${$apiBase}/kyc/${tokenId}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'deleteKYC', executor }),
+    })
+    if (!res.ok) throw new Error('Failed to delete KYC')
+    const data = await res.json()
 
-      // log activity
-      await addActivityLog(owner, {
-        type: "backend",
-        action: "deleteKyc",
-        extra: { tokenId },
-        tags: ["kyc", "delete"],
-      })
+    await addActivityLog(owner, {
+      type: 'backend',
+      action: 'deleteKYC',
+      extra: { tokenId, executor },
+      tags: ['kyc', 'delete'],
+    })
 
-      return data
-    } catch (err) {
-      console.error(`Error deleting KYC ${tokenId}:`, err)
-      throw err
-    }
+    return data
   }
 
   return {
     getAllKycs,
     getKycById,
-    getKycsByOwner,
     getKycLogs,
     createKyc,
     updateKyc,

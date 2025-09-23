@@ -13,17 +13,15 @@ export interface KYC {
 }
 
 export interface KYCLogEntry {
-  action: 
-    | 'mintKYC'
-    | 'reviewKYC'
-    | 'signKYC'
-    | 'revokeKYC';
+  action: 'mintKYC' | 'reviewKYC' | 'signKYC' | 'revokeKYC' | 'deleteKYC';
   txHash: string;
   account: string;
+  executor?: string;
   extra?: any;
   timestamp: number;
   onChainInfo?: OnChainInfo;
 }
+
 
 export interface KYCLogs {
   tokenId: number;

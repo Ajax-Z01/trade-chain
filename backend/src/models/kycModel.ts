@@ -47,7 +47,25 @@ export class KYCModel {
     if (!doc.exists) return null
 
     const current = doc.data() as KYC
-    const updated: KYC = { ...current, ...data, updatedAt: Date.now() }
+
+    const protectedFields = ['tokenId', 'owner', 'fileHash', 'action'] as const
+
+    const filteredData: Partial<KYC> = {}
+    for (const key in data) {
+      if (!protectedFields.includes(key as any)) {
+        const value = data[key as keyof KYC];
+        if (value !== undefined) {
+          (filteredData as any)[key] = value;
+        }
+      }
+    }
+
+    const updated: KYC = {
+      ...current,
+      ...filteredData,
+      updatedAt: Date.now(),
+    }
+
     await docRef.update(updated as any)
     return updated
   }

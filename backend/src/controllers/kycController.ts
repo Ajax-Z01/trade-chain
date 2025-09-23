@@ -13,15 +13,17 @@ export const createKYC = async (req: Request, res: Response) => {
       documentUrl,
       name,
       description,
+      action,
       txHash,
+      executor,
     } = req.body
 
-    // Validasi field wajib
     if (!tokenId || !owner || !fileHash || !metadataUrl) {
       return res.status(400).json({ success: false, message: "Missing required KYC fields" })
     }
+    if (!action) return res.status(400).json({ success: false, message: "Missing action field" })
+    if (!executor) return res.status(400).json({ success: false, message: "Missing executor field" })
 
-    // --- Create KYC ---
     const kyc: KYC = await KYCModel.create({
       tokenId,
       owner,
@@ -32,12 +34,12 @@ export const createKYC = async (req: Request, res: Response) => {
       description,
     })
 
-    // --- Log activity ---
     const logEntry: KYCLogEntry = {
-      action: "mintKYC",
+      action: action as 'mintKYC' | 'reviewKYC' | 'signKYC' | 'revokeKYC' | 'deleteKYC',
       txHash: txHash || "",
-      account: owner,
-      timestamp: Date.now(),
+      account: kyc.owner,
+      executor,
+      timestamp: Date.now()
     }
     await KYCModel.addLogEntry(tokenId, logEntry)
 
@@ -84,18 +86,20 @@ export const getKYCsByOwner = async (req: Request, res: Response) => {
 export const updateKYC = async (req: Request, res: Response) => {
   try {
     const tokenId = req.params.tokenId
-    const { txHash, ...updateData } = req.body
+    const { action, txHash, executor, ...updateData } = req.body
+
+    if (!action) return res.status(400).json({ success: false, message: "Missing action field" })
+    if (!executor) return res.status(400).json({ success: false, message: "Missing executor field" })
 
     const kyc = await KYCModel.update(tokenId, updateData)
     if (!kyc) return res.status(404).json({ success: false, message: "KYC not found" })
 
-    // --- Log activity ---
     const logEntry: KYCLogEntry = {
-      action: "reviewKYC",
+      action: action as 'mintKYC' | 'reviewKYC' | 'signKYC' | 'revokeKYC' | 'deleteKYC',
       txHash: txHash || "",
       account: kyc.owner,
-      timestamp: Date.now(),
-      extra: updateData,
+      executor,
+      timestamp: Date.now()
     }
     await KYCModel.addLogEntry(tokenId, logEntry)
 
@@ -109,18 +113,23 @@ export const updateKYC = async (req: Request, res: Response) => {
 export const deleteKYC = async (req: Request, res: Response) => {
   try {
     const tokenId = req.params.tokenId
+    const { action, txHash, executor } = req.body
+
+    if (!action) return res.status(400).json({ success: false, message: "Missing action field" })
+    if (!executor) return res.status(400).json({ success: false, message: "Missing executor field" })
+
     const kyc = await KYCModel.getById(tokenId)
     if (!kyc) return res.status(404).json({ success: false, message: "KYC not found" })
 
     const deleted = await KYCModel.delete(tokenId)
     if (!deleted) return res.status(500).json({ success: false, message: "Failed to delete KYC" })
 
-    // --- Log activity ---
     const logEntry: KYCLogEntry = {
-      action: "revokeKYC",
-      txHash: "",
+      action: action as 'mintKYC' | 'reviewKYC' | 'signKYC' | 'revokeKYC' | 'deleteKYC',
+      txHash: txHash || "",
       account: kyc.owner,
-      timestamp: Date.now(),
+      executor,
+      timestamp: Date.now()
     }
     await KYCModel.addLogEntry(tokenId, logEntry)
 

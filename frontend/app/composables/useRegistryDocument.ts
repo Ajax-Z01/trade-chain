@@ -97,7 +97,7 @@ export function useRegistryDocument() {
       const { tokenId } = decodedRaw.args
 
       minting.value = false
-      return { receipt, tokenId, metadataUrl, fileHash }
+      return { receipt, tokenId, metadataUrl, fileHash, txHash }
     } catch (err) {
       minting.value = false
       console.error('Minting error:', err)

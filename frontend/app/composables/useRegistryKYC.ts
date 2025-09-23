@@ -3,10 +3,10 @@ import { createPublicClient, http, decodeEventLog } from 'viem'
 import registryKYCArtifact from '../../../artifacts/contracts/KYCRegistry.sol/KYCRegistry.json'
 import { Chain } from '../config/chain'
 import { useWallet } from '~/composables/useWallets'
-import { useActivityLogs } from './useActivityLogs'
+import { useKYC } from './useKycs'
 import type { MintResult } from '~/types/Mint'
 
-const registryAddress = '0x5fbdb2315678afecb367f032d93f642f64180aa3' as `0x${string}`
+const registryAddress = '0x5fbdb2315678afecb367f032d93f642f64180aa3' as const
 const { abi } = registryKYCArtifact
 
 const publicClient = createPublicClient({
@@ -14,41 +14,138 @@ const publicClient = createPublicClient({
   transport: http(Chain.rpcUrls.default.http[0]),
 })
 
-export function useRegistry() {
+export function useRegistryKYC() {
   const { account, walletClient } = useWallet()
-  const { addActivityLog } = useActivityLogs()
+  const { updateKyc, createKyc } = useKYC()
+
+  const loading = ref(false)
   const minting = ref(false)
 
-  // ---------------- Core Functions ----------------
-  const getTokenIdByHash = async (fileHash: string) => {
+  // ---------------- Helpers ----------------
+  async function getTokenIdByHash(fileHash: string): Promise<bigint> {
     try {
-      return await publicClient.readContract({
+      return (await publicClient.readContract({
         address: registryAddress,
         abi,
         functionName: 'getTokenIdByHash',
         args: [fileHash],
-      }) as bigint
+      })) as bigint
     } catch (err) {
-      console.error('Failed to get tokenId by hash:', err)
+      console.error('[getTokenIdByHash] Failed:', err)
       return 0n
     }
   }
 
-  const getStatus = async (tokenId: bigint) => {
+  async function getStatus(tokenId: bigint): Promise<number | null> {
     try {
-      return await publicClient.readContract({
+      return (await publicClient.readContract({
         address: registryAddress,
         abi,
         functionName: 'getStatus',
         args: [tokenId],
-      }) as number
+      })) as number
     } catch (err) {
-      console.error('Failed to get document status:', err)
+      console.error('[getStatus] Failed:', err)
       return null
     }
   }
 
-  const mintDocument = async (to: `0x${string}`, file: File): Promise<MintResult> => {
+  async function quickCheckNFT(tokenId: bigint) {
+    try {
+      const owner = await publicClient.readContract({
+        address: registryAddress,
+        abi,
+        functionName: 'ownerOf',
+        args: [tokenId],
+      })
+      const tokenURI = await publicClient.readContract({
+        address: registryAddress,
+        abi,
+        functionName: 'tokenURI',
+        args: [tokenId],
+      })
+      return { owner, metadata: tokenURI }
+    } catch (err) {
+      console.error('[quickCheckNFT] Failed:', err)
+      return null
+    }
+  }
+
+  async function isMinter(addr: `0x${string}`): Promise<boolean> {
+    try {
+      return (await publicClient.readContract({
+        address: registryAddress,
+        abi,
+        functionName: 'isMinter',
+        args: [addr],
+      })) as boolean
+    } catch (err) {
+      console.error('[isMinter] Failed:', err)
+      return false
+    }
+  }
+
+  // ---------------- Generic executor ----------------
+  async function executeAction(
+    action: string,
+    fnName: string,
+    args: any[] = [],
+    updatePayload: Record<string, any> = {},
+    skipBackend = false
+  ) {
+    if (!walletClient.value || !account.value) throw new Error('Wallet not connected')
+    loading.value = true
+    try {
+      console.debug(`[executeAction] Sending tx for action ${action}, fnName ${fnName}`, args)
+
+      const txHash = await walletClient.value.writeContract({
+        address: registryAddress,
+        abi,
+        functionName: fnName,
+        args,
+        account: account.value as `0x${string}`,
+        chain: Chain,
+      })
+
+      const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash })
+
+      // decode tokenId if any
+      let tokenId: bigint | undefined
+      let tokenIdStr: string | undefined
+      const eventLog = receipt.logs.find(log => log.address === registryAddress)
+      if (eventLog) {
+        try {
+          const decoded = decodeEventLog({ abi, data: eventLog.data, topics: eventLog.topics }) as any
+          if (decoded.args?.tokenId) {
+            tokenId = BigInt(decoded.args.tokenId)
+            tokenIdStr = String(decoded.args.tokenId)
+          }
+        } catch (err) {
+          console.warn('[executeAction] Failed to decode event log:', err)
+        }
+      }
+
+      // backend sync
+      if (tokenId && !skipBackend) {
+        await updateKyc(tokenIdStr!, { 
+          action,
+          txHash,
+          executor: account.value,
+          ...updatePayload
+        })
+      }
+
+      loading.value = false
+      return { receipt, txHash, tokenId }
+    } catch (err) {
+      loading.value = false
+      console.error(`[executeAction] ${action} error:`, err)
+      throw err
+    }
+  }
+
+  // ---------------- Core Actions ----------------
+  async function mintDocument(to: `0x${string}`, file: File): Promise<MintResult> {
     if (!walletClient.value || !account.value) throw new Error('Wallet not connected')
     minting.value = true
     try {
@@ -63,121 +160,60 @@ export function useRegistry() {
         name: file.name,
         description: `Verified document ${file.name}`,
         image: imageUrl,
-        attributes: [{ trait_type: "Hash", value: fileHash }],
+        attributes: [{ trait_type: 'Hash', value: fileHash }],
       }
       const tokenURI = `data:application/json;base64,${btoa(JSON.stringify(metadata))}`
 
-      const txHash = await walletClient.value.writeContract({
-        address: registryAddress,
-        abi,
-        functionName: 'verifyAndMint',
-        args: [to, fileHash, tokenURI],
-        account: account.value as `0x${string}`,
-        chain: Chain,
-      })
-
-      const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash as `0x${string}` })
-
-      // Decode event
-      const eventLog = receipt.logs.find(log => log.address === registryAddress)
-      if (!eventLog) throw new Error('No DocumentVerified event found')
-      const decodedRaw = decodeEventLog({ abi, data: eventLog.data, topics: eventLog.topics }) as any
-      const { tokenId } = decodedRaw.args
-
-      await addActivityLog(account.value, {
-        type: 'onChain',
-        action: 'mintKYC',
-        txHash: txHash as `0x${string}`,
-        contractAddress: registryAddress,
-        extra: { fileName: file.name },
-        onChainInfo: { status: receipt.status === 'success' ? 'success' : 'failed', blockNumber: Number(receipt.blockNumber), confirmations: 1 },
-        tags: ['KYC', 'mint'],
-      })
+      const { receipt, txHash, tokenId } = await executeAction(
+        'mintKYC',
+        'verifyAndMint',
+        [to, fileHash, tokenURI],
+        {
+          owner: to,
+          fileHash,
+          metadataUrl: tokenURI,
+          name: file.name,
+          description: metadata.description,
+        },
+        true,
+      )
 
       minting.value = false
-      return { receipt, tokenId, metadataUrl: tokenURI, fileHash, txHash }
+      return { receipt, tokenId: tokenId?.toString()!, metadataUrl: tokenURI, fileHash, txHash }
     } catch (err) {
       minting.value = false
-      console.error('Minting error:', err)
+      console.error('[mintDocument] error:', err)
       throw err
     }
   }
 
-  // ---------------- Lifecycle Functions ----------------
-  const reviewDocument = async (tokenId: bigint) => {
-    if (!walletClient.value || !account.value) throw new Error('Wallet not connected')
-    const txHash = await walletClient.value.writeContract({
-      address: registryAddress,
-      abi,
-      functionName: 'reviewDocument',
-      args: [tokenId],
-      account: account.value as `0x${string}`,
-      chain: Chain,
-    })
-    const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash as `0x${string}` })
-    await addActivityLog(account.value, { type: 'onChain', action: 'reviewDocument', txHash, contractAddress: registryAddress, extra: { tokenId }, onChainInfo: { status: receipt.status === 'success' ? 'success' : 'failed', blockNumber: Number(receipt.blockNumber), confirmations: 1 }, tags: ['KYC', 'review'] })
-    return receipt
-  }
+  const reviewDocument = (tokenId: bigint) =>
+    executeAction('reviewKYC', 'reviewDocument', [tokenId])
 
-  const signDocument = async (tokenId: bigint) => {
-    if (!walletClient.value || !account.value) throw new Error('Wallet not connected')
-    const txHash = await walletClient.value.writeContract({
-      address: registryAddress,
-      abi,
-      functionName: 'signDocument',
-      args: [tokenId],
-      account: account.value as `0x${string}`,
-      chain: Chain,
-    })
-    const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash as `0x${string}` })
-    await addActivityLog(account.value, { type: 'onChain', action: 'signDocument', txHash, contractAddress: registryAddress, extra: { tokenId }, onChainInfo: { status: receipt.status === 'success' ? 'success' : 'failed', blockNumber: Number(receipt.blockNumber), confirmations: 1 }, tags: ['KYC', 'sign'] })
-    return receipt
-  }
+  const signDocument = (tokenId: bigint) =>
+    executeAction('signKYC', 'signDocument', [tokenId])
 
-  const revokeDocument = async (tokenId: bigint) => {
-    if (!walletClient.value || !account.value) throw new Error('Wallet not connected')
-    const txHash = await walletClient.value.writeContract({
-      address: registryAddress,
-      abi,
-      functionName: 'revokeDocument',
-      args: [tokenId],
-      account: account.value as `0x${string}`,
-      chain: Chain,
-    })
-    const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash as `0x${string}` })
-    await addActivityLog(account.value, { type: 'onChain', action: 'revokeDocument', txHash, contractAddress: registryAddress, extra: { tokenId }, onChainInfo: { status: receipt.status === 'success' ? 'success' : 'failed', blockNumber: Number(receipt.blockNumber), confirmations: 1 }, tags: ['KYC', 'revoke'] })
-    return receipt
-  }
+  const revokeDocument = (tokenId: bigint) =>
+    executeAction('revokeKYC', 'revokeDocument', [tokenId])
 
-  // ---------------- Minter Management ----------------
-  const addMinter = async (newMinter: `0x${string}`) => {
-    if (!walletClient.value || !account.value) throw new Error('Wallet not connected')
-    const txHash = await walletClient.value.writeContract({ address: registryAddress, abi, functionName: 'addMinter', args: [newMinter], account: account.value as `0x${string}`, chain: Chain })
-    const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash as `0x${string}` })
-    await addActivityLog(account.value, { type: 'onChain', action: 'addMinter', txHash, contractAddress: registryAddress, extra: { newMinter }, onChainInfo: { status: receipt.status === 'success' ? 'success' : 'failed', blockNumber: Number(receipt.blockNumber), confirmations: 1 }, tags: ['KYC', 'add', 'minter'] })
-    return receipt
-  }
+  const addMinter = (newMinter: `0x${string}`) =>
+    executeAction('addMinter', 'addMinter', [newMinter])
 
-  const removeMinter = async (minter: `0x${string}`) => {
-    if (!walletClient.value || !account.value) throw new Error('Wallet not connected')
-    const txHash = await walletClient.value.writeContract({ address: registryAddress, abi, functionName: 'removeMinter', args: [minter], account: account.value as `0x${string}`, chain: Chain })
-    const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash as `0x${string}` })
-    await addActivityLog(account.value, { type: 'onChain', action: 'removeMinter', txHash, contractAddress: registryAddress, extra: { minter }, onChainInfo: { status: receipt.status === 'success' ? 'success' : 'failed', blockNumber: Number(receipt.blockNumber), confirmations: 1 }, tags: ['KYC', 'remove', 'minter'] })
-    return receipt
-  }
+  const removeMinter = (minter: `0x${string}`) =>
+    executeAction('removeMinter', 'removeMinter', [minter])
 
-  const isMinter = async (addr: `0x${string}`) => {
-    try { return await publicClient.readContract({ address: registryAddress, abi, functionName: 'isMinter', args: [addr] }) as boolean } 
-    catch (err) { console.error('Failed to check minter status:', err); return false }
+  return {
+    mintDocument,
+    reviewDocument,
+    signDocument,
+    revokeDocument,
+    addMinter,
+    removeMinter,
+    getTokenIdByHash,
+    getStatus,
+    quickCheckNFT,
+    isMinter,
+    loading,
+    minting,
   }
-
-  const quickCheckNFT = async (tokenId: bigint) => {
-    try {
-      const owner = await publicClient.readContract({ address: registryAddress, abi, functionName: 'ownerOf', args: [tokenId] })
-      const tokenURI = await publicClient.readContract({ address: registryAddress, abi, functionName: 'tokenURI', args: [tokenId] })
-      return { owner, metadata: tokenURI }
-    } catch (err) { console.error('Quick check NFT failed:', err); return null }
-  }
-
-  return { mintDocument, getTokenIdByHash, getStatus, minting, reviewDocument, signDocument, revokeDocument, addMinter, removeMinter, isMinter, quickCheckNFT }
 }

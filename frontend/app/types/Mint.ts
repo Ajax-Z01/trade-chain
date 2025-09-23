@@ -1,6 +1,6 @@
 export interface MintResult {
   receipt: any
-  tokenId: bigint
+  tokenId: string
   metadataUrl: string
   fileHash: string
   txHash: `0x${string}`

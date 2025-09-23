@@ -1,4 +1,4 @@
-import type { OnChainInfo } from './Info';
+import type { OnChainInfo } from "./Info"
 
 export interface KYC {
   tokenId: string
@@ -8,23 +8,22 @@ export interface KYC {
   documentUrl?: string
   name?: string
   description?: string
-  txHash?: string
   createdAt: number
   updatedAt?: number
+  txHash?: `0x${string}`
+  history?: KYCLogEntry[]
 }
 
 export interface KYCLogEntry {
-  action: 
-    | 'mintKYC'
-    | 'reviewKYC'
-    | 'signKYC'
-    | 'revokeKYC';
+  action: 'mintKYC' | 'reviewKYC' | 'signKYC' | 'revokeKYC' | 'deleteKYC';
   txHash: string;
   account: string;
+  executor?: string;
   extra?: any;
   timestamp: number;
   onChainInfo?: OnChainInfo;
 }
+
 
 export interface KYCLogs {
   tokenId: number;
