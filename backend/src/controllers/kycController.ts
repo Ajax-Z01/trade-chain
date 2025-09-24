@@ -1,6 +1,6 @@
 import type { Request, Response } from "express"
 import { KYCModel } from "../models/kycModel.js"
-import type { KYC, KYCLogEntry } from "../types/Kyc.js"
+import type { KYC, KYCLogEntry, KYCStatus } from "../types/Kyc.js"
 
 // --- Create KYC ---
 export const createKYC = async (req: Request, res: Response) => {
@@ -13,6 +13,7 @@ export const createKYC = async (req: Request, res: Response) => {
       documentUrl,
       name,
       description,
+      status,
       action,
       txHash,
       executor,
@@ -32,10 +33,11 @@ export const createKYC = async (req: Request, res: Response) => {
       documentUrl,
       name,
       description,
+      status: status as KYCStatus,
     })
 
     const logEntry: KYCLogEntry = {
-      action: action as 'mintKYC' | 'reviewKYC' | 'signKYC' | 'revokeKYC' | 'deleteKYC',
+      action: action as KYCLogEntry["action"],
       txHash: txHash || "",
       account: kyc.owner,
       executor,
@@ -52,7 +54,7 @@ export const createKYC = async (req: Request, res: Response) => {
 // --- Get all KYCs ---
 export const getAllKYCs = async (_req: Request, res: Response) => {
   try {
-    const kycs = await KYCModel.getByOwner("") // Semua KYC
+    const kycs = await KYCModel.getAll()
     return res.json({ success: true, data: kycs })
   } catch (err: any) {
     return res.status(500).json({ success: false, message: err.message })
@@ -64,7 +66,6 @@ export const getKYCById = async (req: Request, res: Response) => {
   try {
     const kyc = await KYCModel.getById(req.params.tokenId)
     if (!kyc) return res.status(404).json({ success: false, message: "KYC not found" })
-
     return res.json({ success: true, data: kyc })
   } catch (err: any) {
     return res.status(500).json({ success: false, message: err.message })
@@ -95,7 +96,7 @@ export const updateKYC = async (req: Request, res: Response) => {
     if (!kyc) return res.status(404).json({ success: false, message: "KYC not found" })
 
     const logEntry: KYCLogEntry = {
-      action: action as 'mintKYC' | 'reviewKYC' | 'signKYC' | 'revokeKYC' | 'deleteKYC',
+      action: action as KYCLogEntry["action"],
       txHash: txHash || "",
       account: kyc.owner,
       executor,
@@ -125,7 +126,7 @@ export const deleteKYC = async (req: Request, res: Response) => {
     if (!deleted) return res.status(500).json({ success: false, message: "Failed to delete KYC" })
 
     const logEntry: KYCLogEntry = {
-      action: action as 'mintKYC' | 'reviewKYC' | 'signKYC' | 'revokeKYC' | 'deleteKYC',
+      action: action as KYCLogEntry["action"],
       txHash: txHash || "",
       account: kyc.owner,
       executor,
@@ -145,7 +146,6 @@ export const getKYCLogs = async (req: Request, res: Response) => {
     const tokenId = req.params.tokenId
     const logs = await KYCModel.getLogs(tokenId)
     if (!logs) return res.status(404).json({ success: false, message: "No logs found" })
-
     return res.json({ success: true, data: logs })
   } catch (err: any) {
     return res.status(500).json({ success: false, message: err.message })

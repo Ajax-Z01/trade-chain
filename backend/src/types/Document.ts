@@ -2,6 +2,8 @@ import { OnChainInfo } from './Info.js';
 
 export type DocType = "Invoice" | "B/L" | "COO" | "PackingList" | "Other"
 
+export type DocumentStatus = "Draft" | "Reviewed" | "Signed" | "Revoked"
+
 export interface Document {
   tokenId: number
   owner: string
@@ -9,6 +11,7 @@ export interface Document {
   uri: string
   docType: DocType
   linkedContracts: string[]
+  status: DocumentStatus
   createdAt: number
   updatedAt?: number
   signer?: string 

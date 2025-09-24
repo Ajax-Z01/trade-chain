@@ -15,8 +15,8 @@ import { Loader2, FileUp } from 'lucide-vue-next'
 // Composables
 const { addToast } = useToast()
 const { account } = useWallet()
-const { attachDocument, getDocumentsByContract } = useDocuments()
-const { mintDocument, minting, addMinter, removeMinter } = useRegistryDocument()
+const { attachDocument, getDocumentsByContract, updateDocument } = useDocuments()
+const { mintDocument, minting, addMinter, removeMinter, reviewDocument, signDocument, revokeDocument } = useRegistryDocument()
 const { uploadToLocal } = useStorage()
 const { deployedContracts, fetchContractDetails, fetchDeployedContracts } = useContractActions()
 
@@ -33,7 +33,7 @@ const userRole = computed<'importer'|'exporter'|null>(() => {
 
 const docType = ref<'Invoice' | 'B/L' | 'COO' | 'PackingList' | 'Other'>('Invoice')
 const selectedFiles = ref<File[]>([])
-const fileProgresses = ref<{ file: File, progress: number, status: string, tokenId?: bigint }[]>([])
+const fileProgresses = ref<{ file: File, progress: number, status: string, tokenId?: number }[]>([])
 const documents = ref<DocType[]>([])
 const loadingDocs = ref(false)
 const error = ref<string | null>(null)
@@ -88,6 +88,7 @@ watch([currentContract, account], async ([contract, acc]) => {
     isImporter.value = acc === roles.importer
     isExporter.value = acc === roles.exporter
 
+    // Ambil langsung array Document[] dari composable
     documents.value = await getDocumentsByContract(contract)
   } catch (err: any) {
     addToast('error', err.message || 'Failed to fetch documents')
@@ -136,7 +137,7 @@ const handleAttachAndMint = async () => {
       fp.status = 'minting'
       fp.progress = 10
 
-      const { tokenId, metadataUrl, fileHash } = await mintDocument(account.value as `0x${string}`, fp.file, docType.value)
+      const { tokenId, metadataUrl, fileHash, txHash } = await mintDocument(account.value as `0x${string}`, fp.file, docType.value)
       fp.progress = 50
       fp.status = 'uploading'
 
@@ -156,12 +157,12 @@ const handleAttachAndMint = async () => {
         name: fp.file.name,
         description: `Attached & minted document ${fp.file.name}`,
         metadataUrl
-      })
+      }, account.value, txHash)
 
       documents.value.push(doc)
       fp.progress = 100
       fp.status = 'success'
-      fp.tokenId = tokenId
+      fp.tokenId = Number(tokenId)
     } catch (err: any) {
       console.error(err)
       fp.progress = 100
@@ -208,6 +209,42 @@ const handleRemoveMinter = async () => {
     addToast(`${minterFeedback.value}`, 'error')
   } finally {
     mintingMinter.value = false
+  }
+}
+
+const handleReview = async (doc: DocType) => {
+  if (!account.value || !doc.tokenId) return
+  try {
+    await reviewDocument(BigInt(doc.tokenId))
+    await updateDocument(doc.tokenId, { status: 'Reviewed' }, account.value)
+    doc.status = 'Reviewed'
+    addToast(`Document ${doc.name} marked as Reviewed (on-chain)`, 'success')
+  } catch (err: any) {
+    addToast(err.message || 'Failed to review on-chain', 'error')
+  }
+}
+
+const handleSign = async (doc: DocType) => {
+  if (!account.value || !doc.tokenId) return
+  try {
+    await signDocument(BigInt(doc.tokenId))
+    await updateDocument(doc.tokenId, { status: 'Signed' }, account.value)
+    doc.status = 'Signed'
+    addToast(`Document ${doc.name} signed (on-chain)`, 'success')
+  } catch (err: any) {
+    addToast(err.message || 'Failed to sign on-chain', 'error')
+  }
+}
+
+const handleRevoke = async (doc: DocType) => {
+  if (!account.value || !doc.tokenId) return
+  try {
+    await revokeDocument(BigInt(doc.tokenId))
+    await updateDocument(doc.tokenId, { status: 'Revoked' }, account.value)
+    doc.status = 'Revoked'
+    addToast(`Document ${doc.name} revoked (on-chain)`, 'success')
+  } catch (err: any) {
+    addToast(err.message || 'Failed to revoke on-chain', 'error')
   }
 }
 </script>
@@ -303,37 +340,103 @@ const handleRemoveMinter = async () => {
 
     <!-- Attached Documents -->
     <div class="mt-6">
-      <h3 class="font-semibold text-gray-800 mb-2">Attached Documents</h3>
+      <h3 class="font-semibold text-gray-800 mb-3 text-lg">Attached Documents</h3>
 
-      <!-- Skeleton / Loading -->
-      <div v-if="loadingDocs" class="space-y-2 animate-pulse">
-        <div v-for="n in 3" :key="n" class="h-16 bg-gray-200 rounded-lg"></div>
+      <!-- Loading Skeleton -->
+      <div v-if="loadingDocs" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 animate-pulse">
+        <div v-for="n in 3" :key="n" class="h-32 bg-gray-200 rounded-lg"></div>
       </div>
 
-      <ul v-else-if="documents.length" class="space-y-2">
-        <li
+      <!-- Documents Grid -->
+      <div v-else-if="documents.length" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div
           v-for="doc in documents"
           :key="doc.tokenId"
-          class="p-3 border rounded-lg bg-gray-50 flex items-center gap-4 hover:shadow transition"
+          class="border rounded-lg p-3 flex flex-col justify-between hover:shadow-md transition bg-white"
         >
+          <!-- Thumbnail / Icon -->
           <div
-            class="w-16 h-16 flex items-center justify-center border rounded bg-white overflow-hidden cursor-pointer"
+            class="h-32 w-full mb-2 flex items-center justify-center border rounded bg-gray-50 overflow-hidden cursor-pointer"
             @click="openViewer(doc)"
           >
             <img v-if="doc.uri.match(/\.(png|jpg|jpeg|webp)$/i)" :src="doc.uri" class="object-cover w-full h-full" />
-            <span v-else class="text-gray-400">📄</span>
+            <span v-else class="text-gray-400 text-3xl">📄</span>
           </div>
 
-          <div class="flex-1">
-            <p class="font-medium">{{ doc.name }}</p>
-            <p class="text-xs text-gray-500">{{ doc.docType }}</p>
+          <!-- Info -->
+          <div class="flex-1 flex flex-col gap-1">
+            <p class="font-medium text-gray-800 truncate" :title="doc.name">{{ doc.name }}</p>
+            <p class="text-xs text-gray-500">Type: {{ doc.docType }}</p>
+            <p class="text-xs text-gray-500">TokenID: {{ doc.tokenId }}</p>
+            <p class="text-xs text-gray-500 truncate" :title="doc.fileHash">Hash: {{ doc.fileHash }}</p>
+            <!-- Status Badge -->
+            <p class="text-xs font-semibold">
+              Status:
+              <span
+                :class="{
+                  'px-2 py-1 rounded-full text-white text-xs': true,
+                  'bg-gray-400': doc.status==='Draft',
+                  'bg-blue-600': doc.status==='Reviewed',
+                  'bg-green-600': doc.status==='Signed',
+                  'bg-red-600': doc.status==='Revoked'
+                }"
+              >
+                {{ doc.status }}
+              </span>
+            </p>
           </div>
 
-          <a :href="doc.uri" target="_blank" class="text-blue-600 underline">View</a>
-        </li>
-      </ul>
+          <!-- Actions -->
+          <div class="mt-2 flex flex-col gap-1">
+            <div class="flex gap-2">
+              <button
+                class="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-xs py-1 rounded-lg"
+                @click="openViewer(doc)"
+              >
+                View
+              </button>
+              <a
+                :href="doc.uri"
+                target="_blank"
+                class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs py-1 rounded-lg text-center"
+              >
+                Download
+              </a>
+            </div>
 
-      <div v-else class="text-gray-500 text-sm">No documents attached yet.</div>
+            <!-- Lifecycle Buttons -->
+            <div class="flex gap-2 mt-1">
+              <button
+                v-if="doc.status==='Draft'"
+                class="flex-1 bg-blue-500 hover:bg-blue-600 text-white text-xs py-1 rounded-lg"
+                @click="handleReview(doc)"
+              >
+                Review
+              </button>
+              <button
+                v-if="doc.status==='Reviewed'"
+                class="flex-1 bg-green-500 hover:bg-green-600 text-white text-xs py-1 rounded-lg"
+                @click="handleSign(doc)"
+              >
+                Sign
+              </button>
+              <button
+                v-if="doc.status!=='Revoked' && doc.status!=='Draft' && doc.status!=='Signed'"
+                class="flex-1 bg-red-500 hover:bg-red-600 text-white text-xs py-1 rounded-lg"
+                @click="handleRevoke(doc)"
+              >
+                Revoke
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+
+      <!-- Empty State -->
+      <div v-else class="text-gray-500 text-sm text-center py-6">
+        No documents attached yet.
+      </div>
 
       <!-- Document Viewer Modal -->
       <DocumentViewer
@@ -343,6 +446,7 @@ const handleRemoveMinter = async () => {
         :name="selectedDoc?.name"
         :token-id="selectedDoc?.tokenId"
         :hash="selectedDoc?.fileHash"
+        :status="selectedDoc?.status"
       />
     </div>
 

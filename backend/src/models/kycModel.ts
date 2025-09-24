@@ -1,18 +1,17 @@
-import type { KYC, KYCLogs, KYCLogEntry } from "../types/Kyc.js"
+import type { KYC, KYCLogs, KYCLogEntry, KYCStatus } from "../types/Kyc.js"
 import { db } from "../config/firebase.js"
 
 const collection = db.collection("KYCs")
 const logsCollection = db.collection("KYCLogs")
 
 export class KYCModel {
-  static async create(data: Partial<KYC>): Promise<KYC> {
+  static async create(data: Partial<KYC> & { status?: KYCStatus }): Promise<KYC> {
     if (!data.tokenId || !data.owner || !data.fileHash || !data.metadataUrl) {
       throw new Error("Missing required KYC fields: tokenId, owner, fileHash, metadataUrl")
     }
-    
+
     const docRef = collection.doc(data.tokenId)
     const doc = await docRef.get()
-
     if (doc.exists) throw new Error(`KYC with tokenId ${data.tokenId} already exists`)
 
     const newDoc: KYC = {
@@ -25,20 +24,54 @@ export class KYCModel {
       description: data.description,
       createdAt: data.createdAt ?? Date.now(),
       updatedAt: data.updatedAt,
+      status: data.status || "Draft",
     }
 
     await docRef.set(newDoc)
     return newDoc
   }
+  
+  // --- Ambil semua KYC sekaligus merge history ---
+  static async getAll(): Promise<(KYC & { history: KYCLogEntry[] })[]> {
+    const snapshot = await collection.get()
+    const kycs: KYC[] = snapshot.docs.map(doc => doc.data() as KYC)
 
-  static async getById(tokenId: string): Promise<KYC | null> {
-    const doc = await collection.doc(tokenId).get()
-    return doc.exists ? (doc.data() as KYC) : null
+    const result = await Promise.all(
+      kycs.map(async kyc => {
+        const logsSnap = await logsCollection.doc(kyc.tokenId).get()
+        const history: KYCLogEntry[] = logsSnap.exists ? (logsSnap.data() as KYCLogs).history : []
+        return { ...kyc, history }
+      })
+    )
+    return result
   }
 
-  static async getByOwner(owner: string): Promise<KYC[]> {
+  // --- Ambil KYC by tokenId sekaligus merge history ---
+  static async getById(tokenId: string): Promise<KYC & { history: KYCLogEntry[] } | null> {
+    const doc = await collection.doc(tokenId).get()
+    if (!doc.exists) return null
+    const kyc = doc.data() as KYC
+
+    const logsSnap = await logsCollection.doc(tokenId).get()
+    const history: KYCLogEntry[] = logsSnap.exists ? (logsSnap.data() as KYCLogs).history : []
+
+    return { ...kyc, history }
+  }
+
+  // --- Ambil semua KYC by owner sekaligus merge history ---
+  static async getByOwner(owner: string): Promise<(KYC & { history: KYCLogEntry[] })[]> {
     const snapshot = await collection.where("owner", "==", owner).get()
-    return snapshot.docs.map(doc => doc.data() as KYC)
+    const kycs: KYC[] = snapshot.docs.map(doc => doc.data() as KYC)
+
+    // ambil semua history
+    const result = await Promise.all(
+      kycs.map(async kyc => {
+        const logsSnap = await logsCollection.doc(kyc.tokenId).get()
+        const history: KYCLogEntry[] = logsSnap.exists ? (logsSnap.data() as KYCLogs).history : []
+        return { ...kyc, history }
+      })
+    )
+    return result
   }
 
   static async update(tokenId: string, data: Partial<KYC>): Promise<KYC | null> {
@@ -47,15 +80,14 @@ export class KYCModel {
     if (!doc.exists) return null
 
     const current = doc.data() as KYC
-
     const protectedFields = ['tokenId', 'owner', 'fileHash', 'action'] as const
 
     const filteredData: Partial<KYC> = {}
     for (const key in data) {
       if (!protectedFields.includes(key as any)) {
-        const value = data[key as keyof KYC];
+        const value = data[key as keyof KYC]
         if (value !== undefined) {
-          (filteredData as any)[key] = value;
+          (filteredData as any)[key] = value
         }
       }
     }
@@ -79,7 +111,7 @@ export class KYCModel {
     return true
   }
 
-  // --- Optional: log helper ---
+  // --- Log helper ---
   static async addLogEntry(tokenId: string, log: KYCLogEntry) {
     const logRef = logsCollection.doc(tokenId)
     const snapshot = await logRef.get()
@@ -93,8 +125,10 @@ export class KYCModel {
     }
   }
 
-  static async getLogs(tokenId: string): Promise<KYCLogs | null> {
+  static async getLogs(tokenId: string): Promise<KYCLogEntry[]> {
     const snapshot = await logsCollection.doc(tokenId).get()
-    return snapshot.exists ? (snapshot.data() as KYCLogs) : null
+    if (!snapshot.exists) return []
+    const logs = snapshot.data() as KYCLogs
+    return logs.history
   }
 }

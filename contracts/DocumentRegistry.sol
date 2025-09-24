@@ -31,10 +31,12 @@ contract DocumentRegistry is ERC721URIStorage, Ownable {
 
     // --- Minter Management ---
     function addMinter(address minter) external onlyOwner {
+        require(!approvedMinters[minter], "Minter already approved");
         approvedMinters[minter] = true;
     }
-
+    
     function removeMinter(address minter) external onlyOwner {
+        require(approvedMinters[minter], "Minter not approved");
         approvedMinters[minter] = false;
     }
 

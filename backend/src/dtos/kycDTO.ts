@@ -1,4 +1,4 @@
-import { KYC } from "../types/Kyc.js"
+import { KYC, KYCStatus } from "../types/Kyc.js"
 
 export default class KYCDTO {
   tokenId: string
@@ -10,8 +10,9 @@ export default class KYCDTO {
   description?: string
   createdAt: number
   updatedAt?: number
+  status: KYCStatus
 
-  constructor(data: Partial<KYC>) {
+  constructor(data: Partial<KYC> & { status?: KYCStatus }) {
     if (!data.tokenId) throw new Error("tokenId is required")
     if (!data.owner) throw new Error("owner is required")
     if (!data.fileHash) throw new Error("fileHash is required")
@@ -26,6 +27,7 @@ export default class KYCDTO {
     this.description = data.description || ""
     this.createdAt = data.createdAt || Date.now()
     this.updatedAt = data.updatedAt || Date.now()
+    this.status = data.status || "Draft"
   }
 
   toFirestore(): KYC {
@@ -39,6 +41,7 @@ export default class KYCDTO {
       description: this.description,
       createdAt: this.createdAt,
       updatedAt: this.updatedAt,
+      status: this.status,
     }
   }
 }

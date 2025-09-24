@@ -55,13 +55,16 @@ export function useActivityLogs() {
     log: Omit<ActivityLog, 'timestamp' | 'account'> & { tags?: string[] }
   ): Promise<ActivityLog> => {
     try {
-      // Backend yang handle timestamp, aggregated, lowercase, tags
-      const payload = { ...log, account }
-      console.log('Adding activity log:', payload)
+      // Serialize BigInt to string
+      const safePayload = JSON.parse(JSON.stringify({ ...log, account }, (_, value) =>
+        typeof value === 'bigint' ? value.toString() : value
+      ))
+
+      console.log('Adding activity log:', safePayload)
       const res = await fetch(`${config.public.apiBase}/activity`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(safePayload),
       })
       const data: ActivityLog = await res.json()
 

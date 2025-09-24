@@ -54,30 +54,9 @@ const toggleMobile = () => {
         </li>
         <li>
           <NuxtLink
-            to="/logs/wallet"
+            to="/logs"
             class="px-2 py-1 rounded hover:bg-indigo-50 hover:text-indigo-600 transition"
-            >Wallet Logs</NuxtLink
-          >
-        </li>
-        <li>
-          <NuxtLink
-            to="/logs/contract"
-            class="px-2 py-1 rounded hover:bg-indigo-50 hover:text-indigo-600 transition"
-            >Contract Logs</NuxtLink
-          >
-        </li>
-        <li>
-          <NuxtLink
-            to="/logs/activity"
-            class="px-2 py-1 rounded hover:bg-indigo-50 hover:text-indigo-600 transition"
-            >Activity Logs</NuxtLink
-          >
-        </li>
-        <li>
-          <NuxtLink
-            to="/logs/aggregatedactivity"
-            class="px-2 py-1 rounded hover:bg-indigo-50 hover:text-indigo-600 transition"
-            >Aggregated Activity Logs</NuxtLink
+            >Logs</NuxtLink
           >
         </li>
         <li>
@@ -146,16 +125,7 @@ const toggleMobile = () => {
           <NuxtLink to="/contracts" class="block px-2 py-1 rounded hover:bg-indigo-50 hover:text-indigo-600 transition" @click="mobileOpen=false">Contracts</NuxtLink>
         </li>
         <li>
-          <NuxtLink to="/logs/wallet" class="block px-2 py-1 rounded hover:bg-indigo-50 hover:text-indigo-600 transition" @click="mobileOpen=false">Wallet Logs</NuxtLink>
-        </li>
-        <li>
-          <NuxtLink to="/logs/contract" class="block px-2 py-1 rounded hover:bg-indigo-50 hover:text-indigo-600 transition" @click="mobileOpen=false">Contract Logs</NuxtLink>
-        </li>
-        <li>
-          <NuxtLink to="/logs/activity" class="block px-2 py-1 rounded hover:bg-indigo-50 hover:text-indigo-600 transition" @click="mobileOpen=false">Activity Logs</NuxtLink>
-        </li>
-        <li>
-          <NuxtLink to="/logs/aggregatedactivity" class="block px-2 py-1 rounded hover:bg-indigo-50 hover:text-indigo-600 transition" @click="mobileOpen=false">Aggregated Activity Logs</NuxtLink>
+          <NuxtLink to="/logs" class="block px-2 py-1 rounded hover:bg-indigo-50 hover:text-indigo-600 transition" @click="mobileOpen=false">Logs</NuxtLink>
         </li>
         <li>
           <NuxtLink to="/documents" class="block px-2 py-1 rounded hover:bg-indigo-50 hover:text-indigo-600 transition" @click="mobileOpen=false">Document</NuxtLink>

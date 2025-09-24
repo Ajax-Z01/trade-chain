@@ -1,4 +1,4 @@
-import { Document, DocType } from "../types/Document.js"
+import { Document, DocType, DocumentStatus } from "../types/Document.js"
 
 export default class DocumentDTO {
   tokenId: number
@@ -7,6 +7,7 @@ export default class DocumentDTO {
   uri: string
   docType: DocType
   linkedContracts: string[]
+  status: DocumentStatus
   createdAt: number
   updatedAt?: number
   signer?: string
@@ -27,6 +28,7 @@ export default class DocumentDTO {
     this.uri = data.uri
     this.docType = data.docType
     this.linkedContracts = data.linkedContracts || []
+    this.status = data.status || "Draft"
     this.signer = data.signer
     this.createdAt = data.createdAt || Date.now()
     this.updatedAt = data.updatedAt || Date.now()
@@ -43,6 +45,7 @@ export default class DocumentDTO {
       uri: this.uri,
       docType: this.docType,
       linkedContracts: this.linkedContracts,
+      status: this.status,
       signer: this.signer,
       createdAt: this.createdAt,
       updatedAt: this.updatedAt,

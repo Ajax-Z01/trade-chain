@@ -1,5 +1,7 @@
 import { OnChainInfo } from './Info.js';
 
+export type KYCStatus = 'Draft' | 'Reviewed' | 'Signed' | 'Revoked';
+
 export interface KYC {
   tokenId: string
   owner: string
@@ -10,6 +12,7 @@ export interface KYC {
   description?: string
   createdAt: number
   updatedAt?: number
+  status: KYCStatus;
 }
 
 export interface KYCLogEntry {

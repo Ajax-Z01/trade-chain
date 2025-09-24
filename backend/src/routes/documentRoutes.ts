@@ -4,8 +4,10 @@ import {
   getDocument,
   getDocumentsOwner,
   getDocumentsContract,
+  getDocumentLogsController,
   updateDocumentController,
   deleteDocumentController,
+  getAllDocuments,
 } from "../controllers/documentController.js"
 
 const router = Router()
@@ -13,14 +15,20 @@ const router = Router()
 // --- POST /contract/:addr/docs
 router.post("/contract/:addr/docs", attachDocument)
 
-// --- GET /documents/:tokenId
-router.get("/:tokenId", getDocument)
+// --- GET /documents
+router.get("/", getAllDocuments)
 
-// --- GET /documents/owner/:owner
+// --- GET documents by owner
 router.get("/owner/:owner", getDocumentsOwner)
 
-// --- GET /documents/contract/:addr
+// --- GET documents by contract
 router.get("/contract/:addr", getDocumentsContract)
+
+// --- GET single document by tokenId
+router.get("/:tokenId", getDocument)
+
+// --- GET document logs by tokenId
+router.get("/:tokenId/logs", getDocumentLogsController)
 
 // --- PATCH /documents/:tokenId
 router.patch("/:tokenId", updateDocumentController)

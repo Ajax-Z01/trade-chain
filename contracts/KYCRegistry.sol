@@ -34,10 +34,12 @@ contract KYCRegistry is ERC721URIStorage, Ownable {
 
     // ---------------- Minter Management ----------------
     function addMinter(address minter) external onlyOwner {
+        require(!approvedMinters[minter], "Minter already approved");
         approvedMinters[minter] = true;
     }
 
     function removeMinter(address minter) external onlyOwner {
+        require(approvedMinters[minter], "Minter not approved");
         approvedMinters[minter] = false;
     }
 
@@ -69,7 +71,7 @@ contract KYCRegistry is ERC721URIStorage, Ownable {
     }
 
     // ---------------- Review ----------------
-    function reviewDocument(uint256 tokenId) external onlyApprovedMinter {
+    function reviewDocument(uint256 tokenId) external onlyOwner {
         require(ERC721.ownerOf(tokenId) != address(0), "Token does not exist");
         require(documents[tokenId].status == DocumentStatus.Draft, "Only Draft can be reviewed");
 

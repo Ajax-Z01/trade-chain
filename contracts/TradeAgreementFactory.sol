@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "./TradeAgreement.sol";
+import "./KYCRegistry.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 
 contract TradeAgreementFactory is AccessControl {
@@ -23,7 +24,7 @@ contract TradeAgreementFactory is AccessControl {
     constructor(address _registry) {
         require(_registry != address(0), "Registry zero");
         registry = _registry;
-        
+
         _grantRole(ADMIN_ROLE, msg.sender);
     }
 
@@ -37,7 +38,24 @@ contract TradeAgreementFactory is AccessControl {
     ) external onlyRole(ADMIN_ROLE) returns (address) {
         require(_importer != address(0) && _exporter != address(0), "Party zero");
 
-        // Deploy TradeAgreement with factory admin as admin
+        // --- Load KYC Registry ---
+        KYCRegistry reg = KYCRegistry(registry);
+
+        // --- Validate importer doc ---
+        require(reg.ownerOf(_importerDocId) == _importer, "Importer doc not owned");
+        require(
+            reg.getStatus(_importerDocId) == KYCRegistry.DocumentStatus.Signed,
+            "Importer doc not signed"
+        );
+
+        // --- Validate exporter doc ---
+        require(reg.ownerOf(_exporterDocId) == _exporter, "Exporter doc not owned");
+        require(
+            reg.getStatus(_exporterDocId) == KYCRegistry.DocumentStatus.Signed,
+            "Exporter doc not signed"
+        );
+
+        // --- Deploy TradeAgreement with factory admin as admin ---
         TradeAgreement newContract = new TradeAgreement(
             msg.sender,
             _importer,

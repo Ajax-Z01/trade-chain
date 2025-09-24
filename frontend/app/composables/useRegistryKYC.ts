@@ -3,6 +3,7 @@ import { createPublicClient, http, decodeEventLog } from 'viem'
 import registryKYCArtifact from '../../../artifacts/contracts/KYCRegistry.sol/KYCRegistry.json'
 import { Chain } from '../config/chain'
 import { useWallet } from '~/composables/useWallets'
+import { useActivityLogs } from '~/composables/useActivityLogs'
 import { useKYC } from './useKycs'
 import type { MintResult } from '~/types/Mint'
 
@@ -16,7 +17,8 @@ const publicClient = createPublicClient({
 
 export function useRegistryKYC() {
   const { account, walletClient } = useWallet()
-  const { updateKyc, createKyc } = useKYC()
+  const { updateKyc } = useKYC()
+  const { addActivityLog } = useActivityLogs()
 
   const loading = ref(false)
   const minting = ref(false)
@@ -85,7 +87,7 @@ export function useRegistryKYC() {
     }
   }
 
-  // ---------------- Generic executor ----------------
+    // ---------------- Generic executor ----------------
   async function executeAction(
     action: string,
     fnName: string,
@@ -125,13 +127,22 @@ export function useRegistryKYC() {
         }
       }
 
+      // --- add onchain activity log ---
+      await addActivityLog(account.value as string, {
+        type: 'onChain',
+        action,
+        txHash,
+        extra: { fnName, args, tokenId: tokenIdStr },
+        tags: ['kyc', 'onchain', action],
+      })
+
       // backend sync
       if (tokenId && !skipBackend) {
-        await updateKyc(tokenIdStr!, { 
+        await updateKyc(tokenIdStr!, {
           action,
           txHash,
           executor: account.value,
-          ...updatePayload
+          ...updatePayload,
         })
       }
 

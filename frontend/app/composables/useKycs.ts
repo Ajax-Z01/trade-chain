@@ -3,18 +3,6 @@ import { useActivityLogs } from '~/composables/useActivityLogs'
 import { useWallet } from '~/composables/useWallets'
 import type { KYC, KYCLogs } from '~/types/Kyc'
 
-// --- Safe parsers ---
-function safeParseHex(value: unknown): `0x${string}` | null {
-  if (typeof value === 'string' && value.startsWith('0x')) return value as `0x${string}`
-  return null
-}
-
-function safeParseDate(value: unknown): number {
-  if (typeof value === 'number') return value
-  if (typeof value === 'string') return Number(value)
-  return Date.now()
-}
-
 // --- Parse raw KYC from backend ---
 function parseKYC(n: any): KYC {
   return {
@@ -46,6 +34,7 @@ export function useKYC() {
   const { account } = useWallet()
   const { addActivityLog } = useActivityLogs()
 
+  // --- Get all KYCs ---
   const getAllKycs = async (): Promise<KYC[]> => {
     try {
       const res = await fetch(`${$apiBase}/kyc`)
@@ -58,6 +47,7 @@ export function useKYC() {
     }
   }
 
+  // --- Get KYC by tokenId ---
   const getKycById = async (tokenId: string): Promise<KYC | null> => {
     try {
       const res = await fetch(`${$apiBase}/kyc/${tokenId}`)
@@ -70,6 +60,20 @@ export function useKYC() {
     }
   }
 
+  // --- Get KYCs by owner ---
+  const getKycsByOwner = async (owner: string): Promise<KYC[]> => {
+    try {
+      const res = await fetch(`${$apiBase}/kyc/owner/${owner}`)
+      if (!res.ok) return []
+      const data = await res.json()
+      return Array.isArray(data.data) ? data.data.map(parseKYC) : []
+    } catch (err) {
+      console.error(`[getKycsByOwner] Error ${owner}:`, err)
+      return []
+    }
+  }
+
+  // --- Get KYC Logs ---
   const getKycLogs = async (tokenId: string): Promise<KYCLogs | null> => {
     try {
       const res = await fetch(`${$apiBase}/kyc/${tokenId}/logs`)
@@ -82,6 +86,7 @@ export function useKYC() {
     }
   }
 
+  // --- Create KYC ---
   const createKyc = async (payload: Partial<KYC> & { action: string; executor: string }) => {
     const res = await fetch(`${$apiBase}/kyc`, {
       method: 'POST',
@@ -102,6 +107,7 @@ export function useKYC() {
     return kyc
   }
 
+  // --- Update KYC ---
   const updateKyc = async (
     tokenId: string,
     payload: Partial<KYC> & { action: string; executor: string }
@@ -125,6 +131,7 @@ export function useKYC() {
     return kyc
   }
 
+  // --- Delete KYC ---
   const deleteKyc = async (tokenId: string, executor: string) => {
     const kyc = await getKycById(tokenId)
     const owner = kyc?.owner || (account.value as string)
@@ -150,6 +157,7 @@ export function useKYC() {
   return {
     getAllKycs,
     getKycById,
+    getKycsByOwner,
     getKycLogs,
     createKyc,
     updateKyc,

@@ -6,15 +6,16 @@ import { useContractActions } from '~/composables/useContractActions'
 import { useWallet } from '~/composables/useWallets'
 import { useToast } from '~/composables/useToast'
 import { useTx } from '~/composables/useTx'
-import { getKycsByOwner } from '~/composables/useKycs'
+import { useKYC } from '~/composables/useKycs'
 import ContractStepper from '~/components/ContractStepper.vue'
 
 // Composables
 const { account } = useWallet()
 const { addToast } = useToast()
 const { withTx } = useTx()
+const { getKycsByOwner } = useKYC()
 
-// Contract actions
+// Contract actions\
 const {
   deployedContracts,
   fetchDeployedContracts,
