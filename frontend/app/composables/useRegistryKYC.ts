@@ -188,9 +188,10 @@ export function useRegistryKYC() {
         },
         true,
       )
-
+      if (!tokenId) throw new Error('Mint failed, no tokenId returned')
+        
       minting.value = false
-      return { receipt, tokenId: tokenId?.toString()!, metadataUrl: tokenURI, fileHash, txHash }
+      return { receipt, tokenId: tokenId?.toString(), metadataUrl: tokenURI, fileHash, txHash }
     } catch (err) {
       minting.value = false
       console.error('[mintDocument] error:', err)

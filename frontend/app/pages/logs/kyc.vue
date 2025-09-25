@@ -25,8 +25,28 @@ const expanded = ref<Record<string, boolean>>({})
 
 const fetchKycs = async () => {
   loading.value = true
-  kycs.value = await getAllKycs()
-  loading.value = false
+  try {
+    const rawKycs = await getAllKycs()
+
+    kycs.value = rawKycs.map((k: any) => ({
+      tokenId: k.tokenId,
+      owner: k.owner,
+      name: k.name,
+      status: k.status || 'N/A',
+      createdAt: Number(k.createdAt),
+      updatedAt: k.updatedAt ? Number(k.updatedAt) : undefined,
+      history: (k.history ?? []).map((h: any) => ({
+        action: h.action,
+        account: h.account,
+        executor: h.executor || h.account || 'Unknown',
+        timestamp: Number(h.timestamp),
+      }))
+    }))
+  } catch (err) {
+    console.error('Failed to fetch KYC logs:', err)
+  } finally {
+    loading.value = false
+  }
 }
 
 const toggleHistory = (tokenId: string) => {
@@ -50,7 +70,7 @@ onMounted(fetchKycs)
 
     <div v-else class="space-y-4">
       <div
-        v-for="(kyc, i) in kycs"
+        v-for="(kyc) in kycs"
         :key="kyc.tokenId"
         class="bg-white p-4 rounded-xl shadow hover:shadow-lg transition"
       >
@@ -73,7 +93,7 @@ onMounted(fetchKycs)
               </span>
             </p>
           </div>
-          <button @click="toggleHistory(kyc.tokenId)" class="p-1 rounded-full hover:bg-gray-100">
+          <button class="p-1 rounded-full hover:bg-gray-100" @click="toggleHistory(kyc.tokenId)">
             <component :is="expanded[kyc.tokenId] ? ChevronUp : ChevronDown" class="w-5 h-5 text-gray-500"/>
           </button>
         </div>

@@ -61,17 +61,6 @@ const copyToClipboard = (text: string | number | undefined, label?: string) => {
   navigator.clipboard.writeText(String(text))
   addToast(`${label || "Value"} copied to clipboard`, "success")
 }
-
-// --- Status styling ---
-const statusClass = computed(() => {
-  switch (props.status) {
-    case 'Draft': return 'text-gray-200'
-    case 'Reviewed': return 'text-blue-600'
-    case 'Signed': return 'text-green-600'
-    case 'Revoked': return 'text-red-600'
-    default: return 'text-gray-400'
-  }
-})
 </script>
 
 <template>

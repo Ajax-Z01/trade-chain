@@ -15,6 +15,7 @@ function parseKYC(n: any): KYC {
     description: n.description ?? '',
     createdAt: n.createdAt ? Number(n.createdAt) : Date.now(),
     updatedAt: n.updatedAt ? Number(n.updatedAt) : Date.now(),
+    status: n.status ?? 'Draft',
     history: Array.isArray(n.history)
       ? n.history.map((log: any) => ({
           action: log.action,

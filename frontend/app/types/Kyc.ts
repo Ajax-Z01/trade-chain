@@ -13,6 +13,8 @@ export interface KYC {
   createdAt: number
   updatedAt?: number
   status: KYCStatus;
+  txHash?: string
+  history?: KYCLogEntry[]
 }
 
 export interface KYCLogEntry {

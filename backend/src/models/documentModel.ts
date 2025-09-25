@@ -86,17 +86,17 @@ export const addDocumentLog = async (tokenId: number, log: DocumentLogEntry) => 
   }
 }
 
-
-// --- Get all documents ---
+// --- Get all documents (join with logs) ---
 export const getAll = async (): Promise<(Document & { history?: DocumentLogEntry[] })[]> => {
   const snapshot = await collection.get()
   const docs: Document[] = snapshot.docs.map(d => d.data() as Document)
 
-  // ambil history untuk setiap dokumen
   const result = await Promise.all(
     docs.map(async doc => {
       const logsSnap = await logsCollection.doc(doc.tokenId.toString()).get()
-      const history: DocumentLogEntry[] = logsSnap.exists ? (logsSnap.data() as DocumentLogs).history : []
+      const history: DocumentLogEntry[] = logsSnap.exists 
+        ? (logsSnap.data() as DocumentLogs).history 
+        : []
       return { ...doc, history }
     })
   )
@@ -104,16 +104,22 @@ export const getAll = async (): Promise<(Document & { history?: DocumentLogEntry
   return result
 }
 
-// --- Get document logs ---
-export const getDocumentLogs = async (tokenId: number): Promise<DocumentLogs | null> => {
+// --- Get document logs only ---
+export const getDocumentLogs = async (tokenId: number): Promise<DocumentLogEntry[]> => {
   const snapshot = await logsCollection.doc(tokenId.toString()).get()
-  return snapshot.exists ? (snapshot.data() as DocumentLogs) : null
+  return snapshot.exists ? (snapshot.data() as DocumentLogs).history : []
 }
 
-// --- Get document by tokenId ---
-export const getDocumentById = async (tokenId: number): Promise<Document | null> => {
-  const doc = await collection.doc(tokenId.toString()).get()
-  return doc.exists ? (doc.data() as Document) : null
+// --- Get document by ID ---
+export const getDocumentById = async (tokenId: number): Promise<(Document & { history?: DocumentLogEntry[] }) | null> => {
+  const docSnap = await collection.doc(tokenId.toString()).get()
+  if (!docSnap.exists) return null
+
+  const doc = docSnap.data() as Document
+  const logsSnap = await logsCollection.doc(tokenId.toString()).get()
+  const history: DocumentLogEntry[] = logsSnap.exists ? (logsSnap.data() as DocumentLogs).history : []
+
+  return { ...doc, history }
 }
 
 // --- Get documents by owner ---
@@ -132,25 +138,32 @@ export const getDocumentsByContract = async (contractAddress: string): Promise<D
 export const updateDocument = async (
   tokenId: number,
   data: Partial<Document>,
-  action?: DocumentLogEntry['action'],
+  action?: DocumentLogEntry["action"],
   txHash?: string,
   account?: string
 ): Promise<Document | null> => {
   const docRef = collection.doc(tokenId.toString())
-  const doc = await docRef.get()
-  if (!doc.exists) return null
+  const snap = await docRef.get()
+  if (!snap.exists) return null
 
-  const current = doc.data() as Document
-  const updated: Document = { ...current, ...data, updatedAt: Date.now() }
+  const current = snap.data() as Document
+
+  const updated: Document = {
+    ...current,
+    ...data,
+    status: data.status ?? current.status,
+    updatedAt: Date.now(),
+  }
+
   await docRef.update(updated as any)
 
   if (action && account) {
-    for (const linkedContract of updated.linkedContracts ?? []) {
+    for (const linkedContract of current.linkedContracts ?? []) {
       await addDocumentLog(tokenId, {
         action,
-        txHash: txHash || "",
+        txHash: txHash ?? "",
         account,
-        signer: updated.signer,
+        signer: current.signer ?? account,
         linkedContract,
         timestamp: Date.now(),
       })

@@ -1,6 +1,7 @@
-import { useNuxtApp } from "#app"
-import type { Document, DocumentLogEntry } from "~/types/Document"
+// composables/useDocuments.ts
+import { useRuntimeConfig } from "#app"
 import { useActivityLogs } from "~/composables/useActivityLogs"
+import type { Document, DocumentLogEntry } from "~/types/Document"
 
 // --- Safe parsers ---
 function safeParseDate(value: unknown): number {
@@ -12,7 +13,7 @@ function safeParseDate(value: unknown): number {
 // --- Parse raw Document from backend ---
 function parseDocument(d: any): Document {
   return {
-    tokenId: d?.tokenId ?? 0,
+    tokenId: Number(d?.tokenId) ?? 0,
     owner: d?.owner ?? "",
     fileHash: d?.fileHash ?? "",
     uri: d?.uri ?? "",
@@ -25,7 +26,7 @@ function parseDocument(d: any): Document {
     description: d?.description ?? "",
     metadataUrl: d?.metadataUrl ?? "",
     status: d?.status ?? "Draft",
-    history: Array.isArray(d?.history) ? d.history : [],
+    history: Array.isArray(d?.history) ? d.history.map(parseDocumentLog) : [],
   }
 }
 
@@ -43,88 +44,81 @@ function parseDocumentLog(d: any): DocumentLogEntry {
   }
 }
 
-// --- Composables ---
-export async function getDocument(tokenId: number): Promise<Document | null> {
-  const { $apiBase } = useNuxtApp()
-  try {
-    const res = await fetch(`${$apiBase}/document/${tokenId}`)
-    if (!res.ok) return null
-    const data = await res.json()
-    return data ? parseDocument(data) : null
-  } catch (err) {
-    console.error(`Error fetching document ${tokenId}:`, err)
-    return null
-  }
-}
-
-export async function getAllDocuments(): Promise<Document[]> {
-  const { $apiBase } = useNuxtApp()
-  try {
-    const res = await fetch(`${$apiBase}/document`)
-    if (!res.ok) return []
-    const json = await res.json()
-    return Array.isArray(json.data) ? json.data.map(parseDocument) : []
-  } catch (err) {
-    console.error("Error fetching documents:", err)
-    return []
-  }
-}
-
-export async function getDocumentsByOwner(owner: string): Promise<Document[]> {
-  const { $apiBase } = useNuxtApp()
-  try {
-    const res = await fetch(`${$apiBase}/document/owner/${owner}`)
-    if (!res.ok) return []
-    const data = await res.json()
-    return Array.isArray(data) ? data.map(parseDocument) : []
-  } catch (err) {
-    console.error(`Error fetching documents by owner ${owner}:`, err)
-    return []
-  }
-}
-
-export async function getDocumentsByContract(contractAddr: string): Promise<Document[]> {
-  const { $apiBase } = useNuxtApp()
-  try {
-    const res = await fetch(`${$apiBase}/document/contract/${contractAddr}`)
-    if (!res.ok) return []
-    const json = await res.json()
-
-    if (!json?.data || !Array.isArray(json.data)) return []
-    return json.data.map(parseDocument)
-  } catch (err) {
-    console.error(`Error fetching documents for contract ${contractAddr}:`, err)
-    return []
-  }
-}
-
-export async function getDocumentLogs(tokenId: number): Promise<DocumentLogEntry[]> {
-  const { $apiBase } = useNuxtApp()
-  try {
-    const res = await fetch(`${$apiBase}/document/${tokenId}/logs`)
-    if (!res.ok) return []
-
-    const json = await res.json()
-    const history = json?.data?.history
-    if (!Array.isArray(history)) return []
-
-    return history.map(parseDocumentLog)
-  } catch (err) {
-    console.error(`Error fetching document logs ${tokenId}:`, err)
-    return []
-  }
-}
-
-export async function attachDocument(
-  contractAddr: string,
-  payload: Partial<Document>,
-  account: string,
-  txHash?: string
-) {
-  const { $apiBase } = useNuxtApp()
+// --- Composable ---
+export function useDocuments() {
+  const config = useRuntimeConfig()
+  const $apiBase = config.public.apiBase
   const { addActivityLog } = useActivityLogs()
 
-  try {
+  // --- Queries ---
+  const getAllDocuments = async (): Promise<Document[]> => {
+    try {
+      const res = await fetch(`${$apiBase}/document`)
+      if (!res.ok) return []
+      const data = await res.json()
+      return Array.isArray(data.data) ? data.data.map(parseDocument) : []
+    } catch (err) {
+      console.error("[getAllDocuments] Error:", err)
+      return []
+    }
+  }
+
+  const getDocumentById = async (tokenId: number): Promise<Document | null> => {
+    try {
+      const res = await fetch(`${$apiBase}/document/${tokenId}`)
+      if (!res.ok) return null
+      const data = await res.json()
+      return data?.data ? parseDocument(data.data) : null
+    } catch (err) {
+      console.error(`[getDocumentById] Error ${tokenId}:`, err)
+      return null
+    }
+  }
+
+  const getDocumentsByOwner = async (owner: string): Promise<Document[]> => {
+    try {
+      const res = await fetch(`${$apiBase}/document/owner/${owner}`)
+      if (!res.ok) return []
+      const data = await res.json()
+      return Array.isArray(data.data) ? data.data.map(parseDocument) : []
+    } catch (err) {
+      console.error(`[getDocumentsByOwner] Error ${owner}:`, err)
+      return []
+    }
+  }
+
+  const getDocumentsByContract = async (contractAddr: string): Promise<Document[]> => {
+    try {
+      const res = await fetch(`${$apiBase}/document/contract/${contractAddr}`)
+      if (!res.ok) return []
+      const data = await res.json()
+      return Array.isArray(data.data) ? data.data.map(parseDocument) : []
+    } catch (err) {
+      console.error(`[getDocumentsByContract] Error ${contractAddr}:`, err)
+      return []
+    }
+  }
+
+  const getDocumentLogs = async (tokenId: number): Promise<DocumentLogEntry[]> => {
+    try {
+      const res = await fetch(`${$apiBase}/document/${tokenId}/logs`)
+      if (!res.ok) return []
+      const data = await res.json()
+      const history = data?.data?.history
+      return Array.isArray(history) ? history.map(parseDocumentLog) : []
+    } catch (err) {
+      console.error(`[getDocumentLogs] Error ${tokenId}:`, err)
+      return []
+    }
+  }
+
+  // --- Mutations ---
+  const attachDocument = async (
+    contractAddr: string,
+    payload: Partial<Document>,
+    account: string,
+    txHash?: string
+  ) => {
     const res = await fetch(`${$apiBase}/document/contract/${contractAddr}/docs`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -132,8 +126,7 @@ export async function attachDocument(
     })
     if (!res.ok) throw new Error("Failed to attach document")
     const data = await res.json()
-    if (!data) throw new Error("No document data returned from backend")
-    const doc = parseDocument(data)
+    const doc = parseDocument(data.data)
 
     await addActivityLog(doc.owner, {
       type: "backend",
@@ -144,55 +137,45 @@ export async function attachDocument(
     })
 
     return doc
-  } catch (err) {
-    console.error(`Error attaching document to contract ${contractAddr}:`, err)
-    throw err
   }
-}
 
-export async function updateDocument(
-  tokenId: number,
-  payload: Partial<Document>,
-  account: string,
-  txHash?: string,
-  action: string = "reviewDocument"
-) {
-  const { $apiBase } = useNuxtApp()
-  const { addActivityLog } = useActivityLogs()
+  interface UpdateDocumentArgs {
+    tokenId: number
+    payload: Partial<Document>
+    account: string
+    txHash?: string
+    action?: string
+    status?: string
+  }
 
-  try {
+  const updateDocument = async ({
+    tokenId,
+    payload,
+    account,
+    txHash,
+    action = "updateDocument",
+    status,
+  }: UpdateDocumentArgs) => {
     const res = await fetch(`${$apiBase}/document/${tokenId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...payload, action, account, txHash }),
+      body: JSON.stringify({ ...payload, action, account, txHash, status }),
     })
     if (!res.ok) throw new Error("Failed to update document")
     const data = await res.json()
-    const doc = parseDocument(data)
+    const doc = parseDocument(data.data)
 
     await addActivityLog(account, {
       type: "backend",
-      action: "updateDocument",
-      extra: { tokenId: doc.tokenId, name: doc.name },
+      action,
+      extra: { tokenId: doc.tokenId, name: doc.name, signer: payload.signer },
       tags: ["document", "update"],
     })
 
     return doc
-  } catch (err) {
-    console.error(`Error updating document ${tokenId}:`, err)
-    throw err
   }
-}
 
-export async function deleteDocument(
-  tokenId: number,
-  account: string,
-  txHash?: string
-) {
-  const { $apiBase } = useNuxtApp()
-  const { addActivityLog } = useActivityLogs()
-
-  try {
+  const deleteDocument = async (tokenId: number, account: string, txHash?: string) => {
     const res = await fetch(`${$apiBase}/document/${tokenId}`, {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
@@ -209,16 +192,11 @@ export async function deleteDocument(
     })
 
     return data?.success ?? true
-  } catch (err) {
-    console.error(`Error deleting document ${tokenId}:`, err)
-    throw err
   }
-}
 
-export function useDocuments() {
   return {
-    getDocument,
     getAllDocuments,
+    getDocumentById,
     getDocumentsByOwner,
     getDocumentsByContract,
     getDocumentLogs,

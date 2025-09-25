@@ -15,7 +15,7 @@ import { Loader2, FileUp } from 'lucide-vue-next'
 // Composables
 const { addToast } = useToast()
 const { account } = useWallet()
-const { attachDocument, getDocumentsByContract, updateDocument } = useDocuments()
+const { attachDocument, getDocumentsByContract } = useDocuments()
 const { mintDocument, minting, addMinter, removeMinter, reviewDocument, signDocument, revokeDocument } = useRegistryDocument()
 const { uploadToLocal } = useStorage()
 const { deployedContracts, fetchContractDetails, fetchDeployedContracts } = useContractActions()
@@ -216,7 +216,6 @@ const handleReview = async (doc: DocType) => {
   if (!account.value || !doc.tokenId) return
   try {
     await reviewDocument(BigInt(doc.tokenId))
-    await updateDocument(doc.tokenId, { status: 'Reviewed' }, account.value)
     doc.status = 'Reviewed'
     addToast(`Document ${doc.name} marked as Reviewed (on-chain)`, 'success')
   } catch (err: any) {
@@ -228,7 +227,6 @@ const handleSign = async (doc: DocType) => {
   if (!account.value || !doc.tokenId) return
   try {
     await signDocument(BigInt(doc.tokenId))
-    await updateDocument(doc.tokenId, { status: 'Signed' }, account.value)
     doc.status = 'Signed'
     addToast(`Document ${doc.name} signed (on-chain)`, 'success')
   } catch (err: any) {
@@ -240,7 +238,6 @@ const handleRevoke = async (doc: DocType) => {
   if (!account.value || !doc.tokenId) return
   try {
     await revokeDocument(BigInt(doc.tokenId))
-    await updateDocument(doc.tokenId, { status: 'Revoked' }, account.value)
     doc.status = 'Revoked'
     addToast(`Document ${doc.name} revoked (on-chain)`, 'success')
   } catch (err: any) {

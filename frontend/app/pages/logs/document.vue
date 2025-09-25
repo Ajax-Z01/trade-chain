@@ -27,7 +27,7 @@ interface DocumentWithLogs {
 }
 
 // --- Composable ---
-const { getAllDocuments, getDocumentLogs } = useDocuments()
+const { getAllDocuments } = useDocuments()
 const documents = ref<DocumentWithLogs[]>([])
 const loading = ref(true)
 const expanded = ref<Record<number, boolean>>({})
@@ -38,27 +38,31 @@ const fetchDocuments = async () => {
   try {
     const docs = await getAllDocuments()
 
-    const docsWithLogs: DocumentWithLogs[] = await Promise.all(
-      docs.map(async (doc) => {
-        const logs = await getDocumentLogs(doc.tokenId)
+    // Map dokumen dan langsung ambil history dari response
+    const docsWithLogs: DocumentWithLogs[] = docs.map((doc) => {
+      const logsUI: DocumentLogUI[] = (doc.history ?? []).map((log: any) => ({
+        action: log.action,
+        txHash: log.txHash,
+        account: log.account,
+        signer: log.signer,
+        linkedContract: log.linkedContract,
+        timestamp: Number(log.timestamp), // pastikan Number
+        user: log.account || doc.owner,
+        status: doc.status || 'Unknown',
+      }))
+      // Sort history terbaru di atas
+      logsUI.sort((a, b) => b.timestamp - a.timestamp)
 
-        const logsUI: DocumentLogUI[] = logs.map((log) => ({
-          ...log,
-          user: log.account || doc.owner,
-          status: doc.status || 'Unknown',
-        }))
+      return {
+        tokenId: doc.tokenId,
+        name: doc.name || 'Unnamed Document',
+        owner: doc.owner,
+        status: doc.status || 'Draft',
+        history: logsUI,
+      }
+    })
 
-        return {
-          tokenId: doc.tokenId,
-          name: doc.name || 'Unnamed Document',
-          owner: doc.owner,
-          status: doc.status || 'Draft',
-          history: logsUI.sort((a, b) => b.timestamp - a.timestamp),
-        }
-      })
-    )
-
-    // Sort dokumen berdasarkan createdAt (descending)
+    // Sort dokumen berdasarkan history terbaru
     documents.value = docsWithLogs.sort((a, b) => {
       const tA = a.history[0]?.timestamp || 0
       const tB = b.history[0]?.timestamp || 0
@@ -121,7 +125,7 @@ onMounted(fetchDocuments)
           </div>
 
           <!-- Toggle history -->
-          <button @click="toggleHistory(doc.tokenId)" class="p-1 rounded-full hover:bg-gray-100">
+          <button class="p-1 rounded-full hover:bg-gray-100" @click="toggleHistory(doc.tokenId)">
             <component
               :is="expanded[doc.tokenId] ? ChevronUp : ChevronDown"
               class="w-5 h-5 text-gray-500"

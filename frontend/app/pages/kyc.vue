@@ -173,7 +173,7 @@ const handleRemoveMinter = async () => {
   <div class="p-6 max-w-lg mx-auto space-y-6 bg-white rounded-xl shadow-lg">
     <!-- Header -->
     <h2 class="text-2xl font-bold text-gray-800 flex items-center gap-2">
-      <FileUp class="w-6 h-6" /> Document Verification & Minting
+      <FileUp class="w-6 h-6" /> KYC Document Verification & Minting
     </h2>
 
     <!-- Upload & Mint -->
@@ -199,19 +199,22 @@ const handleRemoveMinter = async () => {
     <div v-if="tokenId" class="space-y-3 border-t pt-4">
       <h3 class="font-semibold text-gray-800">Lifecycle Actions</h3>
       <div class="flex gap-2">
-        <button class="flex-1 bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-2"
+        <button
+class="flex-1 bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-2"
           :disabled="processing"
           @click="handleReview">
           <Loader2 v-if="processing" class="w-4 h-4 animate-spin" />
           <PenLine v-else class="w-4 h-4" /> Review
         </button>
-        <button class="flex-1 bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-2"
+        <button
+class="flex-1 bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-2"
           :disabled="processing"
           @click="handleSign">
           <Loader2 v-if="processing" class="w-4 h-4 animate-spin" />
           <Signature v-else class="w-4 h-4" /> Sign
         </button>
-        <button class="flex-1 bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-2"
+        <button
+class="flex-1 bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-2"
           :disabled="processing"
           @click="handleRevoke">
           <Loader2 v-if="processing" class="w-4 h-4 animate-spin" />
@@ -233,12 +236,14 @@ const handleRemoveMinter = async () => {
       <h3 class="font-semibold text-gray-800 flex items-center gap-2"><Users class="w-5 h-5" /> Manage Minters</h3>
       <input v-model="minterAddress" type="text" placeholder="Enter minter address" class="w-full border rounded-lg px-3 py-2 text-sm" />
       <div class="flex gap-2">
-        <button class="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2"
+        <button
+class="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2"
           :disabled="addingMinter" @click="handleAddMinter">
           <Loader2 v-if="addingMinter" class="w-4 h-4 animate-spin" />
           <Plus v-else class="w-4 h-4" /> Add
         </button>
-        <button class="flex-1 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2"
+        <button
+class="flex-1 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2"
           :disabled="removingMinter" @click="handleRemoveMinter">
           <Loader2 v-if="removingMinter" class="w-4 h-4 animate-spin" />
           <Minus v-else class="w-4 h-4" /> Remove
