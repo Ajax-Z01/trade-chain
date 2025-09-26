@@ -74,13 +74,20 @@ export class KYCModel {
     return result
   }
 
-  static async update(tokenId: string, data: Partial<KYC>): Promise<KYC | null> {
+  // --- Update KYC ---
+  static async update(
+    tokenId: string,
+    data: Partial<KYC>,
+    action?: KYCLogEntry["action"],
+    txHash?: string,
+    account?: string
+  ): Promise<KYC | null> {
     const docRef = collection.doc(tokenId)
     const doc = await docRef.get()
     if (!doc.exists) return null
 
     const current = doc.data() as KYC
-    const protectedFields = ['tokenId', 'owner', 'fileHash', 'action'] as const
+    const protectedFields = ["tokenId", "owner", "fileHash"] as const
 
     const filteredData: Partial<KYC> = {}
     for (const key in data) {
@@ -99,15 +106,43 @@ export class KYCModel {
     }
 
     await docRef.update(updated as any)
+
+    if (action && account) {
+      await this.addLogEntry(tokenId, {
+        action,
+        txHash: txHash || "",
+        account,
+        timestamp: Date.now(),
+      })
+    }
+
     return updated
   }
 
-  static async delete(tokenId: string): Promise<boolean> {
+  // --- Delete KYC ---
+  static async delete(
+    tokenId: string,
+    action?: KYCLogEntry["action"],
+    txHash?: string,
+    executor?: string
+  ): Promise<boolean> {
     const docRef = collection.doc(tokenId)
     const doc = await docRef.get()
     if (!doc.exists) return false
 
+    const kyc = doc.data() as KYC
     await docRef.delete()
+
+    if (action && executor) {
+      await this.addLogEntry(tokenId, {
+        action,
+        txHash: txHash || "",
+        account: kyc.owner,
+        executor,
+        timestamp: Date.now(),
+      })
+    }
+
     return true
   }
 

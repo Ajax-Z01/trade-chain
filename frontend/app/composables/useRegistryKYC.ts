@@ -6,6 +6,7 @@ import { useWallet } from '~/composables/useWallets'
 import { useActivityLogs } from '~/composables/useActivityLogs'
 import { useKYC } from './useKycs'
 import type { MintResult } from '~/types/Mint'
+import type { KYCStatus } from '~/types/Kyc'
 
 const registryAddress = '0x5fbdb2315678afecb367f032d93f642f64180aa3' as const
 const { abi } = registryKYCArtifact
@@ -87,12 +88,23 @@ export function useRegistryKYC() {
     }
   }
 
-    // ---------------- Generic executor ----------------
+  // ---------------- Generic executor ----------------
+  /**
+   * Execute on-chain function and optionally sync to backend via updateKyc.
+   *
+   * @param action - logical action name for logs (e.g. 'mintKYC', 'reviewKYC')
+   * @param fnName - contract function name to call
+   * @param args - function args
+   * @param updatePayload - payload to pass to backend update (partial KYC fields)
+   * @param status - optional KYC status to persist (default 'confirmed')
+   * @param skipBackend - skip backend sync if true
+   */
   async function executeAction(
     action: string,
     fnName: string,
     args: any[] = [],
     updatePayload: Record<string, any> = {},
+    status?: KYCStatus,
     skipBackend = false
   ) {
     if (!walletClient.value || !account.value) throw new Error('Wallet not connected')
@@ -117,8 +129,12 @@ export function useRegistryKYC() {
       const eventLog = receipt.logs.find(log => log.address === registryAddress)
       if (eventLog) {
         try {
-          const decoded = decodeEventLog({ abi, data: eventLog.data, topics: eventLog.topics }) as any
-          if (decoded.args?.tokenId) {
+          const decoded = decodeEventLog({
+            abi,
+            data: eventLog.data,
+            topics: eventLog.topics,
+          }) as any
+          if (decoded?.args?.tokenId) {
             tokenId = BigInt(decoded.args.tokenId)
             tokenIdStr = String(decoded.args.tokenId)
           }
@@ -132,17 +148,22 @@ export function useRegistryKYC() {
         type: 'onChain',
         action,
         txHash,
+        contractAddress: registryAddress,
         extra: { fnName, args, tokenId: tokenIdStr },
         tags: ['kyc', 'onchain', action],
       })
 
-      // backend sync
-      if (tokenId && !skipBackend) {
-        await updateKyc(tokenIdStr!, {
+      // --- backend sync ---
+      if (tokenIdStr && !skipBackend) {
+        // send both executor and account for clarity (executor = who executed, account = owner if needed)
+        await updateKyc({
+          tokenId: tokenIdStr,
+          payload: updatePayload,
           action,
           txHash,
-          executor: account.value,
-          ...updatePayload,
+          executor: account.value as string,
+          account: account.value as string,
+          status,
         })
       }
 
@@ -186,10 +207,11 @@ export function useRegistryKYC() {
           name: file.name,
           description: metadata.description,
         },
-        true,
+        'Draft',
+        true
       )
       if (!tokenId) throw new Error('Mint failed, no tokenId returned')
-        
+
       minting.value = false
       return { receipt, tokenId: tokenId?.toString(), metadataUrl: tokenURI, fileHash, txHash }
     } catch (err) {
@@ -200,13 +222,13 @@ export function useRegistryKYC() {
   }
 
   const reviewDocument = (tokenId: bigint) =>
-    executeAction('reviewKYC', 'reviewDocument', [tokenId])
+    executeAction('reviewKYC', 'reviewDocument', [tokenId], {}, 'Reviewed', false)
 
   const signDocument = (tokenId: bigint) =>
-    executeAction('signKYC', 'signDocument', [tokenId])
+    executeAction('signKYC', 'signDocument', [tokenId], {}, 'Signed', false)
 
   const revokeDocument = (tokenId: bigint) =>
-    executeAction('revokeKYC', 'revokeDocument', [tokenId])
+    executeAction('revokeKYC', 'revokeDocument', [tokenId], {}, 'Revoked', false)
 
   const addMinter = (newMinter: `0x${string}`) =>
     executeAction('addMinter', 'addMinter', [newMinter])

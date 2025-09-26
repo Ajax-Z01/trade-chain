@@ -1,7 +1,7 @@
 import { useRuntimeConfig } from '#app'
 import { useActivityLogs } from '~/composables/useActivityLogs'
 import { useWallet } from '~/composables/useWallets'
-import type { KYC, KYCLogs } from '~/types/Kyc'
+import type { KYC, KYCLogs, UpdateKycArgs } from '~/types/Kyc'
 
 // --- Parse raw KYC from backend ---
 function parseKYC(n: any): KYC {
@@ -100,7 +100,7 @@ export function useKYC() {
 
     await addActivityLog(kyc.owner || (account.value as string), {
       type: 'backend',
-      action: payload.action,
+      action: `Create KYC ${kyc.tokenId}`,
       extra: { tokenId: kyc.tokenId, name: kyc.name, executor: payload.executor },
       tags: ['kyc', 'create'],
     })
@@ -109,24 +109,37 @@ export function useKYC() {
   }
 
   // --- Update KYC ---
-  const updateKyc = async (
-    tokenId: string,
-    payload: Partial<KYC> & { action: string; executor: string }
-  ) => {
+  const updateKyc = async ({
+    tokenId,
+    payload,
+    action = "updateKYC",
+    txHash,
+    executor,
+    account,
+    status,
+  }: UpdateKycArgs) => {
     const res = await fetch(`${$apiBase}/kyc/${tokenId}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ...payload,
+        action,
+        executor,
+        account,
+        txHash,
+        status,
+      }),
     })
-    if (!res.ok) throw new Error('Failed to update KYC')
+    if (!res.ok) throw new Error("Failed to update KYC")
+
     const data = await res.json()
     const kyc = parseKYC(data.data)
-
-    await addActivityLog(kyc.owner || (account.value as string), {
-      type: 'backend',
-      action: payload.action,
-      extra: { tokenId: kyc.tokenId, name: kyc.name, executor: payload.executor },
-      tags: ['kyc', 'update'],
+    
+    await addActivityLog(kyc.owner || account, {
+      type: "backend",
+      action: `Update KYC ${kyc.tokenId}`,
+      extra: { tokenId: kyc.tokenId, name: kyc.name, executor },
+      tags: ["kyc", "update"],
     })
 
     return kyc
@@ -147,7 +160,7 @@ export function useKYC() {
 
     await addActivityLog(owner, {
       type: 'backend',
-      action: 'deleteKYC',
+      action: `Delete KYC ${tokenId}`,
       extra: { tokenId, executor },
       tags: ['kyc', 'delete'],
     })

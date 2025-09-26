@@ -32,3 +32,13 @@ export interface KYCLogs {
   tokenId: number;
   history: KYCLogEntry[];
 }
+
+export interface UpdateKycArgs {
+  tokenId: string
+  payload: Partial<KYC>
+  action?: string
+  txHash?: string
+  executor: string
+  account: string
+  status?: KYCStatus
+}

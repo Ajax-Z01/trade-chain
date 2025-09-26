@@ -24,7 +24,7 @@ router.get("/:tokenId", getKYCById)
 router.get("/owner/:owner", getKYCsByOwner)
 
 // --- Update KYC ---
-router.put("/:tokenId", updateKYC)
+router.patch("/:tokenId", updateKYC)
 
 // --- Delete KYC ---
 router.delete("/:tokenId", deleteKYC)

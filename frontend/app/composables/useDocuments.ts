@@ -130,7 +130,7 @@ export function useDocuments() {
 
     await addActivityLog(doc.owner, {
       type: "backend",
-      action: "attachDocument",
+      action: `Attach Document ${doc.tokenId}`,
       contractAddress: contractAddr,
       extra: { tokenId: doc.tokenId, name: doc.name },
       tags: ["document", "attach"],
@@ -164,14 +164,13 @@ export function useDocuments() {
     if (!res.ok) throw new Error("Failed to update document")
     const data = await res.json()
     const doc = parseDocument(data.data)
-
+    
     await addActivityLog(account, {
       type: "backend",
-      action,
-      extra: { tokenId: doc.tokenId, name: doc.name, signer: payload.signer },
-      tags: ["document", "update"],
+      action: `Update Document ${tokenId}`,
+      extra: { tokenId },
+      tags: ["document", "update", action, status || ''],
     })
-
     return doc
   }
 
@@ -186,7 +185,7 @@ export function useDocuments() {
 
     await addActivityLog(account, {
       type: "backend",
-      action: "deleteDocument",
+      action: `Delete Document ${tokenId}`,
       extra: { tokenId },
       tags: ["document", "delete"],
     })

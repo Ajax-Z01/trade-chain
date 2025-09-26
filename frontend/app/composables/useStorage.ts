@@ -19,10 +19,12 @@ export function useStorage() {
 
     await addActivityLog(account, {
       type: 'backend',
-      action: 'uploadFile',
+      action: `Upload file ${file.name}`,
       extra: {
         fileName: file.name,
-        url
+        url,
+        size: file.size,
+        type: file.type
       },
       tags: ['file', 'upload']
     })

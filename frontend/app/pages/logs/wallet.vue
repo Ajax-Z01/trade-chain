@@ -1,48 +1,48 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { useWallet } from '~/composables/useWallets'
-import { getWalletLogs } from '~/composables/useLogs'
 import { CheckCircle, XCircle, Loader2, Search } from 'lucide-vue-next'
 
+const { account, fetchAllWalletLogs } = useWallet()
 const logs = ref<any[]>([])
 const loading = ref(false)
 
-const { account } = useWallet()
-
-// Filter & Search
+// --- Filter / Search ---
 const actionFilter = ref<'all' | 'connect' | 'disconnect'>('all')
 const searchQuery = ref('')
 
-// Pagination / Lazy load
+// --- Pagination / Lazy load ---
 const visibleLogs = ref(20)
 const loadMore = () => visibleLogs.value += 20
 
-// Fetch logs
-async function fetchLogs() {
+// --- Fetch logs function ---
+const fetchLogs = async () => {
+  if (!account.value) {
+    logs.value = []
+    return
+  }
+
   loading.value = true
   try {
-    logs.value = await getWalletLogs()
+    logs.value = await fetchAllWalletLogs()
   } finally {
     loading.value = false
   }
 }
 
-watch(account, () => { fetchLogs() }, { immediate: true })
+// --- Auto refresh on account change ---
+watch(account, fetchLogs, { immediate: true })
 
-// Computed: filtered & searched logs
+// --- Computed: filtered + searched logs ---
 const filteredLogs = computed(() =>
   logs.value
     .filter(log => actionFilter.value === 'all' ? true : log.action === actionFilter.value)
     .filter(log => log.account.toLowerCase().includes(searchQuery.value.toLowerCase()))
 )
 
-// Format timestamp
+// --- Utils ---
 const formatDate = (ts: number) => new Date(ts).toLocaleString()
-
-// Highlight recent logs (last 24h)
 const isRecent = (ts: number) => (Date.now() - ts) < 24 * 60 * 60 * 1000
-
-// Counts for badges
 const counts = computed(() => ({
   all: logs.value.length,
   connect: logs.value.filter(l => l.action==='connect').length,
