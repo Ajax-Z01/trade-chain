@@ -5,10 +5,13 @@ import CompanyDTO from '../dtos/companyDTO.js';
 // POST /company
 export const createCompany = async (req: Request, res: Response) => {
   try {
-    const dto = new CompanyDTO(req.body);
+    const { executor, ...data } = req.body;
+    if (!executor) return res.status(400).json({ success: false, message: 'Executor is required' });
+
+    const dto = new CompanyDTO(data);
     dto.validate();
 
-    const company = await companyModel.createCompany(dto.toJSON());
+    const company = await companyModel.createCompany(dto.toJSON(), executor);
     res.status(201).json({ success: true, data: company });
   } catch (err: any) {
     res.status(400).json({ success: false, message: err.message });
@@ -39,10 +42,13 @@ export const getCompanyById = async (req: Request, res: Response) => {
 // PUT /company/:id
 export const updateCompany = async (req: Request, res: Response) => {
   try {
-    const dto = new CompanyDTO(req.body);
+    const { executor, ...data } = req.body;
+    if (!executor) return res.status(400).json({ success: false, message: 'Executor is required' });
+
+    const dto = new CompanyDTO(data);
     dto.validate();
 
-    const updated = await companyModel.updateCompany(req.params.id, dto.toJSON());
+    const updated = await companyModel.updateCompany(req.params.id, dto.toJSON(), executor);
     if (!updated) return res.status(404).json({ success: false, message: 'Company not found' });
 
     res.json({ success: true, data: updated });
@@ -54,7 +60,10 @@ export const updateCompany = async (req: Request, res: Response) => {
 // DELETE /company/:id
 export const deleteCompany = async (req: Request, res: Response) => {
   try {
-    const deleted = await companyModel.deleteCompany(req.params.id);
+    const executor = req.body.executor || req.headers['x-executor']?.toString();
+    if (!executor) return res.status(400).json({ success: false, message: 'Executor is required' });
+
+    const deleted = await companyModel.deleteCompany(req.params.id, executor);
     if (!deleted) return res.status(404).json({ success: false, message: 'Company not found' });
 
     res.json({ success: true, message: 'Company deleted successfully' });

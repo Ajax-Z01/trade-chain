@@ -52,10 +52,12 @@ export function useCompany() {
     loading.value = true
     error.value = null
     try {
+      const body = { ...payload, executor: account.value }
+
       const res = await fetch(`${$apiBase}/company`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(body),
       })
       if (!res.ok) throw new Error('Failed to create company')
       const data = await res.json()
@@ -82,10 +84,12 @@ export function useCompany() {
     loading.value = true
     error.value = null
     try {
+      const body = { ...payload, executor: account.value }
+
       const res = await fetch(`${$apiBase}/company/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(body),
       })
       if (!res.ok) throw new Error('Failed to update company')
       const data = await res.json()
@@ -112,7 +116,13 @@ export function useCompany() {
     loading.value = true
     error.value = null
     try {
-      const res = await fetch(`${$apiBase}/company/${id}`, { method: 'DELETE' })
+      const body = { executor: account.value }
+
+      const res = await fetch(`${$apiBase}/company/${id}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
       if (!res.ok) throw new Error('Failed to delete company')
       const data = await res.json()
 

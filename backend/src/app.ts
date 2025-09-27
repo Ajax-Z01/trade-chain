@@ -9,6 +9,7 @@ import companyRoutes from './routes/companyRoutes.js'
 import documentRoutes from './routes/documentRoutes.js'
 import activityRoutes from './routes/activityRoutes.js'
 import aggregatedActivityRoutes from './routes/aggregatedActivityRoutes.js'
+import notificationRoutes from './routes/notificationRoutes.js'
 
 dotenv.config()
 
@@ -29,6 +30,7 @@ app.use('/api/company', companyRoutes)
 app.use('/api/document', documentRoutes)
 app.use('/api/activity', activityRoutes);
 app.use('/api/aggregated', aggregatedActivityRoutes);
+app.use('/api/notification', notificationRoutes)
 
 const PORT = process.env.PORT || 5000
 app.listen(PORT, () => {
