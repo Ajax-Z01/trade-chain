@@ -1,14 +1,5 @@
 import { Request, Response } from "express"
-import {
-  addDocument,
-  getDocumentById,
-  getDocumentsByOwner,
-  getDocumentsByContract,
-  updateDocument,
-  deleteDocument,
-  getDocumentLogs,
-  getAll,
-} from "../models/documentModel.js"
+import { DocumentModel } from "../models/documentModel.js"
 import DocumentDTO from "../dtos/documentDTO.js"
 
 // --- POST /contract/:addr/docs ---
@@ -38,7 +29,7 @@ export const attachDocument = async (req: Request, res: Response) => {
       createdAt: Date.now(),
     })
 
-    const doc = await addDocument(docData.toFirestore(), signer, action, txHash)
+    const doc = await DocumentModel.create(docData.toFirestore(), signer, action, txHash)
     return res.status(201).json({ success: true, data: doc })
   } catch (err: any) {
     console.error(err)
@@ -49,7 +40,7 @@ export const attachDocument = async (req: Request, res: Response) => {
 // --- GET /documents ---
 export const getAllDocuments = async (_req: Request, res: Response) => {
   try {
-    const docs = await getAll()
+    const docs = await DocumentModel.getAll()
     return res.json({ success: true, data: docs })
   } catch (err: any) {
     console.error(err)
@@ -61,7 +52,7 @@ export const getAllDocuments = async (_req: Request, res: Response) => {
 export const getDocument = async (req: Request, res: Response) => {
   try {
     const { tokenId } = req.params
-    const doc = await getDocumentById(Number(tokenId))
+    const doc = await DocumentModel.getById(+tokenId)
     if (!doc) return res.status(404).json({ success: false, message: "Document not found" })
     return res.json({ success: true, data: doc })
   } catch (err: any) {
@@ -74,7 +65,7 @@ export const getDocument = async (req: Request, res: Response) => {
 export const getDocumentsOwner = async (req: Request, res: Response) => {
   try {
     const { owner } = req.params
-    const docs = await getDocumentsByOwner(owner)
+    const docs = await DocumentModel.getByOwner(owner)
     return res.json({ success: true, data: docs })
   } catch (err: any) {
     console.error(err)
@@ -86,7 +77,7 @@ export const getDocumentsOwner = async (req: Request, res: Response) => {
 export const getDocumentsContract = async (req: Request, res: Response) => {
   try {
     const { addr } = req.params
-    const docs = await getDocumentsByContract(addr)
+    const docs = await DocumentModel.getByContract(addr)
     return res.json({ success: true, data: docs })
   } catch (err: any) {
     console.error(err)
@@ -98,8 +89,8 @@ export const getDocumentsContract = async (req: Request, res: Response) => {
 export const getDocumentLogsController = async (req: Request, res: Response) => {
   try {
     const { tokenId } = req.params
-    const logs = await getDocumentLogs(Number(tokenId))
-    if (!logs) return res.status(404).json({ success: false, message: "No logs found" })
+    const logs = await DocumentModel.getLogs(+tokenId)
+    if (!logs.length) return res.status(404).json({ success: false, message: "No logs found" })
     return res.json({ success: true, data: logs })
   } catch (err: any) {
     console.error(err)
@@ -116,7 +107,7 @@ export const updateDocumentController = async (req: Request, res: Response) => {
     if (!action) return res.status(400).json({ success: false, message: "Missing action field" })
     if (!account) return res.status(400).json({ success: false, message: "Missing account field" })
 
-    const updated = await updateDocument(Number(tokenId), updateData, action, txHash, account)
+    const updated = await DocumentModel.update(+tokenId, updateData, action, txHash, account)
     if (!updated) return res.status(404).json({ success: false, message: "Document not found" })
     return res.json({ success: true, data: updated })
   } catch (err: any) {
@@ -134,7 +125,7 @@ export const deleteDocumentController = async (req: Request, res: Response) => {
     if (!action) return res.status(400).json({ success: false, message: "Missing action field" })
     if (!account) return res.status(400).json({ success: false, message: "Missing account field" })
 
-    const success = await deleteDocument(Number(tokenId), action, txHash, account)
+    const success = await DocumentModel.delete(+tokenId, action, txHash, account)
     if (!success) return res.status(404).json({ success: false, message: "Document not found" })
     return res.json({ success: true, message: "Deleted successfully" })
   } catch (err: any) {

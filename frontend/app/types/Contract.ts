@@ -5,6 +5,7 @@ export interface ContractLogEntry {
   txHash?: string
   account: string
   exporter?: string
+  importer?: string
   requiredAmount?: string
   contractAddress?: string
   extra?: any

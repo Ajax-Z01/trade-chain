@@ -23,6 +23,7 @@ export class NotificationModel {
       read: data.read ?? false,
       createdAt: data.createdAt ?? Date.now(),
       updatedAt: data.updatedAt ?? Date.now(),
+      extraData: data.extraData ?? {},
     }
 
     await docRef.set(newDoc)

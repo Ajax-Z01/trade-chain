@@ -25,16 +25,19 @@ export const createKYC = async (req: Request, res: Response) => {
     if (!action) return res.status(400).json({ success: false, message: "Missing action field" })
     if (!executor) return res.status(400).json({ success: false, message: "Missing executor field" })
 
-    const kyc: KYC = await KYCModel.create({
-      tokenId,
-      owner,
-      fileHash,
-      metadataUrl,
-      documentUrl,
-      name,
-      description,
-      status: status as KYCStatus,
-    })
+    const kyc: KYC = await KYCModel.create(
+      {
+        tokenId,
+        owner,
+        fileHash,
+        metadataUrl,
+        documentUrl,
+        name,
+        description,
+        status: status as KYCStatus,
+      },
+      executor
+    )
 
     const logEntry: KYCLogEntry = {
       action: action as KYCLogEntry["action"],

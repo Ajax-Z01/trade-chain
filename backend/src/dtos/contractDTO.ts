@@ -1,26 +1,27 @@
-import type { ContractLogEntry } from '../types/Contract.js';
-import type { OnChainInfo } from '../types/Info.js';
+import type { ContractLogEntry } from '../types/Contract.js'
+import type { OnChainInfo } from '../types/Info.js'
 
 export default class ContractLogDTO {
-  contractAddress!: string;
-  action!: string;
-  txHash!: string;
-  account!: string;
-  exporter?: string;
-  requiredAmount?: string;
-  extra?: any;
-  timestamp!: number;
-  onChainInfo?: OnChainInfo;
+  contractAddress!: string
+  action!: string
+  txHash!: string
+  account!: string
+  exporter?: string
+  importer?: string
+  requiredAmount?: string
+  extra?: any
+  timestamp!: number
+  onChainInfo?: OnChainInfo
 
   constructor(data: Partial<ContractLogEntry> & { contractAddress: string }) {
-    Object.assign(this, data);
+    Object.assign(this, data)
   }
 
   validate() {
-    if (!this.contractAddress) throw new Error('contractAddress required');
-    if (!this.action) throw new Error('action required');
-    if (!this.txHash) throw new Error('txHash required');
-    if (!this.account) throw new Error('account required');
+    if (!this.contractAddress) throw new Error('contractAddress required')
+    if (!this.action) throw new Error('action required')
+    if (!this.txHash) throw new Error('txHash required')
+    if (!this.account) throw new Error('account required')
   }
 
   toJSON(): ContractLogEntry {
@@ -29,10 +30,11 @@ export default class ContractLogDTO {
       txHash: this.txHash,
       account: this.account,
       exporter: this.exporter,
+      importer: this.importer,
       requiredAmount: this.requiredAmount,
       extra: this.extra,
       timestamp: this.timestamp ?? Date.now(),
       onChainInfo: this.onChainInfo,
-    };
+    }
   }
 }

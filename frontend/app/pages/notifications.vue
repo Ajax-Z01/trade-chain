@@ -1,100 +1,110 @@
 <script setup lang="ts">
-import { watch } from 'vue'
+import { watch, computed } from 'vue'
 import { useNotification } from '~/composables/useNotification'
 import { useWallet } from '~/composables/useWallets'
 
+const { account } = useWallet()
 const { 
   notifications, 
-  loading, 
   unreadCount, 
+  loading, 
   fetchNotificationsByUser, 
   markAsRead, 
   markAllAsRead, 
   deleteNotification 
 } = useNotification()
 
-const { account } = useWallet()
+// Fetch notifications whenever wallet/account changes
+watch(account, (acc) => {
+  if (acc) fetchNotificationsByUser(acc)
+}, { immediate: true })
 
-// Fetch notifications on mount
-watch(account, (newAccount) => {
-  if (newAccount) {
-    fetchNotificationsByUser(newAccount)
-  }
-})
+// Sorted notifications terbaru dulu
+const sortedNotifications = computed(() => [...notifications.value].sort((a,b) => b.createdAt - a.createdAt))
 
-// Helper to format timestamp
-const formatDate = (ts: number) => {
-  const date = new Date(ts)
-  return date.toLocaleString()
-}
+// Format timestamp
+const formatDate = (ts: number) => new Date(ts).toLocaleString()
 
-// Wrappers for logging (optional)
-const markAsReadWithLog = async (id: string) => {
-  await markAsRead(id)
-}
-
-const deleteNotificationWithLog = async (id: string) => {
-  await deleteNotification(id)
-}
-
-const markAllAsReadWithLog = async () => {
-  await markAllAsRead()
-}
+// Wrappers untuk tombol
+const markAsReadWithLog = async (id: string) => await markAsRead(id)
+const deleteNotificationWithLog = async (id: string) => await deleteNotification(id)
+const markAllAsReadWithLog = async () => await markAllAsRead()
 </script>
 
 <template>
-  <div class="p-4 max-w-3xl mx-auto">
-    <h1 class="text-2xl font-bold mb-4">
-      Notifications
-      <span v-if="unreadCount" class="ml-2 text-sm text-white bg-red-500 rounded-full px-2 py-1">
-        {{ unreadCount }}
-      </span>
-    </h1>
+<div class="p-4 max-w-3xl mx-auto">
+  <h1 class="text-2xl font-bold mb-4">
+    Notifications
+    <span v-if="unreadCount" class="ml-2 text-sm text-white bg-red-500 rounded-full px-2 py-1">
+      {{ unreadCount }}
+    </span>
+  </h1>
 
-    <div class="mb-4 flex justify-end">
-      <button
-        class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-        @click="markAllAsReadWithLog"
-        :disabled="!unreadCount"
-      >
-        Mark all as read
-      </button>
-    </div>
-
-    <div v-if="loading" class="text-center py-4">Loading...</div>
-    <div v-else-if="!notifications.length" class="text-center py-4">No notifications</div>
-
-    <ul class="space-y-2">
-      <li
-        v-for="n in notifications"
-        :key="n.id"
-        :class="['p-3 rounded shadow flex justify-between items-center', n.read ? 'bg-gray-100' : 'bg-white border-l-4 border-blue-500']"
-      >
-        <div>
-          <h3 class="font-semibold">{{ n.title }}</h3>
-          <p class="text-sm text-gray-700">{{ n.message }}</p>
-          <p class="text-xs text-gray-400 mt-1">{{ formatDate(n.createdAt) }}</p>
-        </div>
-        <div class="flex space-x-2">
-          <button
-            v-if="!n.read"
-            class="text-sm text-blue-500 hover:underline"
-            @click="markAsReadWithLog(n.id)"
-          >
-            Mark as read
-          </button>
-          <button
-            class="text-sm text-red-500 hover:underline"
-            @click="deleteNotificationWithLog(n.id)"
-          >
-            Delete
-          </button>
-        </div>
-      </li>
-    </ul>
+  <div class="mb-4 flex justify-end">
+    <button
+      class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+      @click="markAllAsReadWithLog"
+      :disabled="!unreadCount"
+    >
+      Mark all as read
+    </button>
   </div>
+
+  <div v-if="loading" class="text-center py-4">Loading...</div>
+  <div v-else-if="!notifications.length" class="text-center py-4">No notifications</div>
+
+  <ul class="space-y-2">
+    <li
+      v-for="n in sortedNotifications"
+      :key="n.id"
+      :class="[
+        'p-3 rounded-lg shadow-sm hover:shadow-md transition-all bg-white',
+        !n.read ? 'border-l-4 border-blue-500' : ''
+      ]"
+    >
+      <!-- Header: title + date -->
+      <div class="flex justify-between items-start">
+        <div class="min-w-0">
+          <h3 class="font-semibold text-gray-800 text-sm truncate">{{ n.title }}</h3>
+          <p class="text-gray-700 text-sm truncate mt-0.5">{{ n.message }}</p>
+        </div>
+        <p class="text-gray-400 text-xs ml-2 whitespace-nowrap">{{ formatDate(n.createdAt) }}</p>
+      </div>
+
+      <!-- User / address -->
+      <p class="text-gray-500 text-xs mt-1 truncate italic">{{ n.userId }}</p>
+
+      <!-- Extra data -->
+      <div v-if="n.extraData?.data" class="mt-1 text-gray-400 text-xs space-y-0.5">
+        <div v-for="(value, key) in n.extraData.data" :key="key">
+          {{ key }}: {{ value }}
+        </div>
+      </div>
+
+      <!-- Action buttons -->
+      <div class="flex space-x-2 mt-2">
+        <button
+          v-if="!n.read"
+          class="text-blue-500 text-xs px-2 py-1 rounded border border-blue-200 hover:bg-blue-50"
+          @click="markAsReadWithLog(n.id)"
+        >
+          Mark read
+        </button>
+        <button
+          class="text-red-500 text-xs px-2 py-1 rounded border border-red-200 hover:bg-red-50"
+          @click="deleteNotificationWithLog(n.id)"
+        >
+          Delete
+        </button>
+      </div>
+    </li>
+  </ul>
+</div>
 </template>
 
 <style scoped>
-/* opsional styling tambahan */
+li:hover {
+  transform: translateY(-1px);
+  transition: transform 0.1s ease;
+}
 </style>

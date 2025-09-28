@@ -1,33 +1,40 @@
-import { NotificationService } from "../services/notificationService.js";
+import { NotificationService } from "../services/notificationService.js"
+import type { NotificationType } from "../types/Notification.js"
+import { broadcastNotificationToUser } from "../app.js"
 
-/**
- * Kirim notifikasi ke admin(s) dan/atau executor
- *
- * @param executor Wallet address yang melakukan aksi
- * @param title Judul notifikasi
- * @param message Pesan notifikasi
- * @param type Tipe notifikasi (default "system")
- * @param adminList Array wallet address admin, default satu admin
- */
+interface NotifyPayload {
+  type?: string
+  title: string
+  message: string
+  txHash?: string
+  data?: Record<string, any>
+}
+
 export async function notifyWithAdmins(
-  executor: string,
-  title: string,
-  message: string,
-  type: string = "system",
+  executors: string | string[],
+  payload: NotifyPayload,
   adminList: string[] = ["0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"]
 ) {
-  const normalizedExecutor = executor.toLowerCase();
-  const normalizedAdmins = adminList.map((a) => a.toLowerCase());
+  const normalizedExecutors = (Array.isArray(executors) ? executors : [executors])
+    .filter(Boolean)
+    .map(a => a.toLowerCase())
+  const normalizedAdmins = adminList.map(a => a.toLowerCase())
 
-  // Tentukan penerima
-  const recipients =
-    normalizedAdmins.includes(normalizedExecutor)
-      ? adminList
-      : Array.from(new Set([...adminList, executor]));
+  const recipients = Array.from(new Set([...normalizedAdmins, ...normalizedExecutors]))
 
-  await Promise.all(
-    recipients.map((user) =>
-      NotificationService.notify(user, type as any, title, message)
+  const validTypes: NotificationType[] = ["kyc", "document", "transaction", "system", "agreement"]
+  const type: NotificationType = validTypes.includes(payload.type as any)
+    ? (payload.type as NotificationType)
+    : "system"
+
+  for (const user of recipients) {
+    const notif = await NotificationService.notify(
+      user,
+      type,
+      payload.title,
+      payload.message,
+      { txHash: payload.txHash, data: payload.data }
     )
-  );
+    broadcastNotificationToUser(user, notif)
+  }
 }

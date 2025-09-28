@@ -13,12 +13,16 @@ export const createCompany = async (data: Partial<Company>, executor: string) =>
   const docRef = await collection.add(companyDTO.toJSON());
   const company = { id: docRef.id, ...companyDTO.toJSON() };
 
-  // Kirim notifikasi
-  await notifyWithAdmins(
-    executor,
-    "Company Created",
-    `Company "${companyDTO.name}" has been created by ${executor}.`
-  );
+  // Kirim notifikasi dengan payload tambahan
+  await notifyWithAdmins(executor, {
+    type: 'system',
+    title: 'Company Created',
+    message: `Company "${companyDTO.name}" has been created by ${executor}.`,
+    data: {
+      companyId: docRef.id,
+      name: companyDTO.name,
+    },
+  });
 
   return company;
 };
@@ -35,12 +39,16 @@ export const updateCompany = async (id: string, data: Partial<Company>, executor
   await docRef.update(companyDTO.toJSON());
   const company = { id, ...companyDTO.toJSON() };
 
-  // Kirim notifikasi
-  await notifyWithAdmins(
-    executor,
-    "Company Updated",
-    `Company "${companyDTO.name}" has been updated by ${executor}.`
-  );
+  // Kirim notifikasi dengan payload tambahan
+  await notifyWithAdmins(executor, {
+    type: 'system',
+    title: 'Company Updated',
+    message: `Company "${companyDTO.name}" has been updated by ${executor}.`,
+    data: {
+      companyId: id,
+      name: companyDTO.name,
+    },
+  });
 
   return company;
 };
@@ -54,12 +62,16 @@ export const deleteCompany = async (id: string, executor: string): Promise<boole
 
   await docRef.delete();
 
-  // Kirim notifikasi
-  await notifyWithAdmins(
-    executor,
-    "Company Deleted",
-    `Company "${company?.name}" has been deleted by ${executor}.`
-  );
+  // Kirim notifikasi dengan payload tambahan
+  await notifyWithAdmins(executor, {
+    type: 'system',
+    title: 'Company Deleted',
+    message: `Company "${company?.name}" has been deleted by ${executor}.`,
+    data: {
+      companyId: id,
+      name: company?.name,
+    },
+  });
 
   return true;
 };

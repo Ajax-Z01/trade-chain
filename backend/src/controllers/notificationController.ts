@@ -1,5 +1,4 @@
 import { Request, Response } from "express"
-import NotificationDTO from "../dtos/notificationDTO.js"
 import { NotificationModel } from "../models/notificationModel.js"
 
 export class NotificationController {

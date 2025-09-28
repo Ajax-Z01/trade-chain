@@ -9,6 +9,7 @@ export default class NotificationDTO {
   read: boolean
   createdAt: number
   updatedAt?: number
+  extraData?: Record<string, any>
 
   constructor(data: Partial<Notification>) {
     if (!data.userId) throw new Error("userId is required")
@@ -24,6 +25,7 @@ export default class NotificationDTO {
     this.read = data.read ?? false
     this.createdAt = data.createdAt || Date.now()
     this.updatedAt = data.updatedAt || Date.now()
+    this.extraData = data.extraData
   }
 
   toFirestore(): Notification {
@@ -36,6 +38,7 @@ export default class NotificationDTO {
       read: this.read,
       createdAt: this.createdAt,
       updatedAt: this.updatedAt,
+      extraData: this.extraData,
     }
   }
 }

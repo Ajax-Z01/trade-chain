@@ -14,4 +14,5 @@ export interface Notification {
   read: boolean
   createdAt: number
   updatedAt?: number
+  extraData?: Record<string, any>
 }

@@ -2,6 +2,10 @@ import express from 'express'
 import cors from 'cors'
 import dotenv from 'dotenv'
 import morgan from 'morgan'
+import http from 'http'
+import { WebSocket, WebSocketServer } from 'ws'
+
+// Routes
 import contractRoutes from './routes/contractRoutes.js'
 import walletRoutes from './routes/walletRoutes.js'
 import kycRoutes from './routes/kycRoutes.js'
@@ -28,11 +32,45 @@ app.use('/api/wallet', walletRoutes)
 app.use('/api/kyc', kycRoutes)
 app.use('/api/company', companyRoutes)
 app.use('/api/document', documentRoutes)
-app.use('/api/activity', activityRoutes);
-app.use('/api/aggregated', aggregatedActivityRoutes);
+app.use('/api/activity', activityRoutes)
+app.use('/api/aggregated', aggregatedActivityRoutes)
 app.use('/api/notification', notificationRoutes)
 
+// --- HTTP server & WebSocket ---
 const PORT = process.env.PORT || 5000
-app.listen(PORT, () => {
+const server = http.createServer(app)
+
+// --- WebSocket server ---
+export const wss = new WebSocketServer({ server, path: '/ws/notifications' })
+
+// Map userId => WebSocket
+const clients = new Map<string, WebSocket>()
+
+wss.on('connection', (ws, req) => {
+  const url = new URL(req.url!, `http://${req.headers.host}`)
+  const userId = url.searchParams.get('userId')?.toLowerCase()
+  if (!userId) {
+    ws.close(1008, 'Missing userId')
+    return
+  }
+
+  console.log(`User ${userId} connected via WS`)
+  clients.set(userId, ws)
+
+  ws.on('close', () => {
+    clients.delete(userId)
+    console.log(`User ${userId} disconnected`)
+  })
+})
+
+// --- Broadcast notification to a specific user ---
+export function broadcastNotificationToUser(userId: string, notif: any) {
+  const ws = clients.get(userId.toLowerCase())
+  if (ws && ws.readyState === ws.OPEN) {
+    ws.send(JSON.stringify({ event: 'notification', data: notif }))
+  }
+}
+
+server.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`)
 })

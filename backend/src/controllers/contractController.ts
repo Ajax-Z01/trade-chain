@@ -47,6 +47,7 @@ export const logContractAction = async (req: Request, res: Response) => {
       txHash,
       account,
       exporter,
+      importer,
       requiredAmount,
       extra,
       verifyOnChain,
@@ -56,33 +57,37 @@ export const logContractAction = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    let onChainInfo;
+    let onChainInfo
     if (verifyOnChain) {
-      onChainInfo = await verifyTransaction(txHash);
+      onChainInfo = await verifyTransaction(txHash)
     }
 
     const logExtra = {
       ...extra,
       ...(exporter ? { exporter } : {}),
+      ...(importer ? { importer } : {}),
       ...(requiredAmount ? { requiredAmount } : {}),
-    };
+    }
 
     const dto = new ContractLogDTO({
       contractAddress,
       action,
       txHash,
       account,
+      exporter,
+      importer,
+      requiredAmount,
       extra: logExtra,
       timestamp: Date.now(),
       onChainInfo,
-    });
+    })
 
-    const saved = await addContractLog(dto);
-    res.json({ success: true, log: saved });
+    const saved = await addContractLog(dto)
+    res.json({ success: true, log: saved })
   } catch (err) {
-    res.status(500).json({ error: (err as Error).message });
+    res.status(500).json({ error: (err as Error).message })
   }
-};
+}
 
 // GET /contracts/:address/details
 export const getContractDetails = async (req: Request, res: Response) => {
