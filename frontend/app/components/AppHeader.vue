@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, computed, onMounted } from 'vue'
+import { ref, watch, computed } from 'vue'
 import { NuxtLink } from '#components'
 import Button from '~/components/ui/Button.vue'
 import { useWallet } from '~/composables/useWallets'
@@ -48,7 +48,8 @@ const markNotifAsRead = async (id: string) => await markAsRead(id)
 
       <!-- Desktop Nav -->
       <nav class="hidden md:flex items-center gap-4 font-medium text-gray-700">
-        <NuxtLink v-for="link in [
+        <NuxtLink
+v-for="link in [
           {to:'/', label:'Home'}, 
           {to:'/wallets', label:'Wallets'}, 
           {to:'/contracts', label:'Contracts'},
@@ -69,7 +70,7 @@ const markNotifAsRead = async (id: string) => await markAsRead(id)
       <div class="flex items-center gap-4">
         <!-- Notification -->
         <div class="relative">
-          <button @click="toggleNotif" class="relative p-2 rounded hover:bg-gray-100 transition">
+          <button class="relative p-2 rounded hover:bg-gray-100 transition" @click="toggleNotif">
             <Bell class="w-6 h-6 text-gray-700"/>
             <span v-if="unreadCount" class="absolute -top-1 -right-1 text-xs bg-red-500 text-white rounded-full px-1">{{ unreadCount }}</span>
           </button>
@@ -129,7 +130,8 @@ const markNotifAsRead = async (id: string) => await markAsRead(id)
     <transition name="fade">
       <nav v-if="mobileOpen" class="md:hidden bg-white border-t border-gray-200 shadow-inner">
         <ul class="flex flex-col p-4 gap-2">
-          <li v-for="link in [
+          <li
+v-for="link in [
             {to:'/', label:'Home'}, 
             {to:'/wallets', label:'Wallets'}, 
             {to:'/contracts', label:'Contracts'},

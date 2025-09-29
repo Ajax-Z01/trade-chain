@@ -258,7 +258,7 @@ const handleRevoke = async (doc: DocType) => {
     <!-- Contract Selection & Doc Type -->
     <div class="space-y-3">
       <!-- Role Highlight -->
-      <div class="flex items-center gap-2 mb-3" v-if="userRole || userIsMinter">
+      <div v-if="userRole || userIsMinter" class="flex items-center gap-2 mb-3">
         <span class="text-sm font-semibold">Your Role:</span>
 
         <span v-if="userRole==='importer'" class="px-2 py-1 rounded-full text-white text-xs bg-green-600">

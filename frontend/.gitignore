@@ -21,3 +21,16 @@ node_modules
 .env
 .env.*
 !.env.example
+
+# VSCode settings
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+public/uploads/
+public/temp/
+
+test-results/
+playwright-report/

@@ -1,5 +1,4 @@
-// composables/useNotification.ts
-import { ref, computed, onBeforeUnmount, watch } from 'vue'
+import { ref, computed, onBeforeUnmount } from 'vue'
 import { useRuntimeConfig } from '#app'
 import type { Notification } from '@/types/Notification'
 
@@ -34,7 +33,9 @@ export function useNotification(userId?: string) {
         if (msg.event === 'notification' && msg.data) {
           _notifications.value.unshift(msg.data)
         }
-      } catch {}
+      } catch (err) {
+        console.error('Failed to parse WS message', err)
+      }
     }
   }
 
@@ -63,7 +64,9 @@ export function useNotification(userId?: string) {
       if (!res.ok) throw new Error('Failed mark')
       const idx = _notifications.value.findIndex(n => n.id === id)
       if (idx !== -1) _notifications.value[idx]!.read = true
-    } catch {}
+    } catch (err: any) {
+      console.error('Failed to mark notification as read', err)
+    }
   }
 
   const deleteNotification = async (id: string) => {
@@ -71,7 +74,9 @@ export function useNotification(userId?: string) {
       const res = await fetch(`${$apiBase}/notification/${id}`, { method: 'DELETE' })
       if (!res.ok) throw new Error('Failed delete')
       _notifications.value = _notifications.value.filter(n => n.id !== id)
-    } catch {}
+    } catch (err: any) {
+      console.error('Failed to delete notification', err)
+    }
   }
 
   const markAllAsRead = async () => {

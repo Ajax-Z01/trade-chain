@@ -43,8 +43,8 @@ const markAllAsReadWithLog = async () => await markAllAsRead()
   <div class="mb-4 flex justify-end">
     <button
       class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-      @click="markAllAsReadWithLog"
       :disabled="!unreadCount"
+      @click="markAllAsReadWithLog"
     >
       Mark all as read
     </button>
