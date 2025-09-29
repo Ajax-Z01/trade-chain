@@ -37,7 +37,7 @@ const handleMint = async () => {
   try {
     const result = await mint(recipient.value as `0x${string}`, amount.value)
     balance.value = result.balance
-    message.value = `Minted ${amount.value} USDC! Tx: ${result.receipt.transactionHash}`
+    message.value = `Minted ${amount.value} MUSDC! Tx: ${result.receipt.transactionHash}`
   } catch (err: any) {
     message.value = `Mint failed: ${err.message || err}`
   }
@@ -53,7 +53,7 @@ onMounted(() => {
   <div class="max-w-md mx-auto mt-10 p-6 bg-white shadow-md rounded-xl space-y-6">
 
     <h1 class="text-2xl font-bold mb-2 flex items-center gap-2">
-      <Users class="w-6 h-6" /> USDC Faucet
+      <Users class="w-6 h-6" /> MUSDC Faucet
     </h1>
 
     <!-- Recipient -->
@@ -69,7 +69,7 @@ onMounted(() => {
 
     <!-- Amount -->
     <div class="space-y-1">
-      <label class="block font-semibold text-gray-700">Amount (USDC)</label>
+      <label class="block font-semibold text-gray-700">Amount (MUSDC)</label>
       <input
         v-model="amount"
         type="number"
@@ -85,7 +85,7 @@ onMounted(() => {
       @click="handleMint"
     >
       <Loader2 v-if="minting" class="w-4 h-4 animate-spin" />
-      {{ minting ? 'Minting...' : 'Mint USDC' }}
+      {{ minting ? 'Minting...' : 'Mint MUSDC' }}
     </button>
 
     <!-- Message / Feedback -->
@@ -103,7 +103,7 @@ v-if="message"
     <div class="mt-2 text-gray-700 space-y-1">
       <p class="font-medium">Current Balance:</p>
       <div v-if="balance === null" class="h-6 w-full bg-gray-200 rounded animate-pulse"></div>
-      <div v-else class="text-lg font-semibold">{{ balance }} USDC</div>
+      <div v-else class="text-lg font-semibold">{{ balance }} MUSDC</div>
     </div>
 
   </div>

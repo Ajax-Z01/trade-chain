@@ -72,7 +72,7 @@ const markAllAsReadWithLog = async () => await markAllAsRead()
       </div>
 
       <!-- User / address -->
-      <p class="text-gray-500 text-xs mt-1 truncate italic">{{ n.userId }}</p>
+      <p class="text-gray-500 text-xs mt-1 truncate italic">{{ n.executorId }}</p>
 
       <!-- Extra data -->
       <div v-if="n.extraData?.data" class="mt-1 text-gray-400 text-xs space-y-0.5">

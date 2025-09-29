@@ -8,6 +8,7 @@ export type NotificationType =
 export interface Notification {
   id: string
   userId: string
+  executorId: string
   type: NotificationType
   title: string
   message: string

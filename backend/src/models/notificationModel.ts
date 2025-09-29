@@ -17,6 +17,7 @@ export class NotificationModel {
     const newDoc: Notification = {
       id: data.id,
       userId: data.userId,
+      executorId: data.executorId,
       type: data.type,
       title: data.title,
       message: data.message,

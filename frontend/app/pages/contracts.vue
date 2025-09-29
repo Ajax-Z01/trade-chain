@@ -51,7 +51,7 @@ const isTokenAutoFilled = computed(() => !!backendToken.value)
 const tokenAddress = computed(() => {
   if (paymentTokenValue.value === 'ETH') return '0x0000000000000000000000000000000000000000'
   const usdcAddr = import.meta.env.VITE_MOCK_USDC_ADDRESS
-  if (!usdcAddr) throw new Error('USDC address not set in .env')
+  if (!usdcAddr) throw new Error('MUSDC address not set in .env')
   return usdcAddr
 })
 
@@ -321,6 +321,24 @@ const handleNewContract = () => {
         <Button class="bg-indigo-600 hover:bg-indigo-700 text-white rounded py-2 px-4 flex items-center gap-2 shadow" @click="handleNewContract">New Contract</Button>
         <Button @click="async()=>{ const res=await fetchDeployedContracts(); console.log(res) }">Refresh Data</Button>
       </div>
+    </div>
+    
+    <!-- Role Info -->
+    <div class="mt-2 text-gray-700">
+      <span class="font-medium">Your Role:</span>
+      <span class="ml-2">
+        <span v-if="userRole==='importer'" class="px-2 py-1 rounded-full text-white text-xs bg-blue-600">
+          Importer
+        </span>
+
+        <span v-else-if="userRole==='exporter'" class="px-2 py-1 rounded-full text-white text-xs bg-purple-600">
+          Exporter
+        </span>
+        
+        <span v-else class="px-2 py-1 rounded-full text-gray-600 text-xs bg-gray-200">
+          None          
+        </span>
+      </span>
     </div>
 
     <!-- Stepper -->

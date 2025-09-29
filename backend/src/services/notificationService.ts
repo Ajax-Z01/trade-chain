@@ -8,6 +8,7 @@ export class NotificationService {
    */
   static async notify(
     userId: string,
+    executorId: string,
     type: NotificationType,
     title: string,
     message: string,
@@ -16,6 +17,7 @@ export class NotificationService {
     const notification: Notification = {
       id: uuidv4(),
       userId,
+      executorId,
       type,
       title,
       message,

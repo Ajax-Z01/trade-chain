@@ -16,7 +16,7 @@ import { Loader2, FileUp } from 'lucide-vue-next'
 const { addToast } = useToast()
 const { account } = useWallet()
 const { attachDocument, getDocumentsByContract } = useDocuments()
-const { mintDocument, minting, addMinter, removeMinter, reviewDocument, signDocument, revokeDocument } = useRegistryDocument()
+const { mintDocument, minting, addMinter, removeMinter, reviewDocument, signDocument, revokeDocument, isMinter } = useRegistryDocument()
 const { uploadToLocal } = useStorage()
 const { deployedContracts, fetchContractDetails, fetchDeployedContracts } = useContractActions()
 
@@ -24,6 +24,7 @@ const { deployedContracts, fetchContractDetails, fetchDeployedContracts } = useC
 const currentContract = ref<string | null>(null)
 const isImporter = ref(false)
 const isExporter = ref(false)
+const userIsMinter = ref(false)
 const userRole = computed<'importer'|'exporter'|null>(() => {
   if (!account.value || !currentContract.value) return null
   if (isImporter.value) return 'importer'
@@ -77,6 +78,7 @@ watch([currentContract, account], async ([contract, acc]) => {
     documents.value = []
     isImporter.value = false
     isExporter.value = false
+    userIsMinter.value = false
     return
   }
 
@@ -87,8 +89,8 @@ watch([currentContract, account], async ([contract, acc]) => {
     const roles = await getContractRoles(contract)
     isImporter.value = acc === roles.importer
     isExporter.value = acc === roles.exporter
+    userIsMinter.value = await isMinter(acc as `0x${string}`) || false
 
-    // Ambil langsung array Document[] dari composable
     documents.value = await getDocumentsByContract(contract)
   } catch (err: any) {
     addToast('error', err.message || 'Failed to fetch documents')
@@ -256,22 +258,30 @@ const handleRevoke = async (doc: DocType) => {
     <!-- Contract Selection & Doc Type -->
     <div class="space-y-3">
       <!-- Role Highlight -->
-      <div v-if="userRole" class="flex items-center gap-2 mb-3">
+      <div class="flex items-center gap-2 mb-3" v-if="userRole || userIsMinter">
         <span class="text-sm font-semibold">Your Role:</span>
-        <span
-          v-if="userRole==='importer'"
-          class="px-2 py-1 rounded-full text-white text-xs bg-green-600"
-        >
+
+        <span v-if="userRole==='importer'" class="px-2 py-1 rounded-full text-white text-xs bg-green-600">
           Importer
         </span>
-        <span
-          v-else-if="userRole==='exporter'"
-          class="px-2 py-1 rounded-full text-white text-xs bg-blue-600"
-        >
+
+        <span v-else-if="userRole==='exporter'" class="px-2 py-1 rounded-full text-white text-xs bg-blue-600">
           Exporter
         </span>
+
+        <span v-if="userIsMinter" class="px-2 py-1 rounded-full text-white text-xs bg-purple-600">
+          Approved Minter
+        </span>
+
+        <!-- Optional: show "Unapproved Minter" only if wallet connected but not a minter -->
+        <span v-if="account && !userIsMinter" class="px-2 py-1 rounded-full text-white text-xs bg-red-600">
+          Unapproved Minter
+        </span>
       </div>
-      <div v-else class="text-sm text-gray-500 mb-3">You have no role in the selected contract</div>
+
+      <div v-else class="text-sm text-gray-500 mb-3">
+        You have no role in the selected contract
+      </div>
 
       <label class="block text-sm font-medium text-gray-700">Select Contract</label>
       <select

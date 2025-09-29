@@ -32,6 +32,8 @@ const handleConnect = async () => { try { await connectWallet() } catch(e) { con
 
 const latestNotifs = computed(() => notifications.value.slice(0,5))
 
+const sortedNotifications = computed(() => [...latestNotifs.value].sort((a,b) => b.createdAt - a.createdAt))
+
 const formatDate = (ts: number) => new Date(ts).toLocaleString()
 const markNotifAsRead = async (id: string) => await markAsRead(id)
 </script>
@@ -79,7 +81,7 @@ const markNotifAsRead = async (id: string) => await markAsRead(id)
 
               <ul class="max-h-64 overflow-y-auto">
                 <li 
-                  v-for="n in latestNotifs" 
+                  v-for="n in sortedNotifications" 
                   :key="n.id"
                   class="flex flex-col p-2 hover:bg-indigo-50 transition rounded"
                   :class="{'bg-indigo-50': !n.read}"
@@ -96,7 +98,7 @@ const markNotifAsRead = async (id: string) => await markAsRead(id)
                   </div>
 
                   <p class="text-gray-600 text-xs mt-0.5 truncate">{{ n.message }}</p>
-                  <p class="text-gray-500 text-[10px] mt-0.5 truncate italic">by: {{ n.userId }}</p>
+                  <p class="text-gray-500 text-[10px] mt-0.5 truncate italic">by: {{ n.executorId }}</p>
                   <p class="text-gray-400 text-[10px] mt-0.5">{{ formatDate(n.createdAt) }}</p>
                 </li>
                 <li v-if="!latestNotifs.length" class="p-2 text-center text-gray-400 text-sm">No notifications</li>

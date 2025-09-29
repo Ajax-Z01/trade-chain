@@ -88,7 +88,7 @@ export class KYCModel {
       // Notifikasi
       await notifyWithAdmins(executor, {
         type: "kyc",
-        title: `KYC Updated: ${tokenId}`,
+        title: `KYC Updated: ${action}`,
         message: `KYC ${tokenId} updated by ${executor}.`,
         data: updated
       })

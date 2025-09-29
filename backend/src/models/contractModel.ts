@@ -2,7 +2,8 @@ import admin from 'firebase-admin'
 import { db } from '../config/firebase.js'
 import ContractLogDTO from '../dtos/contractDTO.js'
 import type { ContractLogs, ContractLogEntry } from '../types/Contract.js'
-import { notifyWithAdmins } from '../utils/notificationHelper.js'
+import { notifyWithAdmins, notifyUsers } from '../utils/notificationHelper.js'
+import { getContractRoles } from "../services/contractService.js"
 
 const collection = db.collection('contractLogs')
 
@@ -37,17 +38,35 @@ export const addContractLog = async (data: Partial<ContractLogDTO>) => {
     await docRef.set(newDoc)
   }
 
-  // --- Notifikasi dengan payload tambahan ---
-  await notifyWithAdmins(dto.account, {
-    type: 'agreement',
+  const payload = {
+    type: "agreement",
     title: `Contract Action: ${dto.action}`,
     message: `Contract ${dto.contractAddress} has a new action "${dto.action}" by ${dto.account}.`,
+    txHash: dto.txHash,
     data: {
       contractAddress: dto.contractAddress,
       action: dto.action,
       txHash: dto.txHash,
     },
-  })
+  }
+
+  // --- fallback roles kalau DTO kosong ---
+  let exporter = dto.exporter
+  let importer = dto.importer
+  if (!exporter || !importer) {
+    const roles = await getContractRoles(dto.contractAddress)
+    exporter = exporter || roles.exporter
+    importer = importer || roles.importer
+  }
+
+  await notifyWithAdmins(dto.account, payload)
+
+  const participants = [exporter, importer].filter(Boolean) as string[]
+  if (participants.length) {
+    await notifyUsers(participants, payload, dto.account)
+  } else {
+    console.warn("No exporter/importer found for contract:", dto.contractAddress)
+  }
 
   return entry
 }

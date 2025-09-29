@@ -85,9 +85,9 @@ const copyAddress = async () => {
             <div v-else class="w-20 h-5 bg-gray-200 rounded-full animate-pulse"></div>
           </div>
 
-          <!-- USDC -->
+          <!-- MUSDC -->
           <div class="flex items-center gap-2">
-            <span class="text-gray-700 font-medium">USDC:</span>
+            <span class="text-gray-700 font-medium">MUSDC:</span>
             <span
               v-if="!loading && usdcBalance !== null"
               class="px-3 py-1 rounded-full bg-indigo-100 text-indigo-700 font-semibold"

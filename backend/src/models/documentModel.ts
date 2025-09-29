@@ -2,6 +2,7 @@ import { getAddress } from 'viem'
 import { db } from "../config/firebase.js"
 import DocumentDTO from "../dtos/documentDTO.js"
 import type { Document, DocumentLogs, DocumentLogEntry } from "../types/Document.js"
+import { notifyWithAdmins, notifyUsers } from '../utils/notificationHelper.js'
 import { getContractRoles } from "../services/contractService.js"
 
 const collection = db.collection("documents")
@@ -32,6 +33,7 @@ export class DocumentModel {
     const normalizedAccount = safeAddress(account)
 
     // Validate roles for each linked contract
+    const recipientsToNotify: string[] = []
     for (const contractAddress of dto.linkedContracts) {
       const roles = await getContractRoles(contractAddress)
       const importer = roles.importer ? safeAddress(roles.importer) : null
@@ -40,22 +42,40 @@ export class DocumentModel {
       if (normalizedAccount !== importer && normalizedAccount !== exporter) {
         throw new Error(`Account ${account} is not authorized for contract ${contractAddress}`)
       }
+      if (importer) recipientsToNotify.push(importer)
+      if (exporter) recipientsToNotify.push(exporter)
     }
 
     const newDoc: Document = dto.toFirestore()
     await docRef.set(newDoc)
 
-    // Log for each linked contract
+    // Log & notify for each linked contract
     for (const linkedContract of dto.linkedContracts) {
-      await this.addLogEntry(dto.tokenId, {
+      const logEntry: DocumentLogEntry = {
         action,
         txHash: txHash || "",
         account: normalizedAccount,
         signer: dto.signer,
         linkedContract,
         timestamp: Date.now(),
-      })
+      }
+      await this.addLogEntry(dto.tokenId, logEntry)
     }
+
+    // --- Notify ---
+    const payload = {
+      type: "document" as const,
+      title: `Document Action: ${action}`,
+      message: `Document ${dto.tokenId} has a new action "${action}" by ${normalizedAccount}.`,
+      txHash,
+      data: { tokenId: dto.tokenId, action, linkedContracts: dto.linkedContracts }
+    }
+
+    // Notify admin + executor
+    await notifyWithAdmins(normalizedAccount, payload)
+
+    // Notify roles (importer/exporter) selain executor
+    await notifyUsers(recipientsToNotify.filter(r => r !== normalizedAccount), payload, normalizedAccount)
 
     return newDoc
   }
@@ -74,6 +94,106 @@ export class DocumentModel {
       if (!currentLogs.contractAddress && log.linkedContract) currentLogs.contractAddress = log.linkedContract
       await logRef.update(currentLogs as any)
     }
+  }
+
+  // --- Update document ---
+  static async update(
+    tokenId: number,
+    data: Partial<Document>,
+    action?: DocumentLogEntry["action"],
+    txHash?: string,
+    account?: string
+  ): Promise<Document | null> {
+    const docRef = collection.doc(tokenId.toString())
+    const snap = await docRef.get()
+    if (!snap.exists) return null
+
+    const current = snap.data() as Document
+    const updated: Document = { ...current, ...data, status: data.status ?? current.status, updatedAt: Date.now() }
+    await docRef.update(updated as any)
+
+    if (action && account) {
+      const normalizedAccount = safeAddress(account)
+      const recipientsToNotify: string[] = []
+
+      for (const linkedContract of current.linkedContracts ?? []) {
+        const logEntry: DocumentLogEntry = {
+          action,
+          txHash: txHash ?? "",
+          account: normalizedAccount,
+          signer: current.signer ?? normalizedAccount,
+          linkedContract,
+          timestamp: Date.now(),
+        }
+        await this.addLogEntry(tokenId, logEntry)
+
+        const roles = await getContractRoles(linkedContract)
+        if (roles.importer) recipientsToNotify.push(safeAddress(roles.importer))
+        if (roles.exporter) recipientsToNotify.push(safeAddress(roles.exporter))
+      }
+
+      const payload = {
+        type: "document" as const,
+        title: `Document Action: ${action}`,
+        message: `Document ${tokenId} has been updated with action "${action}" by ${normalizedAccount}.`,
+        txHash,
+        data: { tokenId, action, linkedContracts: current.linkedContracts }
+      }
+
+      await notifyWithAdmins(normalizedAccount, payload)
+      await notifyUsers(recipientsToNotify.filter(r => r !== normalizedAccount), payload, normalizedAccount)
+    }
+
+    return updated
+  }
+
+  // --- Delete document ---
+  static async delete(
+    tokenId: number,
+    action?: DocumentLogEntry['action'],
+    txHash?: string,
+    account?: string
+  ): Promise<boolean> {
+    const docRef = collection.doc(tokenId.toString())
+    const snap = await docRef.get()
+    if (!snap.exists) return false
+
+    const data = snap.data() as Document
+    await docRef.delete()
+
+    if (action && account) {
+      const normalizedAccount = safeAddress(account)
+      const recipientsToNotify: string[] = []
+
+      for (const linkedContract of data.linkedContracts ?? []) {
+        const logEntry: DocumentLogEntry = {
+          action,
+          txHash: txHash || "",
+          account: normalizedAccount,
+          signer: data.signer,
+          linkedContract,
+          timestamp: Date.now(),
+        }
+        await this.addLogEntry(tokenId, logEntry)
+
+        const roles = await getContractRoles(linkedContract)
+        if (roles.importer) recipientsToNotify.push(safeAddress(roles.importer))
+        if (roles.exporter) recipientsToNotify.push(safeAddress(roles.exporter))
+      }
+
+      const payload = {
+        type: "document" as const,
+        title: `Document Action: ${action}`,
+        message: `Document ${tokenId} has been deleted by ${normalizedAccount}.`,
+        txHash,
+        data: { tokenId, action, linkedContracts: data.linkedContracts }
+      }
+
+      await notifyWithAdmins(normalizedAccount, payload)
+      await notifyUsers(recipientsToNotify.filter(r => r !== normalizedAccount), payload, normalizedAccount)
+    }
+
+    return true
   }
 
   // --- Get all documents with history ---
@@ -128,68 +248,6 @@ export class DocumentModel {
         return { ...doc, history }
       })
     )
-  }
-
-  // --- Update document ---
-  static async update(
-    tokenId: number,
-    data: Partial<Document>,
-    action?: DocumentLogEntry["action"],
-    txHash?: string,
-    account?: string
-  ): Promise<Document | null> {
-    const docRef = collection.doc(tokenId.toString())
-    const snap = await docRef.get()
-    if (!snap.exists) return null
-
-    const current = snap.data() as Document
-    const updated: Document = { ...current, ...data, status: data.status ?? current.status, updatedAt: Date.now() }
-    await docRef.update(updated as any)
-
-    if (action && account) {
-      for (const linkedContract of current.linkedContracts ?? []) {
-        await this.addLogEntry(tokenId, {
-          action,
-          txHash: txHash ?? "",
-          account,
-          signer: current.signer ?? account,
-          linkedContract,
-          timestamp: Date.now(),
-        })
-      }
-    }
-
-    return updated
-  }
-
-  // --- Delete document ---
-  static async delete(
-    tokenId: number,
-    action?: DocumentLogEntry['action'],
-    txHash?: string,
-    account?: string
-  ): Promise<boolean> {
-    const docRef = collection.doc(tokenId.toString())
-    const snap = await docRef.get()
-    if (!snap.exists) return false
-
-    const data = snap.data() as Document
-    await docRef.delete()
-
-    if (action && account) {
-      for (const linkedContract of data.linkedContracts ?? []) {
-        await this.addLogEntry(tokenId, {
-          action,
-          txHash: txHash || "",
-          account,
-          signer: data.signer,
-          linkedContract,
-          timestamp: Date.now(),
-        })
-      }
-    }
-
-    return true
   }
 
   // --- Get document logs only ---
