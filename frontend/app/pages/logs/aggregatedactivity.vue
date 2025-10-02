@@ -79,7 +79,12 @@ const applyFilters = async () => {
   hasMore.value = true
   lastTimestamp.value = null
   activities.value = []
-  await loadNextPage(true)
+  await fetchActivities({
+    account: accountFilter.value || null,
+    txHash: txHashFilter.value || null,
+    contractAddress: contractFilter.value || null,
+    tags: tagsFilter.value ? tagsFilter.value.split(',').map(t => t.trim()) : [],
+  }, null)
 }
 
 // --- Scroll handler ---
@@ -124,20 +129,36 @@ onMounted(() => loadNextPage())
 
 <template>
   <div class="p-6 max-w-[95vw] mx-auto">
-    <h1 class="text-2xl font-bold mb-6 text-gray-900">Aggregated Activity Logs</h1>
+    <h1 class="text-2xl font-bold mb-6 text-indigo-600 dark:text-indigo-400">Aggregated Activity Logs</h1>
 
     <!-- Filters -->
     <div class="mb-4 flex flex-wrap gap-3 items-end">
-      <input v-model="accountFilter" placeholder="Account" class="border border-gray-300 px-3 py-2 rounded w-full md:w-auto focus:ring-1 focus:ring-blue-500 focus:outline-none" />
-      <input v-model="txHashFilter" placeholder="TxHash" class="border border-gray-300 px-3 py-2 rounded w-full md:w-auto focus:ring-1 focus:ring-blue-500 focus:outline-none" />
-      <input v-model="contractFilter" placeholder="Contract Address" class="border border-gray-300 px-3 py-2 rounded w-full md:w-auto focus:ring-1 focus:ring-blue-500 focus:outline-none" />
-      <input v-model="tagsFilter" placeholder="Tags (comma separated)" class="border border-gray-300 px-3 py-2 rounded w-full md:w-auto focus:ring-1 focus:ring-blue-500 focus:outline-none" />
-      <button class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition" @click="applyFilters">Apply</button>
+      <input
+        v-model="accountFilter"
+        placeholder="Account"
+        class="border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2 rounded w-full md:w-auto focus:ring-1 focus:ring-blue-500 focus:outline-none"
+      />
+      <input
+        v-model="txHashFilter"
+        placeholder="TxHash"
+        class="border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2 rounded w-full md:w-auto focus:ring-1 focus:ring-blue-500 focus:outline-none"
+      />
+      <input
+        v-model="contractFilter"
+        placeholder="Contract Address"
+        class="border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2 rounded w-full md:w-auto focus:ring-1 focus:ring-blue-500 focus:outline-none"
+      />
+      <input
+        v-model="tagsFilter"
+        placeholder="Tags (comma separated)"
+        class="border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2 rounded w-full md:w-auto focus:ring-1 focus:ring-blue-500 focus:outline-none"
+      />
+      <button class="bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 text-white px-4 py-2 rounded transition" @click="applyFilters">Apply</button>
     </div>
 
     <!-- Skeleton loading -->
     <div v-if="loading && !activities.length" class="space-y-4">
-      <div v-for="i in 5" :key="i" class="h-36 rounded-lg bg-gray-200 animate-pulse"></div>
+      <div v-for="i in 5" :key="i" class="h-36 rounded-lg bg-gray-200 dark:bg-gray-700 animate-pulse"></div>
     </div>
 
     <!-- Timeline -->
@@ -157,7 +178,7 @@ onMounted(() => loadNextPage())
               <!-- Date header -->
               <div
                 v-if="index === 0 || new Date(item.timestamp).toDateString() !== new Date(activities[index-1]?.timestamp ?? 0).toDateString()"
-                class="bg-gray-100 text-gray-700 font-semibold px-3 py-1 rounded mb-2 sticky top-0 z-10"
+                class="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 font-semibold px-3 py-1 rounded mb-2 sticky top-0 z-10"
               >
                 {{ new Date(item.timestamp).toLocaleDateString() }}
               </div>
@@ -165,21 +186,21 @@ onMounted(() => loadNextPage())
               <!-- Activity card -->
               <div
                 :class="[
-                  'grid grid-cols-1 md:grid-cols-3 gap-4 border rounded-lg shadow p-4 mb-3 transition hover:shadow-lg hover:bg-gray-50 break-words',
-                  isRecent(item.timestamp) ? 'border-l-4 border-indigo-500' : 'border-gray-300'
+                  'grid grid-cols-1 md:grid-cols-3 gap-4 border rounded-lg shadow p-4 mb-3 transition hover:shadow-lg hover:bg-gray-50 dark:hover:bg-gray-900 break-words',
+                  isRecent(item.timestamp) ? 'border-l-4 border-indigo-500' : 'border-gray-300 dark:border-gray-600'
                 ]"
               >
                 <!-- Left: Icon + Action -->
                 <div class="flex items-center gap-3">
                   <component :is="actionIconMap[item.action] || CheckCircle" class="w-5 h-5 text-blue-500" />
                   <div class="flex flex-col">
-                    <div class="font-medium text-gray-800 truncate">{{ item.action }}</div>
-                    <div class="text-gray-500 text-xs md:text-sm mt-1 truncate">{{ new Date(item.timestamp).toLocaleString() }}</div>
+                    <div class="font-medium text-gray-800 dark:text-gray-100 truncate">{{ item.action }}</div>
+                    <div class="text-gray-500 dark:text-gray-400 text-xs md:text-sm mt-1 truncate">{{ new Date(item.timestamp).toLocaleString() }}</div>
                   </div>
                 </div>
 
                 <!-- Center: Details -->
-                <div class="flex flex-col gap-2 text-sm text-gray-700 break-words">
+                <div class="flex flex-col gap-2 text-sm text-gray-700 dark:text-gray-300 break-words">
                   <div><span class="font-semibold">Account:</span> {{ item.account || '-' }}</div>
                   <div><span class="font-semibold">TxHash:</span> {{ item.txHash || '-' }}</div>
                   <div><span class="font-semibold">Contract:</span> {{ item.contractAddress || '-' }}</div>
@@ -191,26 +212,26 @@ onMounted(() => loadNextPage())
                     <span
                       v-for="tag in item.tags"
                       :key="tag"
-                      class="inline-flex items-center bg-blue-100 text-blue-800 rounded-full px-2 py-0.5 text-xs font-medium"
+                      class="inline-flex items-center bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-300 rounded-full px-2 py-0.5 text-xs font-medium"
                     >
                       {{ tag }}
                       <button class="ml-1 text-red-500 hover:text-red-700 transition" @click="handleRemoveTag(item.id, tag)">&times;</button>
                     </span>
                   </div>
                   <div class="flex gap-2 mt-1">
-                    <input v-model="newTags[item.id]" placeholder="Tag" class="border border-gray-300 px-2 py-1 rounded text-xs flex-1 focus:ring-1 focus:ring-green-400 focus:outline-none" />
+                    <input v-model="newTags[item.id]" placeholder="Tag" class="border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-2 py-1 rounded text-xs flex-1 focus:ring-1 focus:ring-green-400 focus:outline-none" />
                     <button
-                      class="bg-green-500 text-white px-2 py-1 rounded text-xs hover:bg-green-600 transition"
+                      class="bg-green-500 dark:bg-green-600 hover:bg-green-600 dark:hover:bg-green-700 text-white px-2 py-1 rounded text-xs transition"
                       @click="handleAddTag(item.id, newTags[item.id] as string)"
                     >
                       Add
                     </button>
                   </div>
-                  <button class="text-blue-500 text-xs mt-1 hover:underline" @click="toggleExpand(item.id)">
+                  <button class="text-blue-500 dark:text-blue-400 text-xs mt-1 hover:underline" @click="toggleExpand(item.id)">
                     {{ expanded[item.id] ? 'Hide JSON' : 'Show JSON' }}
                   </button>
                   <transition name="fade">
-                    <pre v-if="expanded[item.id]" class="bg-gray-50 p-2 mt-1 overflow-x-auto text-xs rounded shadow-inner">
+                    <pre v-if="expanded[item.id]" class="bg-gray-50 dark:bg-gray-800 p-2 mt-1 overflow-x-auto text-xs rounded shadow-inner text-gray-900 dark:text-gray-100">
 {{ JSON.stringify(item, null, 2) }}
                     </pre>
                   </transition>
@@ -222,9 +243,9 @@ onMounted(() => loadNextPage())
         </template>
       </DynamicScroller>
 
-      <div v-if="loading && activities.length" class="text-center text-gray-500 mt-2">Loading more...</div>
-      <div v-if="!hasMore && activities.length" class="text-center text-gray-400 mt-2">No more activities</div>
-      <div v-if="!activities.length && !loading" class="text-center text-gray-400 mt-2">No activities found</div>
+      <div v-if="loading && activities.length" class="text-center text-gray-500 dark:text-gray-400 mt-2">Loading more...</div>
+      <div v-if="!hasMore && activities.length" class="text-center text-gray-400 dark:text-gray-500 mt-2">No more activities</div>
+      <div v-if="!activities.length && !loading" class="text-center text-gray-400 dark:text-gray-500 mt-2">No activities found</div>
     </client-only>
   </div>
 </template>

@@ -170,22 +170,26 @@ const handleRemoveMinter = async () => {
 </script>
 
 <template>
-  <div class="p-6 max-w-lg mx-auto space-y-6 bg-white rounded-xl shadow-lg">
+  <div class="p-6 max-w-lg mx-auto space-y-6 bg-white/90 dark:bg-gray-800/90 backdrop-blur-md rounded-xl shadow-lg">
     <!-- Header -->
-    <h2 class="text-2xl font-bold text-gray-800 flex items-center gap-2">
-      <FileUp class="w-6 h-6" /> KYC Document Verification & Minting
+    <h2 class="text-2xl font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
+      <FileUp class="w-6 h-6 text-indigo-600 dark:text-indigo-400" /> KYC Document Verification & Minting
     </h2>
 
     <!-- Upload & Mint -->
     <div class="space-y-3">
-      <label class="block text-sm font-medium text-gray-700">Upload Document</label>
-      <input type="file" class="block w-full text-sm border rounded-lg cursor-pointer" @change="onFileChange" />
-      <div v-if="selectedFile" class="flex items-center gap-3 mt-2 p-2 border rounded bg-gray-50">
-        <span class="text-gray-700">{{ selectedFile.name }}</span>
-        <span class="text-xs text-gray-500">{{ (selectedFile.size / 1024).toFixed(1) }} KB</span>
+      <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Upload Document</label>
+      <input
+        type="file"
+        class="block w-full text-sm border rounded-lg cursor-pointer dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200"
+        @change="onFileChange"
+      />
+      <div v-if="selectedFile" class="flex items-center justify-between mt-2 p-2 border rounded bg-gray-50 dark:bg-gray-700/50">
+        <span class="text-gray-700 dark:text-gray-200 truncate">{{ selectedFile.name }}</span>
+        <span class="text-xs text-gray-500 dark:text-gray-300">{{ (selectedFile.size / 1024).toFixed(1) }} KB</span>
       </div>
       <button
-        class="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50"
+        class="w-full bg-blue-600 dark:bg-blue-700 hover:bg-blue-700 dark:hover:bg-blue-800 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
         :disabled="!selectedFile || minting"
         @click="verifyAndMint"
       >
@@ -196,27 +200,27 @@ const handleRemoveMinter = async () => {
     </div>
 
     <!-- Lifecycle Actions -->
-    <div v-if="tokenId" class="space-y-3 border-t pt-4">
-      <h3 class="font-semibold text-gray-800">Lifecycle Actions</h3>
-      <div class="flex gap-2">
+    <div v-if="tokenId" class="space-y-3 border-t border-gray-200 dark:border-gray-700 pt-4">
+      <h3 class="font-semibold text-gray-800 dark:text-gray-100">Lifecycle Actions</h3>
+      <div class="flex flex-wrap gap-2">
         <button
-class="flex-1 bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-2"
-          :disabled="processing"
-          @click="handleReview">
+          class="flex-1 bg-yellow-500 hover:bg-yellow-600 dark:bg-yellow-600 dark:hover:bg-yellow-700 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+          :disabled="processing" @click="handleReview"
+        >
           <Loader2 v-if="processing" class="w-4 h-4 animate-spin" />
           <PenLine v-else class="w-4 h-4" /> Review
         </button>
         <button
-class="flex-1 bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-2"
-          :disabled="processing"
-          @click="handleSign">
+          class="flex-1 bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+          :disabled="processing" @click="handleSign"
+        >
           <Loader2 v-if="processing" class="w-4 h-4 animate-spin" />
           <Signature v-else class="w-4 h-4" /> Sign
         </button>
         <button
-class="flex-1 bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-2"
-          :disabled="processing"
-          @click="handleRevoke">
+          class="flex-1 bg-red-600 hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-800 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+          :disabled="processing" @click="handleRevoke"
+        >
           <Loader2 v-if="processing" class="w-4 h-4 animate-spin" />
           <Ban v-else class="w-4 h-4" /> Revoke
         </button>
@@ -224,27 +228,34 @@ class="flex-1 bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg flex i
     </div>
 
     <!-- Feedback -->
-    <div v-if="success" class="mt-2 p-3 flex items-center gap-2 border rounded bg-green-50 text-green-700">
+    <div v-if="success" class="mt-2 p-3 flex items-center gap-2 border rounded-lg bg-green-50 dark:bg-green-900/50 text-green-700 dark:text-green-300">
       <CheckCircle2 class="w-5 h-5" /> {{ success }}
     </div>
-    <div v-if="error" class="mt-2 p-3 flex items-center gap-2 border rounded bg-red-50 text-red-700">
+    <div v-if="error" class="mt-2 p-3 flex items-center gap-2 border rounded-lg bg-red-50 dark:bg-red-900/50 text-red-700 dark:text-red-300">
       <XCircle class="w-5 h-5" /> {{ error }}
     </div>
 
     <!-- Manage Minters -->
-    <div class="space-y-3 border-t pt-4">
-      <h3 class="font-semibold text-gray-800 flex items-center gap-2"><Users class="w-5 h-5" /> Manage Minters</h3>
-      <input v-model="minterAddress" type="text" placeholder="Enter minter address" class="w-full border rounded-lg px-3 py-2 text-sm" />
-      <div class="flex gap-2">
+    <div class="space-y-3 border-t border-gray-200 dark:border-gray-700 pt-4">
+      <h3 class="font-semibold text-gray-800 dark:text-gray-100 flex items-center gap-2"><Users class="w-5 h-5" /> Manage Minters</h3>
+      <input
+        v-model="minterAddress"
+        type="text"
+        placeholder="Enter minter address"
+        class="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200"
+      />
+      <div class="flex gap-2 flex-wrap">
         <button
-class="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2"
-          :disabled="addingMinter" @click="handleAddMinter">
+          class="flex-1 bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+          :disabled="addingMinter" @click="handleAddMinter"
+        >
           <Loader2 v-if="addingMinter" class="w-4 h-4 animate-spin" />
           <Plus v-else class="w-4 h-4" /> Add
         </button>
         <button
-class="flex-1 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2"
-          :disabled="removingMinter" @click="handleRemoveMinter">
+          class="flex-1 bg-red-600 hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-800 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+          :disabled="removingMinter" @click="handleRemoveMinter"
+        >
           <Loader2 v-if="removingMinter" class="w-4 h-4 animate-spin" />
           <Minus v-else class="w-4 h-4" /> Remove
         </button>
@@ -252,19 +263,23 @@ class="flex-1 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg flex i
     </div>
 
     <!-- Quick Check NFT -->
-    <div class="border-t pt-4 space-y-3">
-      <h3 class="font-semibold text-gray-800 flex items-center gap-2"><Search class="w-5 h-5" /> Quick Check NFT</h3>
-      <div class="flex gap-2">
-        <input v-model="tokenId" type="number" placeholder="Enter token ID" class="flex-1 border rounded-lg px-3 py-2 text-sm" />
-        <button class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center gap-2" :disabled="!tokenId" @click="checkNFT">
+    <div class="border-t border-gray-200 dark:border-gray-700 pt-4 space-y-3">
+      <h3 class="font-semibold text-gray-800 dark:text-gray-100 flex items-center gap-2"><Search class="w-5 h-5" /> Quick Check NFT</h3>
+      <div class="flex gap-2 flex-wrap">
+        <input v-model="tokenId" type="number" placeholder="Enter token ID"
+          class="flex-1 border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200" />
+        <button
+          class="bg-purple-600 hover:bg-purple-700 dark:bg-purple-700 dark:hover:bg-purple-800 text-white px-4 py-2 rounded-lg flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+          :disabled="!tokenId" @click="checkNFT"
+        >
           <Search class="w-4 h-4" /> Check
         </button>
       </div>
-      <div v-if="nftInfo" class="p-4 rounded-lg bg-blue-50 border text-blue-800 space-y-2 mt-2">
+      <div v-if="nftInfo" class="p-4 rounded-lg bg-blue-50 dark:bg-blue-900/50 border text-blue-800 dark:text-blue-300 space-y-2 mt-2">
         <p><strong>Owner:</strong> {{ nftInfo.owner }}</p>
         <p><strong>Name:</strong> {{ nftInfo.metadata.name }}</p>
         <p><strong>Description:</strong> {{ nftInfo.metadata.description }}</p>
-        <img v-if="nftInfo.metadata.image" :src="nftInfo.metadata.image" class="mt-2 w-32 h-32 object-contain rounded border" />
+        <img v-if="nftInfo.metadata.image" :src="nftInfo.metadata.image" class="mt-2 w-32 h-32 object-contain rounded border dark:border-gray-600" />
       </div>
     </div>
   </div>

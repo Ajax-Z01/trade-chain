@@ -14,18 +14,14 @@ const {
   deleteNotification 
 } = useNotification()
 
-// Fetch notifications whenever wallet/account changes
 watch(account, (acc) => {
   if (acc) fetchNotificationsByUser(acc)
 }, { immediate: true })
 
-// Sorted notifications terbaru dulu
 const sortedNotifications = computed(() => [...notifications.value].sort((a,b) => b.createdAt - a.createdAt))
 
-// Format timestamp
 const formatDate = (ts: number) => new Date(ts).toLocaleString()
 
-// Wrappers untuk tombol
 const markAsReadWithLog = async (id: string) => await markAsRead(id)
 const deleteNotificationWithLog = async (id: string) => await deleteNotification(id)
 const markAllAsReadWithLog = async () => await markAllAsRead()
@@ -33,16 +29,15 @@ const markAllAsReadWithLog = async () => await markAllAsRead()
 
 <template>
 <div class="p-4 max-w-3xl mx-auto">
-  <h1 class="text-2xl font-bold mb-4">
-    Notifications
-    <span v-if="unreadCount" class="ml-2 text-sm text-white bg-red-500 rounded-full px-2 py-1">
-      {{ unreadCount }}
-    </span>
-  </h1>
-
-  <div class="mb-4 flex justify-end">
+  <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4">
+    <h1 class="text-2xl font-bold text-gray-800 flex items-center gap-2">
+      Notifications
+      <span v-if="unreadCount" class="ml-2 text-xs font-semibold text-white bg-red-500 rounded-full px-2 py-0.5">
+        {{ unreadCount }}
+      </span>
+    </h1>
     <button
-      class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+      class="mt-2 sm:mt-0 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition hover:cursor-pointer"
       :disabled="!unreadCount"
       @click="markAllAsReadWithLog"
     >
@@ -50,48 +45,48 @@ const markAllAsReadWithLog = async () => await markAllAsRead()
     </button>
   </div>
 
-  <div v-if="loading" class="text-center py-4">Loading...</div>
-  <div v-else-if="!notifications.length" class="text-center py-4">No notifications</div>
+  <div v-if="loading" class="text-center py-6 text-gray-500">Loading notifications...</div>
+  <div v-else-if="!notifications.length" class="text-center py-6 text-gray-400">No notifications</div>
 
-  <ul class="space-y-2">
+  <ul class="space-y-3">
     <li
       v-for="n in sortedNotifications"
       :key="n.id"
       :class="[
-        'p-3 rounded-lg shadow-sm hover:shadow-md transition-all bg-white',
-        !n.read ? 'border-l-4 border-blue-500' : ''
+        'bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm hover:shadow-md transition-all border-l-4',
+        !n.read ? 'border-blue-500' : 'border-transparent'
       ]"
     >
       <!-- Header: title + date -->
-      <div class="flex justify-between items-start">
+      <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start">
         <div class="min-w-0">
-          <h3 class="font-semibold text-gray-800 text-sm truncate">{{ n.title }}</h3>
-          <p class="text-gray-700 text-sm truncate mt-0.5">{{ n.message }}</p>
+          <h3 class="font-semibold text-gray-800 dark:text-gray-100 text-sm truncate">{{ n.title }}</h3>
+          <p class="text-gray-600 dark:text-gray-300 text-sm mt-0.5 truncate">{{ n.message }}</p>
         </div>
-        <p class="text-gray-400 text-xs ml-2 whitespace-nowrap">{{ formatDate(n.createdAt) }}</p>
+        <p class="text-gray-400 dark:text-gray-400 text-xs mt-1 sm:mt-0 whitespace-nowrap">{{ formatDate(n.createdAt) }}</p>
       </div>
 
-      <!-- User / address -->
-      <p class="text-gray-500 text-xs mt-1 truncate italic">{{ n.executorId }}</p>
+      <!-- Executor -->
+      <p class="text-gray-500 dark:text-gray-400 text-xs mt-1 italic truncate">by: {{ n.executorId }}</p>
 
       <!-- Extra data -->
-      <div v-if="n.extraData?.data" class="mt-1 text-gray-400 text-xs space-y-0.5">
-        <div v-for="(value, key) in n.extraData.data" :key="key">
-          {{ key }}: {{ value }}
+      <div v-if="n.extraData?.data" class="mt-2 text-gray-500 dark:text-gray-400 text-xs space-y-0.5">
+        <div v-for="(value, key) in n.extraData.data" :key="key" class="flex justify-between">
+          <span class="font-medium">{{ key }}:</span> <span>{{ value }}</span>
         </div>
       </div>
 
       <!-- Action buttons -->
-      <div class="flex space-x-2 mt-2">
+      <div class="flex flex-wrap gap-2 mt-3">
         <button
           v-if="!n.read"
-          class="text-blue-500 text-xs px-2 py-1 rounded border border-blue-200 hover:bg-blue-50"
+          class="text-blue-500 text-xs px-3 py-1 rounded border border-blue-200 hover:bg-blue-50 transition"
           @click="markAsReadWithLog(n.id)"
         >
-          Mark read
+          Mark as read
         </button>
         <button
-          class="text-red-500 text-xs px-2 py-1 rounded border border-red-200 hover:bg-red-50"
+          class="text-red-500 text-xs px-3 py-1 rounded border border-red-200 hover:bg-red-50 transition"
           @click="deleteNotificationWithLog(n.id)"
         >
           Delete
@@ -103,8 +98,12 @@ const markAllAsReadWithLog = async () => await markAllAsRead()
 </template>
 
 <style scoped>
+li {
+  transform: translateY(0);
+  transition: all 0.2s ease;
+}
 li:hover {
-  transform: translateY(-1px);
-  transition: transform 0.1s ease;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
 }
 </style>

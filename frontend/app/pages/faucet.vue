@@ -50,38 +50,38 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="max-w-md mx-auto mt-10 p-6 bg-white shadow-md rounded-xl space-y-6">
+  <div class="max-w-md mx-auto mt-10 p-6 bg-white/90 dark:bg-gray-800/90 backdrop-blur-md shadow-lg rounded-xl space-y-6">
 
-    <h1 class="text-2xl font-bold mb-2 flex items-center gap-2">
-      <Users class="w-6 h-6" /> MUSDC Faucet
+    <h1 class="text-2xl font-bold mb-2 flex items-center gap-2 text-gray-800 dark:text-gray-100">
+      <Users class="w-6 h-6 text-indigo-600 dark:text-indigo-400" /> MUSDC Faucet
     </h1>
 
     <!-- Recipient -->
     <div class="space-y-1">
-      <label class="block font-semibold text-gray-700">Recipient Address</label>
+      <label class="block font-semibold text-gray-700 dark:text-gray-300">Recipient Address</label>
       <input
         v-model="recipient"
         type="text"
         placeholder="0x..."
-        class="w-full border rounded-lg px-3 py-2 text-sm focus:ring focus:ring-blue-200"
+        class="w-full border rounded-lg px-3 py-2 text-sm focus:ring focus:ring-indigo-400 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 dark:focus:ring-indigo-600"
       />
     </div>
 
     <!-- Amount -->
     <div class="space-y-1">
-      <label class="block font-semibold text-gray-700">Amount (MUSDC)</label>
+      <label class="block font-semibold text-gray-700 dark:text-gray-300">Amount (MUSDC)</label>
       <input
         v-model="amount"
         type="number"
         min="1"
-        class="w-full border rounded-lg px-3 py-2 text-sm focus:ring focus:ring-blue-200"
+        class="w-full border rounded-lg px-3 py-2 text-sm focus:ring focus:ring-indigo-400 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 dark:focus:ring-indigo-600"
       />
     </div>
 
     <!-- Mint Button -->
     <button
       :disabled="minting" 
-      class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50"
+      class="w-full bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-800 text-white py-2 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
       @click="handleMint"
     >
       <Loader2 v-if="minting" class="w-4 h-4 animate-spin" />
@@ -90,19 +90,21 @@ onMounted(() => {
 
     <!-- Message / Feedback -->
     <div
-v-if="message" 
-         :class="['p-3 rounded', message.includes('Minted') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200']"
-         class="flex items-center gap-2"
+      v-if="message"
+      class="flex items-center gap-2 p-3 rounded-lg transition-colors duration-200"
+      :class="message.includes('Minted')
+        ? 'bg-green-50 dark:bg-green-900/50 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-700'
+        : 'bg-red-50 dark:bg-red-900/50 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-700'"
     >
       <CheckCircle2 v-if="message.includes('Minted')" class="w-5 h-5" />
       <XCircle v-else class="w-5 h-5" />
-      <span>{{ message }}</span>
+      <span class="truncate">{{ message }}</span>
     </div>
 
     <!-- Current Balance -->
-    <div class="mt-2 text-gray-700 space-y-1">
+    <div class="mt-2 text-gray-700 dark:text-gray-300 space-y-1">
       <p class="font-medium">Current Balance:</p>
-      <div v-if="balance === null" class="h-6 w-full bg-gray-200 rounded animate-pulse"></div>
+      <div v-if="balance === null" class="h-6 w-full bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
       <div v-else class="text-lg font-semibold">{{ balance }} MUSDC</div>
     </div>
 

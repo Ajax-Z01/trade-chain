@@ -45,6 +45,21 @@ export function useAggregatedActivity() {
   })
 
   const { $apiBase } = useNuxtApp()
+  
+  const normalizeActivity = (item: any): ActivityItem => {
+    return {
+      id: item.id || item.txHash || String(item.timestamp),
+      timestamp: item.timestamp,
+      type: item.type,
+      action: item.action,
+      account: item.account || "-",
+      txHash: item.txHash || item.extra?.txHash || "-",
+      contractAddress: item.contractAddress || item.extra?.contract || "-",
+      tags: item.tags || [],
+      extra: item.extra || {},
+      onChainInfo: item.onChainInfo || {},
+    }
+  }
 
   // --- Fetch activities with filters & pagination ---
   const fetchActivities = async (
@@ -72,11 +87,13 @@ export function useAggregatedActivity() {
 
       const resJson = (await res.json()) as FetchActivitiesResult
       const { data, nextStartAfterTimestamp } = resJson
+      
+      const normalizedData = data.map(normalizeActivity)
 
       if (startAfterTimestamp) {
-        activities.value.push(...data)
+        activities.value.push(...normalizedData)
       } else {
-        activities.value = data
+        activities.value = normalizedData
       }
 
       lastTimestamp.value = nextStartAfterTimestamp

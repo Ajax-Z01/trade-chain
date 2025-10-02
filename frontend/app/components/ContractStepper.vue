@@ -129,25 +129,25 @@ const statusBadgeClass = computed(() => {
           class="relative flex items-center justify-center w-10 h-10 rounded-full transition-all duration-300 focus:outline-none"
           :class="[ 
             isCancelled
-              ? 'bg-red-500 text-white'
+              ? 'bg-red-500 text-white dark:bg-red-600'
               : isCompleted(idx)
-                ? 'bg-green-500 text-white'
+                ? 'bg-green-500 text-white dark:bg-green-600'
                 : highlightStage() === idx
-                  ? 'bg-yellow-400 text-white animate-pulse'
-                  : 'bg-gray-200 text-gray-500',
-            isActionRequired(idx) && !isCancelled ? 'ring-2 ring-blue-400 animate-pulse' : ''
+                  ? 'bg-yellow-400 text-white animate-pulse dark:bg-yellow-500'
+                  : 'bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-200',
+            isActionRequired(idx) && !isCancelled ? 'ring-2 ring-blue-400 dark:ring-blue-500 animate-pulse' : ''
           ]"
         >
           <component :is="stage.icon" class="w-5 h-5" />
 
           <!-- Signed indicators -->
           <template v-if="stage.key === 1 && !isCancelled">
-            <span v-if="props.importerSigned" class="absolute -top-1 -left-1 w-3 h-3 bg-blue-500 rounded-full border border-white" aria-label="Importer signed"/>
-            <span v-if="props.exporterSigned" class="absolute -top-1 -right-1 w-3 h-3 bg-purple-500 rounded-full border border-white" aria-label="Exporter signed"/>
-            <Check v-if="props.importerSigned && props.exporterSigned" class="absolute -bottom-1 -right-1 w-4 h-4 bg-white rounded-full text-green-600" aria-label="All parties signed"/>
+            <span v-if="props.importerSigned" class="absolute -top-1 -left-1 w-3 h-3 bg-blue-500 rounded-full border border-white dark:border-gray-900"/>
+            <span v-if="props.exporterSigned" class="absolute -top-1 -right-1 w-3 h-3 bg-purple-500 rounded-full border border-white dark:border-gray-900"/>
+            <Check v-if="props.importerSigned && props.exporterSigned" class="absolute -bottom-1 -right-1 w-4 h-4 bg-white rounded-full text-green-600 dark:bg-gray-900 dark:text-green-400"/>
           </template>
 
-          <Check v-if="isCompleted(idx) && idx > 1 && idx < 5 && !isCancelled" class="absolute -bottom-1 -right-1 w-4 h-4 bg-white rounded-full text-green-600"/>
+          <Check v-if="isCompleted(idx) && idx > 1 && idx < 5 && !isCancelled" class="absolute -bottom-1 -right-1 w-4 h-4 bg-white rounded-full text-green-600 dark:bg-gray-900 dark:text-green-400"/>
         </div>
 
         <!-- Label -->
@@ -155,25 +155,31 @@ const statusBadgeClass = computed(() => {
           class="mt-2 text-xs font-medium text-center"
           :class="[ 
             isCancelled
-              ? 'text-red-600'
+              ? 'text-red-600 dark:text-red-400'
               : isCompleted(idx)
-                ? 'text-green-600'
+                ? 'text-green-600 dark:text-green-400'
                 : highlightStage() === idx
-                  ? 'text-yellow-600'
-                  : 'text-gray-500'
+                  ? 'text-yellow-600 dark:text-yellow-400'
+                  : 'text-gray-500 dark:text-gray-300'
           ]"
         >
           {{ stage.label }}
         </span>
 
         <!-- Connector line -->
-        <div v-if="idx < stages.length - 1" class="h-0.5 w-full mt-2 transition-colors duration-300" :class="[isCancelled ? 'bg-red-500' : isCompleted(idx) ? 'bg-green-500' : 'bg-gray-300']"/>
+        <div v-if="idx < stages.length - 1" class="h-0.5 w-full mt-2 transition-colors duration-300" :class="[isCancelled ? 'bg-red-500 dark:bg-red-600' : isCompleted(idx) ? 'bg-green-500 dark:bg-green-600' : 'bg-gray-300 dark:bg-gray-700']"/>
       </div>
     </div>
 
     <!-- Badge -->
     <div class="flex justify-center mt-4">
-      <span class="px-3 py-1 text-xs font-medium rounded-full" :class="statusBadgeClass">
+      <span class="px-3 py-1 text-xs font-medium rounded-full"
+        :class="[
+          isCancelled ? 'bg-red-100 text-red-700 dark:bg-red-700 dark:text-red-100' :
+          props.currentStage === 6 ? 'bg-green-100 text-green-700 dark:bg-green-700 dark:text-green-100' :
+          'bg-blue-100 text-blue-700 dark:bg-blue-700 dark:text-blue-100'
+        ]"
+      >
         {{ statusBadge }}
       </span>
     </div>

@@ -50,7 +50,7 @@ const isRecent = (ts: number) => Date.now() - ts < 24 * 60 * 60 * 1000
 
 <template>
   <div class="p-6 max-w-4xl mx-auto space-y-6">
-    <h1 class="text-3xl font-bold mb-6">Activity Logs</h1>
+    <h1 class="text-3xl font-bold mb-6 text-indigo-600 dark:text-indigo-400">Activity Logs</h1>
 
     <!-- Account input -->
     <div class="mb-4">
@@ -59,18 +59,18 @@ const isRecent = (ts: number) => Date.now() - ts < 24 * 60 * 60 * 1000
         v-model="account"
         type="text"
         placeholder="Enter account address"
-        class="border rounded px-3 py-2 w-full"
+        class="border rounded px-3 py-2 w-full dark:bg-gray-800 dark:text-gray-100"
         @change="refreshActivityLogs(account)"
       />
     </div>
 
     <!-- Skeleton loading -->
     <div v-if="state.loading" class="space-y-3">
-      <div v-for="i in 5" :key="i" class="h-16 bg-gray-200 rounded animate-pulse"></div>
+      <div v-for="i in 5" :key="i" class="h-16 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
     </div>
 
     <!-- Empty state -->
-    <div v-else-if="state.logs.length === 0" class="text-gray-400 text-center py-10">
+    <div v-else-if="state.logs.length === 0" class="text-gray-400 dark:text-gray-500 text-center py-10">
       <XCircle class="mx-auto w-12 h-12 mb-2" />
       No activity logs found.
     </div>
@@ -80,7 +80,7 @@ const isRecent = (ts: number) => Date.now() - ts < 24 * 60 * 60 * 1000
       <div
         v-for="log in state.logs"
         :key="log.timestamp + (log.txHash || log.action)"
-        :class="['bg-white border rounded-xl shadow p-4 flex gap-4 items-start transition hover:shadow-lg',
+        :class="['bg-white dark:bg-gray-900 border rounded-xl shadow p-4 flex gap-4 items-start transition hover:shadow-lg',
                  isRecent(log.timestamp) ? 'border-l-4 border-indigo-400' : '']"
       >
         <!-- Icon -->
@@ -99,13 +99,23 @@ const isRecent = (ts: number) => Date.now() - ts < 24 * 60 * 60 * 1000
           </div>
 
           <!-- Account & Contract -->
-          <div class="text-sm text-gray-600 flex flex-wrap gap-2">
-            <span>Account: <code class="bg-gray-100 px-1 rounded">{{ log.account }}</code></span>
-            <span v-if="log.contractAddress">Contract: <code class="bg-gray-100 px-1 rounded">{{ log.contractAddress }}</code></span>
+          <div class="text-sm text-gray-600 dark:text-gray-300 flex flex-wrap gap-2">
+            <span>
+              Account: 
+              <code class="bg-gray-100 dark:bg-gray-800 px-1 rounded text-gray-800 dark:text-gray-100">
+                {{ log.account }}
+              </code>
+            </span>
+            <span v-if="log.contractAddress">
+              Contract: 
+              <code class="bg-gray-100 dark:bg-gray-800 px-1 rounded text-gray-800 dark:text-gray-100">
+                {{ log.contractAddress }}
+              </code>
+            </span>
           </div>
 
           <!-- Extra info -->
-          <div v-if="log.extra" class="text-sm text-gray-700 mt-1 space-y-1">
+          <div v-if="log.extra" class="text-sm text-gray-700 dark:text-gray-300 mt-1 space-y-1">
             <template v-if="log.type==='backend'">
               <div v-if="log.extra.count">Count: {{ log.extra.count }}</div>
               <div v-else-if="log.action==='createCompany'">
@@ -118,7 +128,7 @@ const isRecent = (ts: number) => Date.now() - ts < 24 * 60 * 60 * 1000
               <div class="flex items-center gap-2">
                 <span>File:</span>
                 <span class="font-medium">{{ log.extra.fileName }}</span>
-                <span v-if="log.extra.docType" class="px-2 py-0.5 rounded text-xs bg-gray-200">{{ log.extra.docType }}</span>
+                <span v-if="log.extra.docType" class="px-2 py-0.5 rounded text-xs bg-gray-200 dark:bg-gray-700">{{ log.extra.docType }}</span>
               </div>
             </template>
             <template v-else-if="log.action==='deploy'">
@@ -137,12 +147,12 @@ const isRecent = (ts: number) => Date.now() - ts < 24 * 60 * 60 * 1000
             <span :class="getStatusColor(log.action, log.onChainInfo.status) + ' px-2 py-1 rounded text-xs font-medium'">
               {{ log.onChainInfo.status.toUpperCase() }}
             </span>
-            <span class="text-xs text-gray-500">Block: {{ log.onChainInfo.blockNumber }}</span>
-            <span class="text-xs text-gray-500">Confirmations: {{ log.onChainInfo.confirmations }}</span>
+            <span class="text-xs text-gray-500 dark:text-gray-400">Block: {{ log.onChainInfo.blockNumber }}</span>
+            <span class="text-xs text-gray-500 dark:text-gray-400">Confirmations: {{ log.onChainInfo.confirmations }}</span>
           </div>
 
           <!-- Tx hash -->
-          <div v-if="log.txHash" class="text-xs text-blue-500 break-all mt-1">
+          <div v-if="log.txHash" class="text-xs text-blue-500 dark:text-blue-400 break-all mt-1">
             Tx: {{ log.txHash }}
           </div>
         </div>
@@ -152,14 +162,14 @@ const isRecent = (ts: number) => Date.now() - ts < 24 * 60 * 60 * 1000
     <!-- Load More -->
     <div v-if="!state.finished && !state.loading" class="mt-6 text-center">
       <button
-        class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition"
+        class="bg-blue-500 dark:bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-600 dark:hover:bg-blue-700 transition"
         @click="fetchActivityLogs(account, { limit: 20 })"
       >
         Load More
       </button>
     </div>
 
-    <div v-if="state.finished" class="mt-4 text-center text-gray-500">
+    <div v-if="state.finished" class="mt-4 text-center text-gray-500 dark:text-gray-400">
       No more logs.
     </div>
   </div>

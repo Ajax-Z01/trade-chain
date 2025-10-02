@@ -73,7 +73,7 @@ const removeCompany = async (id: string) => {
 
     <!-- Header -->
     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-      <h1 class="text-3xl font-bold text-gray-800">Company Management</h1>
+      <h1 class="text-3xl font-bold text-gray-800 dark:text-gray-100">Company Management</h1>
       <button class="btn-primary flex items-center gap-2" @click="openCreateModal">
         <Plus :size="16" /> Create Company
       </button>
@@ -81,38 +81,38 @@ const removeCompany = async (id: string) => {
 
     <!-- Loading Skeleton -->
     <div v-if="loading" class="space-y-3">
-      <div v-for="n in 5" :key="n" class="h-10 bg-gray-200 rounded animate-pulse w-full"></div>
+      <div v-for="n in 5" :key="n" class="h-10 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-full"></div>
     </div>
 
     <!-- Empty State -->
-    <div v-else-if="companies.length === 0" class="text-center py-10 text-gray-500">
+    <div v-else-if="companies.length === 0" class="text-center py-10 text-gray-500 dark:text-gray-400">
       No companies found.
     </div>
 
-    <!-- Table / Card List -->
-    <div v-else class="overflow-x-auto">
-      <table class="min-w-full border-collapse">
-        <thead class="bg-gray-100">
+    <!-- Table -->
+    <div v-else class="overflow-x-auto rounded-lg shadow border border-gray-200 dark:border-gray-700">
+      <table class="min-w-full table-auto border-collapse">
+        <thead class="bg-gray-100 dark:bg-gray-800">
           <tr>
-            <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700">Name</th>
-            <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700">Country</th>
-            <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700">Email</th>
-            <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700">Phone</th>
-            <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700">Business Type</th>
-            <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700">Actions</th>
+            <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">Name</th>
+            <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">Country</th>
+            <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">Email</th>
+            <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">Phone</th>
+            <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">Business Type</th>
+            <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">Actions</th>
           </tr>
         </thead>
         <tbody>
           <tr
-              v-for="(c, idx) in companies" :key="c.id"
-              :class="idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'"
-              class="hover:bg-gray-100 transition-colors"
+            v-for="(c, idx) in companies" :key="c.id"
+            :class="idx % 2 === 0 ? 'bg-white dark:bg-gray-900' : 'bg-gray-50 dark:bg-gray-800'"
+            class="hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
           >
-            <td class="px-4 py-2">{{ c.name }}</td>
-            <td class="px-4 py-2">{{ c.country }}</td>
-            <td class="px-4 py-2">{{ c.email }}</td>
-            <td class="px-4 py-2">{{ c.phone || '-' }}</td>
-            <td class="px-4 py-2">{{ c.businessType || '-' }}</td>
+            <td class="px-4 py-2 truncate">{{ c.name }}</td>
+            <td class="px-4 py-2 truncate">{{ c.country }}</td>
+            <td class="px-4 py-2 truncate">{{ c.email }}</td>
+            <td class="px-4 py-2 truncate">{{ c.phone || '-' }}</td>
+            <td class="px-4 py-2 truncate">{{ c.businessType || '-' }}</td>
             <td class="px-4 py-2 flex gap-2 flex-wrap">
               <button class="btn-info flex items-center gap-1" title="View Details" @click="openDetailModal(c)">
                 <Eye :size="14" /> View
@@ -146,48 +146,65 @@ const removeCompany = async (id: string) => {
 </template>
 
 <style scoped>
-/* Button Styles */
+/* Buttons */
 .btn-primary {
   background-color: #2563eb;
-  color: white;
+  color: #fff;
   padding: 0.5rem 0.75rem;
   border-radius: 0.5rem;
   font-weight: 500;
   border: none;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  transition: background-color 0.2s;
 }
 .btn-primary:hover { background-color: #1d4ed8; }
 
 .btn-warning {
   background-color: #f59e0b;
-  color: white;
+  color: #fff;
   padding: 0.25rem 0.5rem;
   border-radius: 0.5rem;
   font-size: 0.875rem;
   border: none;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  transition: background-color 0.2s;
 }
 .btn-warning:hover { background-color: #d97706; }
 
 .btn-danger {
   background-color: #ef4444;
-  color: white;
+  color: #fff;
   padding: 0.25rem 0.5rem;
   border-radius: 0.5rem;
   font-size: 0.875rem;
   border: none;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  transition: background-color 0.2s;
 }
 .btn-danger:hover { background-color: #dc2626; }
 
 .btn-info {
   background-color: #3b82f6;
-  color: white;
+  color: #fff;
   padding: 0.25rem 0.5rem;
   border-radius: 0.5rem;
   font-size: 0.875rem;
   border: none;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  transition: background-color 0.2s;
 }
 .btn-info:hover { background-color: #1d4ed8; }
 
@@ -195,8 +212,17 @@ const removeCompany = async (id: string) => {
 table {
   border-radius: 0.5rem;
   overflow: hidden;
+  min-width: 100%;
+  border-collapse: collapse;
 }
+
 th, td {
-  min-width: 100px;
+  min-width: 120px;
+  vertical-align: middle;
+  padding: 0.5rem 1rem;
+}
+
+tbody tr:hover {
+  cursor: pointer;
 }
 </style>
