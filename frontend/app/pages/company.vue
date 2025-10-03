@@ -73,7 +73,7 @@ const removeCompany = async (id: string) => {
 
     <!-- Header -->
     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-      <h1 class="text-3xl font-bold text-gray-800 dark:text-gray-100">Company Management</h1>
+      <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100">Company Management</h1>
       <button class="btn-primary flex items-center gap-2" @click="openCreateModal">
         <Plus :size="16" /> Create Company
       </button>
@@ -92,7 +92,7 @@ const removeCompany = async (id: string) => {
     <!-- Table -->
     <div v-else class="overflow-x-auto rounded-lg shadow border border-gray-200 dark:border-gray-700">
       <table class="min-w-full table-auto border-collapse">
-        <thead class="bg-gray-100 dark:bg-gray-800">
+        <thead class="bg-gray-100 dark:bg-gray-900">
           <tr>
             <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">Name</th>
             <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">Country</th>
@@ -105,7 +105,7 @@ const removeCompany = async (id: string) => {
         <tbody>
           <tr
             v-for="(c, idx) in companies" :key="c.id"
-            :class="idx % 2 === 0 ? 'bg-white dark:bg-gray-900' : 'bg-gray-50 dark:bg-gray-800'"
+            :class="idx % 2 === 0 ? 'bg-white dark:bg-gray-950' : 'bg-gray-50 dark:bg-gray-900'"
             class="hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
           >
             <td class="px-4 py-2 truncate">{{ c.name }}</td>

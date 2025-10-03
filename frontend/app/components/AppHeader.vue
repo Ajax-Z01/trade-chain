@@ -10,15 +10,14 @@ const { account, connectWallet } = useWallet()
 const mobileOpen = ref(false)
 const notifOpen = ref(false)
 
-// --- Notification composable ---
+// Notification composable
 const { notifications, unreadCount, fetchNotificationsByUser, markAsRead } = useNotification(account.value ?? '')
 
-// Fetch notifications saat account berubah
 watch(account, (acc) => {
   if (acc) fetchNotificationsByUser(acc)
 })
 
-// --- Click outside handler ---
+// Click outside handler
 const notifRef = ref<HTMLElement | null>(null)
 const handleClickOutside = (e: MouseEvent) => {
   if (!notifRef.value) return
@@ -29,25 +28,30 @@ const handleClickOutside = (e: MouseEvent) => {
 onMounted(() => document.addEventListener('click', handleClickOutside))
 onBeforeUnmount(() => document.removeEventListener('click', handleClickOutside))
 
-// --- Handlers ---
+// Handlers
 const toggleMobile = () => mobileOpen.value = !mobileOpen.value
 const toggleNotif = () => notifOpen.value = !notifOpen.value
 const handleConnect = async () => { try { await connectWallet() } catch(e) { console.error(e) } }
 const markNotifAsRead = async (id: string) => await markAsRead(id)
 
-// --- Computed ---
+// Computed
 const latestNotifs = computed(() => {
   return [...notifications.value].sort((a,b) => b.createdAt - a.createdAt).slice(0,5)
 })
 const formatDate = (ts: number) => new Date(ts).toLocaleString()
 
-// --- Dark Mode ---
+// Dark Mode
 const darkMode = ref(false)
 const toggleDarkMode = () => {
   darkMode.value = !darkMode.value
   document.documentElement.classList.toggle('dark', darkMode.value)
   localStorage.setItem('darkMode', darkMode.value ? 'true' : 'false')
 }
+
+const closeMobile = () => {
+  mobileOpen.value = false
+}
+
 onMounted(() => {
   darkMode.value = localStorage.getItem('darkMode') === 'true'
   document.documentElement.classList.toggle('dark', darkMode.value)
@@ -55,11 +59,14 @@ onMounted(() => {
 </script>
 
 <template>
-<header class="sticky top-0 z-50 transition-colors duration-300 bg-white dark:bg-gray-900 shadow-md">
+<header class="sticky top-0 z-50 bg-white dark:bg-gray-900 shadow-md transition-colors duration-300">
   <div class="max-w-7xl mx-auto flex items-center justify-between p-4 md:px-6">
+    
     <!-- Logo -->
     <div class="flex items-center gap-4">
-      <h1 class="text-xl md:text-2xl font-bold text-indigo-600 dark:text-indigo-400">TradeChain Dashboard</h1>
+      <NuxtLink to="/" class="flex items-center gap-2">
+        <h1 class="text-xl md:text-2xl font-bold text-indigo-600 dark:text-indigo-400">TradeChain</h1>
+      </NuxtLink>
     </div>
 
     <!-- Desktop Nav -->
@@ -77,7 +84,7 @@ onMounted(() => {
         ]" 
         :key="link.to" 
         :to="link.to"
-        class="px-3 py-1 rounded transition-colors duration-200
+        class="px-4 py-2 rounded-lg transition-colors duration-200
                hover:bg-indigo-50 hover:text-indigo-600
                dark:hover:bg-gray-700 dark:hover:text-indigo-300"
       >
@@ -85,13 +92,12 @@ onMounted(() => {
       </NuxtLink>
     </nav>
 
-    <!-- Right: Wallet, Notifications, Dark Mode -->
-    <div class="flex items-center gap-4">
-      
+    <!-- Right: Dark Mode, Notifications, Wallet, Hamburger -->
+    <div class="flex items-center gap-3 md:gap-4">
+
       <!-- Dark Mode Toggle -->
       <button 
-        class="p-2 rounded transition-colors duration-200
-               hover:bg-gray-100 dark:hover:bg-gray-700"
+        class="p-2 rounded-lg transition-colors duration-200 hover:bg-gray-100 dark:hover:bg-gray-700"
         @click="toggleDarkMode"
         :title="darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'"
       >
@@ -101,8 +107,7 @@ onMounted(() => {
 
       <!-- Notification -->
       <div class="relative" ref="notifRef">
-        <button class="relative p-2 rounded transition-colors duration-200
-                       hover:bg-gray-100 dark:hover:bg-gray-700" @click="toggleNotif">
+        <button class="relative p-2 rounded-lg transition-colors duration-200 hover:bg-gray-100 dark:hover:bg-gray-700" @click="toggleNotif">
           <Bell class="w-6 h-6 text-gray-700 dark:text-gray-200"/>
           <span v-if="unreadCount" class="absolute -top-1 -right-1 text-xs bg-red-500 text-white rounded-full px-1">{{ unreadCount }}</span>
         </button>
@@ -110,12 +115,11 @@ onMounted(() => {
         <transition name="fade">
           <div v-if="notifOpen" class="absolute right-0 mt-2 w-80 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg rounded-lg z-50">
             <div class="p-3 font-semibold border-b border-gray-100 dark:border-gray-700 text-gray-800 dark:text-gray-200">Notifications</div>
-
             <ul class="max-h-64 overflow-y-auto">
               <li 
                 v-for="n in latestNotifs" 
                 :key="n.id"
-                class="flex flex-col p-2 rounded transition-colors duration-200
+                class="flex flex-col p-3 rounded-lg transition-colors duration-200
                        hover:bg-indigo-50 dark:hover:bg-gray-700"
                 :class="{'bg-indigo-50 dark:bg-gray-700': !n.read}"
               >
@@ -134,9 +138,8 @@ onMounted(() => {
                 <p class="text-gray-500 dark:text-gray-400 text-[10px] mt-0.5 truncate italic">by: {{ n.executorId }}</p>
                 <p class="text-gray-400 dark:text-gray-500 text-[10px] mt-0.5">{{ formatDate(n.createdAt) }}</p>
               </li>
-              <li v-if="!latestNotifs.length" class="p-2 text-center text-gray-400 dark:text-gray-500 text-sm">No notifications</li>
+              <li v-if="!latestNotifs.length" class="p-3 text-center text-gray-400 dark:text-gray-500 text-sm">No notifications</li>
             </ul>
-
             <NuxtLink to="/notifications" class="block text-center p-2 text-blue-600 dark:text-blue-400
                                                  hover:bg-gray-100 dark:hover:bg-gray-700 border-t border-gray-100 dark:border-gray-700 rounded-b-lg text-sm">
               View All
@@ -145,15 +148,14 @@ onMounted(() => {
         </transition>
       </div>
 
-      <!-- Wallet -->
-      <div>
-        <Button v-if="!account" @click="handleConnect">Connect Wallet</Button>
-        <span v-else class="px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded text-sm truncate max-w-[160px] block">{{ account }}</span>
+      <!-- Desktop Wallet -->
+      <div class="hidden md:block">
+        <Button v-if="!account" @click="handleConnect" class="px-3 py-2 text-sm">Connect Wallet</Button>
+        <span v-else class="px-3 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg text-sm truncate max-w-[160px] block">{{ account }}</span>
       </div>
 
       <!-- Mobile Hamburger -->
-      <button class="md:hidden p-2 rounded transition-colors duration-200
-                     hover:bg-gray-100 dark:hover:bg-gray-700" @click="toggleMobile">
+      <button class="md:hidden p-2 rounded-lg transition-colors duration-200 hover:bg-gray-100 dark:hover:bg-gray-700" @click="toggleMobile">
         <Menu v-if="!mobileOpen" class="w-6 h-6 text-gray-700 dark:text-gray-200"/>
         <X v-else class="w-6 h-6 text-gray-700 dark:text-gray-200"/>
       </button>
@@ -162,23 +164,40 @@ onMounted(() => {
 
   <!-- Mobile Nav -->
   <transition name="fade">
-    <nav v-if="mobileOpen" class="md:hidden bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 shadow-inner">
+    <nav 
+      v-if="mobileOpen" 
+      class="md:hidden bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 shadow-inner max-h-[80vh] overflow-y-auto"
+    >
       <ul class="flex flex-col p-4 gap-2">
-        <li v-for="link in [
-          {to:'/', label:'Home'}, 
-          {to:'/wallets', label:'Wallets'}, 
-          {to:'/contracts', label:'Contracts'},
-          {to:'/logs', label:'Logs'},
-          {to:'/documents', label:'Document'},
-          {to:'/kyc', label:'KYC'},
-          {to:'/faucet', label:'Faucet'},
-          {to:'/company', label:'Company'}
-        ]" :key="link.to">
-          <NuxtLink :to="link.to" class="block px-2 py-1 rounded
+        <li 
+          v-for="link in [
+            {to:'/', label:'Home'}, 
+            {to:'/wallets', label:'Wallets'}, 
+            {to:'/contracts', label:'Contracts'},
+            {to:'/logs', label:'Logs'},
+            {to:'/documents', label:'Document'},
+            {to:'/kyc', label:'KYC'},
+            {to:'/faucet', label:'Faucet'},
+            {to:'/company', label:'Company'}
+          ]" 
+          :key="link.to"
+          class="border-b border-gray-200 dark:border-gray-700 last:border-b-0"
+        >
+          <NuxtLink :to="link.to" class="block px-4 py-3 rounded-lg
                                            hover:bg-indigo-50 dark:hover:bg-gray-800
-                                           hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors duration-200">
+                                           hover:text-indigo-600 dark:hover:text-indigo-400
+                                           transition-colors duration-200 text-base font-medium"
+                                           @click="closeMobile">
             {{ link.label }}
           </NuxtLink>
+        </li>
+
+        <!-- Mobile Wallet -->
+        <li class="pt-2 border-t border-gray-200 dark:border-gray-700">
+          <div class="flex justify-center">
+            <Button v-if="!account" @click="handleConnect" class="px-4 py-2 w-full max-w-xs text-sm">Connect Wallet</Button>
+            <span v-else class="px-4 py-2 w-full max-w-xs bg-gray-100 dark:bg-gray-700 rounded-lg text-sm truncate block text-center">{{ account }}</span>
+          </div>
         </li>
       </ul>
     </nav>

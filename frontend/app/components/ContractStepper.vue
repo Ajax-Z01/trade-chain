@@ -5,7 +5,7 @@ import { useToast } from "@/composables/useToast"
 
 interface Props {
   currentStage: number
-  userRole: 'importer' | 'exporter' | null
+  userRole: 'importer' | 'exporter' | 'admin' | null
   importerSigned?: boolean
   exporterSigned?: boolean
   depositDone?: boolean
@@ -104,12 +104,6 @@ const statusBadge = computed(() => {
     default: return "Unknown"
   }
 })
-
-const statusBadgeClass = computed(() => {
-  if (isCancelled.value) return 'bg-red-100 text-red-700'
-  if (props.currentStage === 6) return 'bg-green-100 text-green-700'
-  return 'bg-blue-100 text-blue-700'
-})
 </script>
 
 <template>
@@ -167,7 +161,7 @@ const statusBadgeClass = computed(() => {
         </span>
 
         <!-- Connector line -->
-        <div v-if="idx < stages.length - 1" class="h-0.5 w-full mt-2 transition-colors duration-300" :class="[isCancelled ? 'bg-red-500 dark:bg-red-600' : isCompleted(idx) ? 'bg-green-500 dark:bg-green-600' : 'bg-gray-300 dark:bg-gray-700']"/>
+        <div v-if="idx < stages.length" class="h-0.5 w-full mt-2 transition-colors duration-300" :class="[isCancelled ? 'bg-red-500 dark:bg-red-600' : isCompleted(idx) ? 'bg-green-500 dark:bg-green-600' : 'bg-gray-300 dark:bg-gray-700']"/>
       </div>
     </div>
 

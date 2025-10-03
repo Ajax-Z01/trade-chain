@@ -4,7 +4,7 @@ import { useMockUSDC } from '~/composables/useMockUSDC'
 import { useWallet } from '~/composables/useWallets'
 
 // Lucide icons
-import { Loader2, CheckCircle2, XCircle, Users } from 'lucide-vue-next'
+import { Loader2, CheckCircle2, XCircle, DollarSignIcon } from 'lucide-vue-next'
 
 const { mint, getBalance, minting } = useMockUSDC()
 const { account } = useWallet()
@@ -50,10 +50,10 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="max-w-md mx-auto mt-10 p-6 bg-white/90 dark:bg-gray-800/90 backdrop-blur-md shadow-lg rounded-xl space-y-6">
+  <div class="max-w-md mx-auto mt-10 p-6 bg-white/90 dark:bg-gray-900 backdrop-blur-md shadow-lg rounded-xl space-y-6">
 
     <h1 class="text-2xl font-bold mb-2 flex items-center gap-2 text-gray-800 dark:text-gray-100">
-      <Users class="w-6 h-6 text-indigo-600 dark:text-indigo-400" /> MUSDC Faucet
+      <DollarSignIcon class="w-6 h-6 text-indigo-600 dark:text-indigo-400" /> MUSDC Faucet
     </h1>
 
     <!-- Recipient -->

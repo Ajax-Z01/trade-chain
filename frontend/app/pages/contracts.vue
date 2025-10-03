@@ -7,6 +7,7 @@ import { useWallet } from '~/composables/useWallets'
 import { useToast } from '~/composables/useToast'
 import { useTx } from '~/composables/useTx'
 import { useKYC } from '~/composables/useKycs'
+import { useContractRole } from '~/composables/useContractRole'
 import ContractStepper from '~/components/ContractStepper.vue'
 
 // Composables
@@ -32,14 +33,18 @@ const {
 } = useContractActions()
 
 // Inputs
+const importerAddress = ref('')
 const exporterAddress = ref('')
 const requiredAmount = ref('')
+const backendImporter = ref('')
 const backendExporter = ref('')
 const backendRequiredAmount = ref('')
 const selectedContract = ref<string | null>(null)
 const latestContract = ref<string | null>(null)
 const paymentToken = ref<'ETH' | 'MUSDC'>('ETH')
 const backendToken = ref<'ETH' | 'MUSDC' | null>(null)
+
+const { isAdmin, isImporter, isExporter, userRole, refreshRole } = useContractRole(selectedContract)
 
 const paymentTokenValue = computed({
   get: () => backendToken.value || paymentToken.value || 'ETH',
@@ -57,7 +62,15 @@ const tokenAddress = computed(() => {
 
 const currentContract = computed(() => latestContract.value || selectedContract.value)
 const signCompleted = computed(() => stepStatus.sign.importer && stepStatus.sign.exporter)
-const isAutoFilled = computed(() => !!backendExporter.value && !exporterAddress.value)
+const isAutoFilled = computed(() => !!backendExporter.value && !exporterAddress.value &&
+  !!backendImporter.value && !importerAddress.value &&
+  !!backendRequiredAmount.value && !requiredAmount.value
+)
+
+const importerValue = computed({
+  get: () => importerAddress.value || backendImporter.value,
+  set: (val: string) => importerAddress.value = val
+})
 
 const exporterValue = computed({
   get: () => exporterAddress.value || backendExporter.value,
@@ -85,13 +98,6 @@ const requiredAmountValue = computed({
   }
 })
 
-const userRole = computed<'importer' | 'exporter' | null>(() => {
-  if (!account.value || !currentContract.value) return null
-  if (isImporter.value) return 'importer'
-  if (isExporter.value) return 'exporter'
-  return null
-})
-
 // Buttons
 const canDeploy = computed(() => !stepStatus.deploy && !loadingButton.value)
 const canSign = computed(() => {
@@ -110,10 +116,6 @@ const getFirstTokenIdByOwner = async (owner: `0x${string}`): Promise<bigint | nu
   const nfts = await getKycsByOwner(owner)
   return nfts.length ? BigInt(nfts[0]!.tokenId) : null
 }
-
-// Roles
-const isImporter = ref(false)
-const isExporter = ref(false)
 
 const getContractRoles = async (contract: string) => {
   try {
@@ -141,8 +143,10 @@ watch(selectedContract, async (contract) => {
   if (!contract) return
 
   // reset
+  importerAddress.value = ''
   exporterAddress.value = ''
   requiredAmount.value = ''
+  backendImporter.value = ''
   backendExporter.value = ''
   backendRequiredAmount.value = ''
   backendToken.value = null
@@ -151,6 +155,7 @@ watch(selectedContract, async (contract) => {
     const data = await fetchContractDetails(contract as `0x${string}`)
     const deployLog = data.history?.find((h: any) => h.action === 'deploy')
     if (deployLog) {
+      backendImporter.value = deployLog.extra?.importer || ''
       backendExporter.value = deployLog.extra?.exporter || ''
       backendRequiredAmount.value = deployLog.extra?.requiredAmount
         ? (BigInt(deployLog.extra.requiredAmount)).toString()
@@ -176,10 +181,10 @@ const loadingButton = ref<'deploy'|'deposit'|'sign'|'shipping'|'completed'|'canc
 // Handlers
 const handleDeploy = async () => {
   if (!account.value) return addToast('Connect wallet first', 'error')
-  if (!exporterAddress.value || !requiredAmount.value) return addToast('Exporter and amount required', 'error')
+  if (!importerAddress.value) return addToast('Importer address required', 'error')
+  if (!exporterAddress.value) return addToast('Exporter address required', 'error')
+  if (!requiredAmount.value) return addToast('Required amount required', 'error')
   
-  console.log('Token address:', tokenAddress.value)
-
   loadingButton.value = 'deploy'
   await withTx(async () => {
     // hitung wei/musdc amount
@@ -188,7 +193,7 @@ const handleDeploy = async () => {
       : BigInt(Math.floor(parseFloat(requiredAmount.value) * 1e6))
 
     // dapatkan NFT tokenIds
-    const importerTokenId = await getFirstTokenIdByOwner(account.value as `0x${string}`)
+    const importerTokenId = await getFirstTokenIdByOwner(importerAddress.value as `0x${string}`)
     if (!importerTokenId) throw new Error('No NFT found for importer')
 
     const exporterTokenId = await getFirstTokenIdByOwner(exporterAddress.value as `0x${string}`)
@@ -196,7 +201,7 @@ const handleDeploy = async () => {
 
     // deploy contract
     const contractAddress = await deployContractWithDocs(
-      account.value as `0x${string}`,
+      importerAddress.value as `0x${string}`,
       exporterAddress.value as `0x${string}`,
       importerTokenId,
       exporterTokenId,
@@ -296,8 +301,10 @@ const handleCancel = async () => {
 const handleNewContract = () => {
   selectedContract.value = null
   latestContract.value = null
+  importerAddress.value = ''
   exporterAddress.value = ''
   requiredAmount.value = ''
+  backendImporter.value = ''
   backendExporter.value = ''
   backendRequiredAmount.value = ''
   backendToken.value = null
@@ -311,6 +318,17 @@ const handleNewContract = () => {
   currentStage.value = -1
   addToast('Ready to create a new contract', 'info')
 }
+
+const handleRefreshContracts = async () => {
+  try {
+    const res = await fetchDeployedContracts()
+    addToast(`Refreshed ${res.length || 0} contracts`, 'success')
+    console.log('Refreshed contracts:', res)
+  } catch (err: any) {
+    console.error('Failed to refresh contracts:', err)
+    addToast('Failed to refresh contracts', 'error')
+  }
+}
 </script>
 
 <template>
@@ -319,17 +337,23 @@ const handleNewContract = () => {
     <!-- Header -->
     <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
       <h1 class="text-2xl font-semibold text-gray-800 dark:text-gray-100">TradeAgreement v2</h1>
+
       <div class="flex gap-2">
+        <!-- Primary Button: New Contract -->
         <Button
-          class="bg-indigo-600 hover:bg-indigo-700 text-white rounded py-2 px-4 flex items-center gap-2 shadow"
+          class="bg-indigo-600 dark:bg-indigo-500 hover:bg-indigo-700 dark:hover:bg-indigo-600 text-white rounded py-2 px-4 flex items-center gap-2 shadow transition"
           @click="handleNewContract"
         >
+          <Rocket class="w-4 h-4"/>
           New Contract
         </Button>
+
+        <!-- Secondary Button: Refresh Data -->
         <Button
-          class="bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 rounded py-2 px-4 flex items-center gap-2 shadow"
-          @click="async()=>{ const res=await fetchDeployedContracts(); console.log(res) }"
+          class="bg-gray-600 dark:bg-gray-500 hover:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-gray-200 rounded py-2 px-4 flex items-center gap-2 shadow transition"
+          @click="handleRefreshContracts"
         >
+          <Loader2 class="w-4 h-4"/>
           Refresh Data
         </Button>
       </div>
@@ -339,7 +363,10 @@ const handleNewContract = () => {
     <div class="mt-2 text-gray-700 dark:text-gray-300">
       <span class="font-medium">Your Role:</span>
       <span class="ml-2">
-        <span v-if="userRole==='importer'" class="px-2 py-1 rounded-full text-white text-xs bg-blue-600">
+        <span v-if="userRole==='admin'" class="px-2 py-1 rounded-full text-white text-xs bg-indigo-600">
+          Admin
+        </span>
+        <span v-else-if="userRole==='importer'" class="px-2 py-1 rounded-full text-white text-xs bg-blue-600">
           Importer
         </span>
         <span v-else-if="userRole==='exporter'" class="px-2 py-1 rounded-full text-white text-xs bg-purple-600">
@@ -366,7 +393,7 @@ const handleNewContract = () => {
         Select Contract
         <select
           v-model="selectedContract"
-          class="w-full p-3 border rounded focus:ring-2 focus:ring-indigo-400 outline-none dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600"
+          class="w-full p-3 border rounded focus:ring-2 focus:ring-indigo-400 outline-none dark:bg-gray-900 dark:text-gray-100 dark:border-gray-600"
         >
           <option disabled value="">-- Select Contract --</option>
           <option v-for="c in deployedContracts" :key="c" :value="c">{{ c }}</option>
@@ -374,8 +401,24 @@ const handleNewContract = () => {
       </label>
     </div>
 
-    <!-- Inputs -->
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-gray-50 dark:bg-gray-900 p-4 rounded shadow mt-4">
+    <!-- Inputs Section -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-50 dark:bg-gray-900 p-4 rounded shadow mt-4">
+      <!-- Importer Address -->
+      <div class="flex flex-col relative">
+        <label class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          Importer Address
+          <input
+            v-model="importerValue"
+            placeholder="0x..."
+            :disabled="isAutoFilled"
+            class="w-full p-3 border rounded focus:ring-2 focus:ring-indigo-400 outline-none dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600"
+          />
+        </label>
+        <span v-if="isAutoFilled" class="absolute right-2 top-1 text-xs text-green-500 dark:text-green-400 italic">
+          auto-filled
+        </span>
+      </div>
+
       <!-- Exporter Address -->
       <div class="flex flex-col relative">
         <label class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -386,10 +429,10 @@ const handleNewContract = () => {
             :disabled="isAutoFilled"
             class="w-full p-3 border rounded focus:ring-2 focus:ring-indigo-400 outline-none dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600"
           />
-          <span v-if="isAutoFilled" class="absolute right-2 top-1 text-xs text-gray-500 dark:text-gray-400 italic">
-            auto-filled
-          </span>
         </label>
+        <span v-if="isAutoFilled" class="absolute right-2 top-1 text-xs text-green-500 dark:text-green-400 italic">
+          auto-filled
+        </span>
       </div>
 
       <!-- Required Amount -->
@@ -404,22 +447,19 @@ const handleNewContract = () => {
             :disabled="isAutoFilled"
             class="w-full p-3 border rounded focus:ring-2 focus:ring-indigo-400 outline-none dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600"
           />
-          <span v-if="isAutoFilled" class="absolute right-2 top-1 text-xs text-gray-500 dark:text-gray-400 italic">
-            auto-filled
-          </span>
         </label>
+        <span v-if="isAutoFilled" class="absolute right-2 top-1 text-xs text-green-500 dark:text-green-400 italic">
+          auto-filled
+        </span>
       </div>
 
       <!-- Payment Token -->
       <div class="flex flex-col relative">
         <label class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
           Payment Token
-          <div v-if="isTokenAutoFilled" class="p-3 border rounded bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200">
+          <div v-if="isTokenAutoFilled" class="w-full p-3 border rounded focus:ring-2 focus:ring-indigo-400 outline-none dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600">
             {{ paymentTokenValue }}
           </div>
-          <span v-if="isAutoFilled" class="absolute right-2 top-1 text-xs text-gray-500 dark:text-gray-400 italic">
-            auto-filled
-          </span>
           <select
             v-else
             v-model="paymentTokenValue"
@@ -429,6 +469,9 @@ const handleNewContract = () => {
             <option value="MUSDC">MUSDC</option>
           </select>
         </label>
+        <span v-if="isAutoFilled" class="absolute right-2 top-1 text-xs text-green-500 dark:text-green-400 italic">
+          auto-filled
+        </span>
       </div>
     </div>
 

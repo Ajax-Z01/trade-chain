@@ -49,7 +49,7 @@ const copyAddress = async () => {
     </div>
 
     <div
-      class="bg-white/90 dark:bg-gray-800/90 backdrop-blur-md rounded-3xl border border-gray-200 dark:border-gray-700 shadow-lg p-6 transition-all duration-300 hover:shadow-2xl"
+      class="bg-white/90 dark:bg-gray-900 backdrop-blur-md rounded-3xl border border-gray-200 dark:border-gray-700 shadow-lg p-6 transition-all duration-300 hover:shadow-2xl"
     >
       <!-- Connected State -->
       <div v-if="account" class="space-y-6">
