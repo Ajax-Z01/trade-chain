@@ -26,7 +26,7 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <div class="space-y-2">
+  <div class="space-y-2 mb-4">
     <!-- Input file -->
     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Upload Files</label>
     <input

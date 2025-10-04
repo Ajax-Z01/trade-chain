@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { defineProps } from 'vue'
 import { CheckCircle2, XCircle } from 'lucide-vue-next'
 
 interface Props {

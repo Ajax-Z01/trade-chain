@@ -44,7 +44,7 @@ const latestContract = ref<string | null>(null)
 const paymentToken = ref<'ETH' | 'MUSDC'>('ETH')
 const backendToken = ref<'ETH' | 'MUSDC' | null>(null)
 
-const { isAdmin, isImporter, isExporter, userRole, refreshRole } = useContractRole(selectedContract)
+const { isAdmin, isImporter, isExporter, userRole, getContractRoles } = useContractRole(selectedContract)
 
 const paymentTokenValue = computed({
   get: () => backendToken.value || paymentToken.value || 'ETH',
@@ -115,19 +115,6 @@ const canCancel = computed(() => stepStatus.deploy && !stepStatus.completed && !
 const getFirstTokenIdByOwner = async (owner: `0x${string}`): Promise<bigint | null> => {
   const nfts = await getKycsByOwner(owner)
   return nfts.length ? BigInt(nfts[0]!.tokenId) : null
-}
-
-const getContractRoles = async (contract: string) => {
-  try {
-    const data = await fetchContractDetails(contract as `0x${string}`)
-    const deployLog = data.history?.find((h: any) => h.action === 'deploy')
-    return {
-      importer: deployLog?.extra?.importer || '',
-      exporter: deployLog?.extra?.exporter || ''
-    }
-  } catch {
-    return { importer: '', exporter: '' }
-  }
 }
 
 watch([selectedContract, account], async ([contract, acc]) => {
@@ -335,48 +322,13 @@ const handleRefreshContracts = async () => {
   <div class="p-6 max-w-3xl mx-auto space-y-6">
 
     <!-- Header -->
-    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-      <h1 class="text-2xl font-semibold text-gray-800 dark:text-gray-100">TradeAgreement v2</h1>
-
-      <div class="flex gap-2">
-        <!-- Primary Button: New Contract -->
-        <Button
-          class="bg-indigo-600 dark:bg-indigo-500 hover:bg-indigo-700 dark:hover:bg-indigo-600 text-white rounded py-2 px-4 flex items-center gap-2 shadow transition"
-          @click="handleNewContract"
-        >
-          <Rocket class="w-4 h-4"/>
-          New Contract
-        </Button>
-
-        <!-- Secondary Button: Refresh Data -->
-        <Button
-          class="bg-gray-600 dark:bg-gray-500 hover:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-gray-200 rounded py-2 px-4 flex items-center gap-2 shadow transition"
-          @click="handleRefreshContracts"
-        >
-          <Loader2 class="w-4 h-4"/>
-          Refresh Data
-        </Button>
-      </div>
-    </div>
+    <ContractHeader
+      @new-contract="handleNewContract"
+      @refresh="handleRefreshContracts"
+    />
 
     <!-- Role Info -->
-    <div class="mt-2 text-gray-700 dark:text-gray-300">
-      <span class="font-medium">Your Role:</span>
-      <span class="ml-2">
-        <span v-if="userRole==='admin'" class="px-2 py-1 rounded-full text-white text-xs bg-indigo-600">
-          Admin
-        </span>
-        <span v-else-if="userRole==='importer'" class="px-2 py-1 rounded-full text-white text-xs bg-blue-600">
-          Importer
-        </span>
-        <span v-else-if="userRole==='exporter'" class="px-2 py-1 rounded-full text-white text-xs bg-purple-600">
-          Exporter
-        </span>
-        <span v-else class="px-2 py-1 rounded-full text-gray-600 dark:text-gray-400 text-xs bg-gray-200 dark:bg-gray-700">
-          None
-        </span>
-      </span>
-    </div>
+    <RoleInfo :role="userRole ?? 'none'" />
 
     <!-- Stepper -->
     <ContractStepper
@@ -388,18 +340,10 @@ const handleRefreshContracts = async () => {
     />
 
     <!-- Contract Selection -->
-    <div class="space-y-2 mt-6">
-      <label class="block text-gray-700 dark:text-gray-300">
-        Select Contract
-        <select
-          v-model="selectedContract"
-          class="w-full p-3 border rounded focus:ring-2 focus:ring-indigo-400 outline-none dark:bg-gray-900 dark:text-gray-100 dark:border-gray-600"
-        >
-          <option disabled value="">-- Select Contract --</option>
-          <option v-for="c in deployedContracts" :key="c" :value="c">{{ c }}</option>
-        </select>
-      </label>
-    </div>
+    <ContractSelector
+      v-model="selectedContract"
+      :deployed-contracts="deployedContracts"
+    />
 
     <!-- Inputs Section -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-50 dark:bg-gray-900 p-4 rounded shadow mt-4">
@@ -478,7 +422,7 @@ const handleRefreshContracts = async () => {
     <!-- Action Buttons -->
     <div class="space-y-3 mt-4">
       <Button
-        :disabled="loadingButton==='deploy' || stepStatus.deploy || !canDeploy"
+        :disabled="loadingButton==='deploy' || stepStatus.deploy || !canDeploy || !isAdmin"
         class="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded py-3"
         @click="handleDeploy"
       >

@@ -34,7 +34,7 @@ const isCompleted = (idx: number) => {
   switch (idx) {
     case 0: return props.currentStage >= 0
     case 1: return props.importerSigned && props.exporterSigned
-    case 2: return props.depositDone && props.currentStage >= 4
+    case 2: return props.depositDone
     case 3: return props.currentStage >= 5
     case 4: return props.currentStage === 6
     default: return false

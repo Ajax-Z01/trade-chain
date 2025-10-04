@@ -30,10 +30,18 @@ const openViewer = (doc: DocType) => {
 </script>
 
 <template>
-  <div>
+  <div class="space-y-4">
+    <!-- Title -->
+    <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-100">Attached Documents</h3>
+
     <!-- Loading Skeleton -->
-    <div v-if="loading" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 animate-pulse">
-      <div v-for="n in 3" :key="n" class="h-32 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
+    <div v-if="loading" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div v-for="n in 3" :key="n" class="border rounded-lg p-3 animate-pulse bg-gray-100 dark:bg-gray-700">
+        <div class="h-28 w-full bg-gray-200 dark:bg-gray-600 rounded mb-2"></div>
+        <div class="h-4 bg-gray-300 dark:bg-gray-500 rounded mb-1"></div>
+        <div class="h-4 bg-gray-300 dark:bg-gray-500 rounded mb-1 w-3/4"></div>
+        <div class="h-4 bg-gray-300 dark:bg-gray-500 rounded w-1/2"></div>
+      </div>
     </div>
 
     <!-- Documents Grid -->
@@ -41,7 +49,7 @@ const openViewer = (doc: DocType) => {
       <div
         v-for="doc in documents"
         :key="doc.tokenId"
-        class="border rounded-lg p-3 flex flex-col justify-between hover:shadow-md transition bg-white dark:bg-gray-800"
+        class="border rounded-lg p-3 flex flex-col justify-between hover:shadow-lg transition bg-white dark:bg-gray-800"
       >
         <!-- Thumbnail / Icon -->
         <div
@@ -49,15 +57,17 @@ const openViewer = (doc: DocType) => {
           @click="openViewer(doc); $emit('view', doc)"
         >
           <img v-if="doc.uri.match(/\.(png|jpg|jpeg|webp)$/i)" :src="doc.uri" class="object-cover w-full h-full" />
-          <span v-else class="text-gray-400 text-3xl">📄</span>
+          <span v-else class="text-gray-400 text-4xl">📄</span>
         </div>
 
         <!-- Info -->
         <div class="flex-1 flex flex-col gap-1">
           <p class="font-medium text-gray-800 dark:text-gray-100 truncate" :title="doc.name">{{ doc.name }}</p>
-          <p class="text-xs text-gray-500 dark:text-gray-400">Type: {{ doc.docType }}</p>
+          <div class="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+            <span class="px-2 py-0.5 bg-gray-200 dark:bg-gray-700 rounded-full">{{ doc.docType }}</span>
+            <span class="truncate" :title="doc.fileHash">Hash: {{ doc.fileHash }}</span>
+          </div>
           <p class="text-xs text-gray-500 dark:text-gray-400">TokenID: {{ doc.tokenId }}</p>
-          <p class="text-xs text-gray-500 dark:text-gray-400 truncate" :title="doc.fileHash">Hash: {{ doc.fileHash }}</p>
           <p class="text-xs font-semibold">
             Status:
             <span

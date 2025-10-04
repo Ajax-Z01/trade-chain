@@ -12,7 +12,7 @@ import { useNuxtApp } from '#app'
 import { useWallet } from './useWallets'
 
 const deployedContracts = ref<`0x${string}`[]>([])
-const currentStage = ref<number>(0)
+const currentStage = ref<number>(-1)
 
 const publicClient = createPublicClient({
   chain: Chain,

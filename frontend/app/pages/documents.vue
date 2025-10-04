@@ -12,7 +12,7 @@ import DocumentViewer from '~/components/DocumentViewer.vue'
 import { useToast } from '~/composables/useToast'
 
 // Icons
-import { Loader2, FileUp } from 'lucide-vue-next'
+import { FileUp } from 'lucide-vue-next'
 
 // Composables
 const { addToast } = useToast()
@@ -36,7 +36,8 @@ const {
   userRole, 
   loadingMintersDoc, 
   fetchApprovedMintersDoc, 
-  approvedMintersDoc 
+  approvedMintersDoc ,
+  getContractRoles
 } = useContractRole(currentContract)
 
 // --- Fetch approved minters ---
@@ -73,17 +74,14 @@ const openViewer = (doc: DocType) => {
   showViewer.value = true
 }
 
-// --- Helpers ---
-const getContractRoles = async (contract: string) => {
+// --- Refresh minters ---
+const refreshMinters = async () => {
+  if (!wallets.value.length) return
+  loadingMintersDoc.value = true
   try {
-    const data = await fetchContractDetails(contract as `0x${string}`)
-    const deployLog = data.history?.find((h: any) => h.action === 'deploy')
-    return {
-      importer: deployLog?.extra?.importer || '',
-      exporter: deployLog?.extra?.exporter || ''
-    }
-  } catch {
-    return { importer: '', exporter: '' }
+    await fetchApprovedMintersDoc(wallets.value.map(w => w.address))
+  } finally {
+    loadingMintersDoc.value = false
   }
 }
 
@@ -101,7 +99,6 @@ watch([currentContract, account], async ([contract, acc]) => {
   loadingDocs.value = true
 
   try {
-    const roles = await getContractRoles(contract)
     userIsMinter.value = await isMinter(acc as `0x${string}`) || false
     documents.value = await getDocumentsByContract(contract)
   } catch (err: any) {
@@ -200,6 +197,7 @@ const handleAddMinter = async () => {
   try {
     await addMinter(minterAddress.value as `0x${string}`)
     minterAddress.value = ''
+    await refreshMinters()
   } finally {
     addingMinter.value = false
   }
@@ -211,6 +209,7 @@ const handleRemoveMinter = async () => {
   try {
     await removeMinter(minterAddress.value as `0x${string}`)
     minterAddress.value = ''
+    await refreshMinters()
   } finally {
     removingMinter.value = false
   }
@@ -257,7 +256,7 @@ const handleRevoke = async (doc: DocType) => {
       <FileUp class="w-6 h-6 text-indigo-600 dark:text-indigo-400" /> Attach & Mint Document
     </h2>
 
-    <ContractSelector
+    <ContractSelectorDocument
       v-model="currentContract"
       :user-role="userRole"
       :user-is-minter="userIsMinter"
@@ -266,30 +265,32 @@ const handleRevoke = async (doc: DocType) => {
 
     <DocumentTypeSelector v-model="docType" />
 
-    <FileUploadList
-      :files="selectedFiles"
-      :file-progresses="fileProgresses"
-      @remove="removeFile"
-      @change="onFilesChange"
-    />
+    <div v-if="currentContract">
+      <FileUploadList
+        :files="selectedFiles"
+        :file-progresses="fileProgresses"
+        @remove="removeFile"
+        @change="onFilesChange"
+      />
 
-    <div class="mt-4 flex justify-center">
-      <button 
-        @click="handleAttachAndMint" 
-        :disabled="!selectedFiles.length || minting" 
-        class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-500 disabled:opacity-50"
-      >
-        {{ minting ? 'Minting...' : 'Attach & Mint Documents' }}
-      </button>
+      <div v-if="selectedFiles.length" class="my-4 flex justify-center">
+        <button 
+          @click="handleAttachAndMint" 
+          :disabled="!selectedFiles.length || minting" 
+          class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-500 disabled:opacity-50"
+        >
+          {{ minting ? 'Minting...' : 'Attach & Mint Documents' }}
+        </button>
+      </div>
+
+      <AttachedDocumentsGrid
+        :documents="documents"
+        @view="openViewer"
+        @review="handleReview"
+        @sign="handleSign"
+        @revoke="handleRevoke"
+      />
     </div>
-
-    <AttachedDocumentsGrid
-      :documents="documents"
-      @view="openViewer"
-      @review="handleReview"
-      @sign="handleSign"
-      @revoke="handleRevoke"
-    />
 
     <DocumentViewer
       v-if="selectedDocSrc"
