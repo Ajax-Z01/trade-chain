@@ -5,8 +5,8 @@ import { useWallet } from '~/composables/useWallets'
 import { useToast } from '~/composables/useToast'
 import { Plus, Edit, Trash2, Eye } from 'lucide-vue-next'
 
-import CompanyFormModal from '~/components/CompanyFormModal.vue'
-import CompanyDetailModal from '~/components/CompanyDetailModal.vue'
+import CompanyFormModal from '~/components/company/CompanyFormModal.vue'
+import CompanyDetailModal from '~/components/company/CompanyDetailModal.vue'
 
 const { account } = useWallet()
 const { companies, fetchCompanies, createCompany, updateCompany, deleteCompany, loading } = useCompany()

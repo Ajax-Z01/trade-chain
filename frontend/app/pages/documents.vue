@@ -8,8 +8,14 @@ import { useContractActions } from '~/composables/useContractActions'
 import { useContractRole } from '~/composables/useContractRole'
 import { useDashboard } from '~/composables/useDashboard'
 import type { Document as DocType } from '~/types/Document'
-import DocumentViewer from '~/components/DocumentViewer.vue'
 import { useToast } from '~/composables/useToast'
+
+// Components
+import ContractSelectorDocument from '~/components/document/ContractSelectorDocument.vue'
+import DocumentTypeSelector from '~/components/document/DocumentTypeSelector.vue'
+import FileUploadList from '~/components/document/FileUploadList.vue'
+import AttachedDocumentsGrid from '~/components/document/AttachedDocumentsGrid.vue'
+import DocumentViewer from '~/components/document/DocumentViewer.vue'
 
 // Icons
 import { FileUp } from 'lucide-vue-next'

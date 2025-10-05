@@ -9,6 +9,14 @@ import { useDashboard } from '~/composables/useDashboard'
 import { useToast } from '~/composables/useToast'
 import type { KYC } from '~/types/Kyc'
 
+// Components
+import WalletInfo from '~/components/kyc/WalletInfo.vue'
+import FileUploadMint from '~/components/kyc/FileUploadMint.vue'
+import UserKycs from '~/components/kyc/UserKycs.vue'
+import QuickCheckNFT from '~/components/kyc/QuickCheckNFT.vue'
+import LifecycleActions from '~/components/kyc/LifecycleActions.vue'
+import FeedbackMessage from '~/components/kyc/FeedbackMessage.vue'
+
 // Lucide icons
 import { FileUp } from 'lucide-vue-next'
 
@@ -133,6 +141,7 @@ const verifyAndMint = async () => {
     })
 
     success.value = `Document minted and saved! Token ID: ${mintedId}`
+    window.dispatchEvent(new Event('kyc-minted'))
     addToast('Document minted and saved! Token ID: ${mintedId}', 'success')
   } catch (err: any) {
     console.error(err)
@@ -141,7 +150,6 @@ const verifyAndMint = async () => {
   }
 }
 
-// --- LIFECYCLE ACTIONS ---
 // --- LIFECYCLE ACTIONS ---
 const handleReview = async () => {
   if (!tokenId.value) return
