@@ -2,6 +2,7 @@ import { createPublicClient, http } from 'viem'
 import tradeAgreementArtifact from '../../../artifacts/contracts/TradeAgreement.sol/TradeAgreement.json'
 import factoryArtifact from '../../../artifacts/contracts/TradeAgreementFactory.sol/TradeAgreementFactory.json'
 import { Chain } from '../config/chain'
+import { useApi } from '~/composables/useApi'
 
 // --- Client setup ---
 const publicClient = createPublicClient({
@@ -13,13 +14,25 @@ const factoryAddress = '0xe7f1725e7734ce288f8367e1bb143e90bb3f0512' as `0x${stri
 const factoryAbiFull = factoryArtifact.abi
 const tradeAgreementAbi = tradeAgreementArtifact.abi
 
+// --- Utility parsers ---
+function parseHex(val: any) {
+  return String(val).toLowerCase()
+}
+
+function parseBigInt(val: any) {
+  try {
+    return BigInt(val)
+  } catch {
+    return BigInt(0)
+  }
+}
+
 // --- Wallet logs ---
 export async function getWalletLogs() {
-  const { $apiBase } = useNuxtApp()
+  const { request } = useApi()
   try {
-    const res = await fetch(`${$apiBase}/wallet/logs`)
-    if (!res.ok) return []
-    return await res.json()
+    const data = await request<any[]>('/wallet/logs')
+    return data
   } catch (err) {
     console.error('Error fetching wallet logs:', err)
     return []
@@ -28,17 +41,14 @@ export async function getWalletLogs() {
 
 // --- Get all contracts ---
 export async function getContractLogs() {
-  const { $apiBase } = useNuxtApp()
+  const { request } = useApi()
   let backendLogs: any[] = []
   let chainContracts: `0x${string}`[] = []
 
   // Backend logs
   try {
-    const res = await fetch(`${$apiBase}/contract/`)
-    if (res.ok) {
-      const data = await res.json()
-      backendLogs = Array.isArray(data) ? data : []
-    }
+    const data = await request<any[]>('/contract/')
+    backendLogs = Array.isArray(data) ? data : []
   } catch (err) {
     console.error('Error fetching backend contract logs:', err)
   }
@@ -60,7 +70,7 @@ export async function getContractLogs() {
 
 // --- Get contract logs by address ---
 export async function getContractLogsByAddress(contractAddress: `0x${string}`) {
-  const { $apiBase } = useNuxtApp()
+  const { request } = useApi()
   let backendLogs: any[] = []
   let chainState: any = {}
 
@@ -68,21 +78,17 @@ export async function getContractLogsByAddress(contractAddress: `0x${string}`) {
 
   // --- Backend logs ---
   try {
-    const res = await fetch(`${$apiBase}/contract/${contractAddress}/details`)
-    if (res.ok) {
-      const data = await res.json()
-      backendLogs = Array.isArray(data.history)
-        ? data.history.map((log: any) => ({
-            ...log,
-            contractAddress: parseHex(data.contractAddress),
-            requiredAmount: log.extra?.requiredAmount
-              ? parseBigInt(log.extra.requiredAmount)
-              : undefined,
-            account: parseHex(log.account),
-          }))
-        : []
-      console.log(`Backend logs for ${contractAddress}:`, backendLogs)
-    }
+    const data = await request<any>(`/contract/${contractAddress}/details`)
+    backendLogs = Array.isArray(data.history)
+      ? data.history.map((log: any) => ({
+          ...log,
+          contractAddress: parseHex(data.contractAddress),
+          requiredAmount: log.extra?.requiredAmount
+            ? parseBigInt(log.extra.requiredAmount)
+            : undefined,
+          account: parseHex(log.account),
+        }))
+      : []
   } catch (err) {
     console.error(`Error fetching backend logs for ${contractAddress}:`, err)
   }
@@ -112,7 +118,6 @@ export async function getContractLogsByAddress(contractAddress: `0x${string}`) {
       exporter: parseHex(exporter),
       requiredAmount: parseBigInt(requiredAmount),
     }
-    console.log(`Chain state for ${contractAddress}:`, chainState)
   } catch (err) {
     console.error(`Error fetching chain state for ${contractAddress}:`, err)
   }

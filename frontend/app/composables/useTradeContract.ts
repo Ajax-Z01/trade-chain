@@ -132,7 +132,7 @@ export function useTradeContract() {
 
     try {
       const data = await fetchContractDetails(contract as `0x${string}`)
-      const deployLog = data.history?.find((h: any) => h.action === 'deploy')
+      const deployLog = data?.history?.find((h: any) => h.action === 'deploy')
       if (deployLog) {
         backendImporter.value = deployLog.extra?.importer || ''
         backendExporter.value = deployLog.extra?.exporter || ''

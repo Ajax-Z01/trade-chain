@@ -1,21 +1,15 @@
 import { reactive, ref, onMounted } from 'vue'
-import { getContractLogs, getContractLogsByAddress } from '~/composables/useLogs'
-import type { ContractLogEntry, ContractLogPayload } from '~/types/Contract'
+import { useApi } from './useApi'
+import type { ContractLogEntry, ContractLogPayload, ContractState } from '~/types/Contract'
 
 export function useContractLogs() {
   const logs = ref<string[]>([])
   const backendLogs = ref<Record<string, ContractLogEntry[]>>({})
   const loading = ref(true)
 
-  interface ContractState {
-    isOpen: boolean
-    history: ContractLogEntry[]
-    loading: boolean
-    finished: boolean
-    lastTimestamp?: number
-  }
-
   const contractStates = reactive<Record<string, ContractState>>({})
+
+  const { request } = useApi()
 
   const getContractState = (contract: string) => {
     if (!contractStates[contract]) {
@@ -30,17 +24,17 @@ export function useContractLogs() {
     return contractStates[contract]
   }
 
-  /** Fetch contracts dari chain + backend */
+  /** Fetch semua deployed contracts dari backend */
   const fetchContracts = async () => {
     loading.value = true
     try {
-      const { chainContracts, backendLogs: backend } = await getContractLogs()
-      logs.value = chainContracts
+      const data = await request<{ chainContracts: string[]; backendLogs: ContractLogEntry[] }>('/contract')
+      logs.value = data.chainContracts
       logs.value.forEach(c => getContractState(c))
 
-      // map backend logs per contract
-      backend.forEach((log: any) => {
-        const addr = log.contractAddress as string
+      data.backendLogs.forEach(log => {
+        const addr = log.contractAddress
+        if (!addr) return
         backendLogs.value[addr] = backendLogs.value[addr] || []
         backendLogs.value[addr].push(log)
       })
@@ -51,18 +45,17 @@ export function useContractLogs() {
     }
   }
 
-  /** Fetch logs contract dari backend + chain */
+  /** Fetch logs backend per contract */
   const fetchContractLogs = async (contract: string) => {
     const state = getContractState(contract)
     if (state.loading || state.finished) return
 
     state.loading = true
     try {
-      const { backendLogs: backend } = await getContractLogsByAddress(contract as `0x${string}`)
+      const data = await request<{ backendLogs: ContractLogEntry[] }>(`contract/${contract}/details`)
+      const backend = data.backendLogs
 
-      if (backend.length === 0) {
-        state.finished = true
-      }
+      if (backend.length === 0) state.finished = true
 
       state.history.push(...backend)
       if (backend.length > 0) state.lastTimestamp = backend[backend.length - 1]?.timestamp ?? state.lastTimestamp
@@ -76,14 +69,15 @@ export function useContractLogs() {
   /** Add log baru ke backend */
   const addContractLog = async (contract: string, log: ContractLogPayload) => {
     try {
-      const { $apiBase } = useNuxtApp()
-      const payload = { ...log, timestamp: Date.now(), account: log.account, address: contract }
-      const res = await fetch(`${$apiBase}/contract/log`, {
+      const payload: ContractLogPayload & { timestamp: number; address: string } = {
+        ...log,
+        timestamp: Date.now(),
+        address: contract,
+      }
+      const data = await request<ContractLogEntry>('/contract/log', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       })
-      const data: ContractLogEntry = await res.json()
       getContractState(contract).history.unshift(data)
       return data
     } catch (err) {
@@ -92,6 +86,7 @@ export function useContractLogs() {
     }
   }
 
+  /** Toggle contract open/close dan fetch logs jika kosong */
   const toggleContract = async (contract: string) => {
     const state = getContractState(contract)
     state.isOpen = !state.isOpen
@@ -101,6 +96,7 @@ export function useContractLogs() {
     }
   }
 
+  /** Refresh logs contract */
   const refreshContractLogs = (contract: string) => {
     const state = getContractState(contract)
     state.history = []

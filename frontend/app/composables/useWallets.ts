@@ -1,13 +1,13 @@
-import { useRuntimeConfig } from '#app'
 import { ref, readonly, onMounted } from 'vue'
-import { Chain } from '~/config/chain'
 import { getAddress } from 'ethers'
+import { Chain } from '~/config/chain'
+import { useUsers } from './useUsers'
+import { useApi } from './useApi'
 import type { WalletLog } from '~/types/Wallet'
 
 const account = ref<string | null>(null)
 const walletClient = ref<any>(null)
 const listenersAttached = ref(false)
-
 let addActivityLog: ((account: string, log: any) => Promise<any>) | undefined
 
 async function initActivityLogs() {
@@ -17,21 +17,33 @@ async function initActivityLogs() {
   }
 }
 
+const handleAccountsChanged = (accounts: string[]) => {
+  account.value = accounts.length > 0 ? getAddress(accounts[0] as string) : null
+}
+
 async function initWallet() {
+  const { walletConnect } = useUsers()
+  
+  if (typeof window === 'undefined') return
   if (!window.ethereum) return
   await initActivityLogs()
 
   try {
     const accounts: string[] = await window.ethereum.request({ method: 'eth_accounts' })
-    if (accounts.length > 0) {
-      account.value = getAddress(accounts[0] as string)
-      if (!walletClient.value) {
-        const { createWalletClient, custom } = await import('viem')
-        walletClient.value = createWalletClient({
-          transport: custom(window.ethereum),
-          chain: Chain,
-        })
-      }
+    if (accounts.length > 0) account.value = getAddress(accounts[0] as string)
+
+    // --- Token handling ---
+    const token = localStorage.getItem('token')
+    if (account.value && !token) {
+      await walletConnect(account.value)
+    }
+
+    if (!walletClient.value && account.value) {
+      const { createWalletClient, custom } = await import('viem')
+      walletClient.value = createWalletClient({
+        transport: custom(window.ethereum),
+        chain: Chain,
+      })
     }
   } catch (err) {
     console.warn('Failed to check wallet accounts', err)
@@ -43,115 +55,90 @@ async function initWallet() {
   }
 }
 
-export async function connectWallet() {
-  const config = useRuntimeConfig()
-  const $apiBase = config.public.apiBase
-  await initActivityLogs()
-
-  if (!window.ethereum) throw new Error('MetaMask not installed')
-
-  const accounts: string[] = await window.ethereum.request({ method: 'eth_requestAccounts' })
-  account.value = accounts.length > 0 ? getAddress(accounts[0] as string) : null
-
-  if (!walletClient.value) {
-    const { createWalletClient, custom } = await import('viem')
-    walletClient.value = createWalletClient({
-      transport: custom(window.ethereum),
-      chain: Chain,
-    })
-  }
-
-  if (!listenersAttached.value) {
-    window.ethereum.on('accountsChanged', handleAccountsChanged)
-    listenersAttached.value = true
-  }
-
-  if (account.value) {
-    try {
-      await addActivityLog?.(account.value, {
-        type: 'backend',
-        action: 'walletConnect',
-        tags: ['wallet', 'connect'],
-      })
-    } catch (err) {
-      console.warn('Failed to log wallet connect (activity)', err)
-    }
-
-    try {
-      await fetch(`${$apiBase}/wallet/log-login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ account: account.value }),
-      })
-    } catch (err) {
-      console.warn('Failed to log wallet connect (wallet)', err)
-    }
-  }
-
-  return account.value
-}
-
-export async function disconnectWallet() {
-  const config = useRuntimeConfig()
-  const $apiBase = config.public.apiBase
-  await initActivityLogs()
-
-  if (account.value) {
-    try {
-      await addActivityLog?.(account.value, {
-        type: 'backend',
-        action: 'walletDisconnect',
-        tags: ['wallet', 'disconnect'],
-      })
-    } catch (err) {
-      console.warn('Failed to log wallet disconnect (activity)', err)
-    }
-
-    try {
-      await fetch(`${$apiBase}/wallet/log-disconnect`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ account: account.value }),
-      })
-    } catch (err) {
-      console.warn('Failed to log wallet disconnect (wallet)', err)
-    }
-  }
-
-  account.value = null
-  walletClient.value = null
-}
-
-// Fetch all wallet logs for an account
-export async function fetchAllWalletLogs(): Promise<WalletLog[]> {
-  const config = useRuntimeConfig()
-  const $apiBase = config.public.apiBase
-
-  try {
-    const res = await fetch(`${$apiBase}/wallet/logs`)
-    const data: WalletLog[] = await res.json() || []
-
-    return data
-      .map((log, idx) => ({ ...log, timestamp: Number(log.timestamp), _idx: idx }))
-      .sort((a, b) => b.timestamp - a.timestamp || b._idx - a._idx)
-  } catch (err) {
-    console.warn('Failed to fetch wallet logs', err)
-    return []
-  }
-}
-
-const handleAccountsChanged = (accounts: string[]) => {
-  account.value = accounts.length > 0 ? getAddress(accounts[0] as string) : null
-}
-
 export function useWallet() {
+  const { request } = useApi()
+  const { walletConnect, setCurrentUser, currentUser } = useUsers()
+
   onMounted(() => {
     initWallet()
   })
 
+  async function connectWallet(): Promise<string | null> {
+    if (typeof window === 'undefined') return null
+    if (!window.ethereum) throw new Error('MetaMask not installed')
+    await initActivityLogs()
+
+    const accounts: string[] = await window.ethereum.request({ method: 'eth_requestAccounts' })
+    account.value = accounts.length > 0 ? getAddress(accounts[0] as string) : null
+
+    if (!walletClient.value && account.value) {
+      const { createWalletClient, custom } = await import('viem')
+      walletClient.value = createWalletClient({
+        transport: custom(window.ethereum),
+        chain: Chain,
+      })
+    }
+
+    if (!listenersAttached.value) {
+      window.ethereum.on('accountsChanged', handleAccountsChanged)
+      listenersAttached.value = true
+    }
+
+    if (account.value) {
+      await walletConnect(account.value).catch(err => console.warn('walletConnect failed:', err))
+      await addActivityLog?.(account.value, {
+        type: 'backend',
+        action: 'walletConnect',
+        tags: ['wallet', 'connect'],
+      }).catch(err => console.warn('Activity log failed:', err))
+      await request('/wallet/log-login', {
+        method: 'POST',
+        body: JSON.stringify({ account: account.value }),
+      }).catch(err => console.warn('Wallet log-login failed:', err))
+    }
+
+    return account.value
+  }
+
+  async function disconnectWallet() {
+    if (!account.value) return
+    await initActivityLogs()
+
+    // Log activity disconnect
+    await addActivityLog?.(account.value, {
+      type: 'backend',
+      action: 'walletDisconnect',
+      tags: ['wallet', 'disconnect'],
+    }).catch(err => console.warn('Activity log failed:', err))
+
+    await request('/wallet/log-disconnect', {
+      method: 'POST',
+      body: JSON.stringify({ account: account.value }),
+    }).catch(err => console.warn('Wallet log-disconnect failed:', err))
+
+    // --- Reset state ---
+    account.value = null
+    walletClient.value = null
+    localStorage.removeItem('token')
+    setCurrentUser(null)
+  }
+
+  async function fetchAllWalletLogs(): Promise<WalletLog[]> {
+    try {
+      const data: WalletLog[] = await request('/wallet/logs')
+      return data
+        .map((log, idx) => ({ ...log, timestamp: Number(log.timestamp), _idx: idx }))
+        .sort((a, b) => b.timestamp - a.timestamp || b._idx - a._idx)
+    } catch (err) {
+      console.warn('Failed to fetch wallet logs:', err)
+      return []
+    }
+  }
+
   return {
     account: readonly(account),
     walletClient,
+    currentUser,
     connectWallet,
     disconnectWallet,
     fetchAllWalletLogs,

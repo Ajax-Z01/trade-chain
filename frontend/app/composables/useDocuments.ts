@@ -1,16 +1,13 @@
-// composables/useDocuments.ts
-import { useRuntimeConfig } from "#app"
 import { useActivityLogs } from "~/composables/useActivityLogs"
+import { useApi } from "./useApi"
 import type { Document, DocumentLogEntry } from "~/types/Document"
 
-// --- Safe parsers ---
 function safeParseDate(value: unknown): number {
   if (typeof value === "number") return value
   if (typeof value === "string") return Number(value) || Date.now()
   return Date.now()
 }
 
-// --- Parse raw Document from backend ---
 function parseDocument(d: any): Document {
   return {
     tokenId: Number(d?.tokenId) ?? 0,
@@ -30,7 +27,6 @@ function parseDocument(d: any): Document {
   }
 }
 
-// --- Parse raw DocumentLogEntry ---
 function parseDocumentLog(d: any): DocumentLogEntry {
   return {
     action: d.action,
@@ -44,18 +40,13 @@ function parseDocumentLog(d: any): DocumentLogEntry {
   }
 }
 
-// --- Composable ---
 export function useDocuments() {
-  const config = useRuntimeConfig()
-  const $apiBase = config.public.apiBase
+  const { request } = useApi()
   const { addActivityLog } = useActivityLogs()
 
-  // --- Queries ---
   const getAllDocuments = async (): Promise<Document[]> => {
     try {
-      const res = await fetch(`${$apiBase}/document`)
-      if (!res.ok) return []
-      const data = await res.json()
+      const data = await request<{ data: Document[] }>("/document")
       return Array.isArray(data.data) ? data.data.map(parseDocument) : []
     } catch (err) {
       console.error("[getAllDocuments] Error:", err)
@@ -65,9 +56,7 @@ export function useDocuments() {
 
   const getDocumentById = async (tokenId: number): Promise<Document | null> => {
     try {
-      const res = await fetch(`${$apiBase}/document/${tokenId}`)
-      if (!res.ok) return null
-      const data = await res.json()
+      const data = await request<{ data: Document }>(`/document/${tokenId}`)
       return data?.data ? parseDocument(data.data) : null
     } catch (err) {
       console.error(`[getDocumentById] Error ${tokenId}:`, err)
@@ -77,9 +66,7 @@ export function useDocuments() {
 
   const getDocumentsByOwner = async (owner: string): Promise<Document[]> => {
     try {
-      const res = await fetch(`${$apiBase}/document/owner/${owner}`)
-      if (!res.ok) return []
-      const data = await res.json()
+      const data = await request<{ data: Document[] }>(`/document/owner/${owner}`)
       return Array.isArray(data.data) ? data.data.map(parseDocument) : []
     } catch (err) {
       console.error(`[getDocumentsByOwner] Error ${owner}:`, err)
@@ -89,9 +76,7 @@ export function useDocuments() {
 
   const getDocumentsByContract = async (contractAddr: string): Promise<Document[]> => {
     try {
-      const res = await fetch(`${$apiBase}/document/contract/${contractAddr}`)
-      if (!res.ok) return []
-      const data = await res.json()
+      const data = await request<{ data: Document[] }>(`/document/contract/${contractAddr}`)
       return Array.isArray(data.data) ? data.data.map(parseDocument) : []
     } catch (err) {
       console.error(`[getDocumentsByContract] Error ${contractAddr}:`, err)
@@ -101,9 +86,9 @@ export function useDocuments() {
 
   const getDocumentLogs = async (tokenId: number): Promise<DocumentLogEntry[]> => {
     try {
-      const res = await fetch(`${$apiBase}/document/${tokenId}/logs`)
-      if (!res.ok) return []
-      const data = await res.json()
+      const data = await request<{ data: { history: DocumentLogEntry[] } }>(
+        `/document/${tokenId}/logs`
+      )
       const history = data?.data?.history
       return Array.isArray(history) ? history.map(parseDocumentLog) : []
     } catch (err) {
@@ -112,20 +97,17 @@ export function useDocuments() {
     }
   }
 
-  // --- Mutations ---
   const attachDocument = async (
     contractAddr: string,
     payload: Partial<Document>,
     account: string,
     txHash?: string
-  ) => {
-    const res = await fetch(`${$apiBase}/document/contract/${contractAddr}/docs`, {
+  ): Promise<Document> => {
+    const data = await request<{ data: Document }>(`/document/contract/${contractAddr}/docs`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...payload, action: "mintDocument", signer: account, txHash }),
     })
-    if (!res.ok) throw new Error("Failed to attach document")
-    const data = await res.json()
+
     const doc = parseDocument(data.data)
 
     await addActivityLog(doc.owner, {
@@ -155,33 +137,29 @@ export function useDocuments() {
     txHash,
     action = "updateDocument",
     status,
-  }: UpdateDocumentArgs) => {
-    const res = await fetch(`${$apiBase}/document/${tokenId}`, {
+  }: UpdateDocumentArgs): Promise<Document> => {
+    const data = await request<{ data: Document }>(`/document/${tokenId}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...payload, action, account, txHash, status }),
     })
-    if (!res.ok) throw new Error("Failed to update document")
-    const data = await res.json()
+
     const doc = parseDocument(data.data)
-    
+
     await addActivityLog(account, {
       type: "backend",
       action: `Update Document ${tokenId}`,
       extra: { tokenId },
-      tags: ["document", "update", action, status || ''],
+      tags: ["document", "update", action, status || ""],
     })
+
     return doc
   }
 
-  const deleteDocument = async (tokenId: number, account: string, txHash?: string) => {
-    const res = await fetch(`${$apiBase}/document/${tokenId}`, {
+  const deleteDocument = async (tokenId: number, account: string, txHash?: string): Promise<boolean> => {
+    const data = await request<{ success: boolean }>(`/document/${tokenId}`, {
       method: "DELETE",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "revokeDocument", account, txHash }),
     })
-    if (!res.ok) throw new Error("Failed to delete document")
-    const data = await res.json()
 
     await addActivityLog(account, {
       type: "backend",

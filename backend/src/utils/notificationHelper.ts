@@ -18,26 +18,25 @@ export async function notifyWithAdmins(
   payload: NotifyPayload,
   adminList: string[] = ["0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"]
 ) {
-  const normalizedExecutor = executor.toLowerCase()
-  const normalizedAdmins = adminList.map(a => a.toLowerCase())
-
-  const recipients = Array.from(new Set([...normalizedAdmins, normalizedExecutor]))
+  const normalizedAdmins = adminList
+    .map(a => a.toLowerCase())
+    .filter(a => a !== executor.toLowerCase())
 
   const validTypes: NotificationType[] = ["kyc", "document", "transaction", "system", "agreement"]
   const type: NotificationType = validTypes.includes(payload.type as any)
     ? (payload.type as NotificationType)
     : "system"
 
-  for (const user of recipients) {
+  for (const admin of new Set(normalizedAdmins)) {
     const notif = await NotificationService.notify(
-      user,
-      normalizedExecutor,
+      admin,
+      executor,
       type,
       payload.title,
       payload.message,
       { txHash: payload.txHash, data: payload.data }
     )
-    broadcastNotificationToUser(user, notif)
+    broadcastNotificationToUser(admin, notif)
   }
 }
 

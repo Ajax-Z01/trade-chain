@@ -19,3 +19,21 @@ export interface ContractLogs {
 }
 
 export type ContractLogPayload = Omit<ContractLogEntry, 'timestamp'>
+
+export interface ContractState {
+  isOpen: boolean
+  history: ContractLogEntry[]
+  loading: boolean
+  finished: boolean
+  lastTimestamp?: number
+}
+
+export interface ContractDetails {
+  id: string
+  contractAddress: `0x${string}`
+  importer: string
+  exporter: string
+  amount: string
+  logs?: any
+  [key: string]: any
+}

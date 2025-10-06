@@ -1,6 +1,7 @@
 import { ref, computed, onBeforeUnmount } from 'vue'
 import { useRuntimeConfig } from '#app'
 import type { Notification } from '@/types/Notification'
+import { useApi } from '~/composables/useApi'
 
 // --- Global state ---
 const _notifications = ref<Notification[]>([])
@@ -10,8 +11,8 @@ const _wsMap = new Map<string, WebSocket>()
 
 export function useNotification(userId?: string) {
   const config = useRuntimeConfig()
-  const $apiBase = config.public.apiBase
   const $wsBase = config.public.wsBase
+  const { request } = useApi()
 
   // --- Computed ---
   const notifications = computed(() => _notifications.value)
@@ -39,6 +40,7 @@ export function useNotification(userId?: string) {
     }
   }
 
+  // --- Fetch notifications ---
   const fetchNotificationsByUser = async (uid?: string) => {
     const id = uid || userId
     if (!id) return
@@ -46,9 +48,7 @@ export function useNotification(userId?: string) {
     _error.value = null
 
     try {
-      const res = await fetch(`${$apiBase}/notification/user/${id.toLowerCase()}`)
-      if (!res.ok) throw new Error('Failed to fetch')
-      const data = await res.json()
+      const data = await request<{ data: Notification[] }>(`/notification/user/${id.toLowerCase()}`)
       _notifications.value = data.data ?? []
       initWebSocket(id)
     } catch (err: any) {
@@ -60,8 +60,7 @@ export function useNotification(userId?: string) {
 
   const markAsRead = async (id: string) => {
     try {
-      const res = await fetch(`${$apiBase}/notification/${id}/read`, { method: 'PATCH' })
-      if (!res.ok) throw new Error('Failed mark')
+      await request(`/notification/${id}/read`, { method: 'PATCH' })
       const idx = _notifications.value.findIndex(n => n.id === id)
       if (idx !== -1) _notifications.value[idx]!.read = true
     } catch (err: any) {
@@ -71,8 +70,7 @@ export function useNotification(userId?: string) {
 
   const deleteNotification = async (id: string) => {
     try {
-      const res = await fetch(`${$apiBase}/notification/${id}`, { method: 'DELETE' })
-      if (!res.ok) throw new Error('Failed delete')
+      await request(`/notification/${id}`, { method: 'DELETE' })
       _notifications.value = _notifications.value.filter(n => n.id !== id)
     } catch (err: any) {
       console.error('Failed to delete notification', err)

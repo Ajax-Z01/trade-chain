@@ -7,6 +7,7 @@ import { useActivityLogs } from '~/composables/useActivityLogs'
 import { useDocuments } from './useDocuments'
 import { useStorage } from '~/composables/useStorage'
 import type { MintResult } from '~/types/Mint'
+import type { DocumentStatus } from '~/types/Document'
 
 const { abi } = documentRegistryArtifact
 const documentRegistryAddress = '0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0' as `0x${string}`
@@ -31,7 +32,7 @@ export function useRegistryDocument() {
     fnName: string,
     args: any[] = [],
     updatePayload: Record<string, any> = {},
-    status?: string,
+    status?: DocumentStatus,
     skipBackend = false,
   ) {
     if (!walletClient.value || !account.value) throw new Error('Wallet not connected')
@@ -81,7 +82,7 @@ export function useRegistryDocument() {
           account: account.value,
           txHash,
           action,
-          status: updatePayload.status,
+          status: status,
         })
       }
 

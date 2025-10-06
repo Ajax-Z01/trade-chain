@@ -254,6 +254,10 @@ const handleRevoke = async (doc: DocType) => {
     addToast(err.message || 'Failed to revoke on-chain', 'error')
   }
 }
+
+const canAttachAndMint = computed(() => {
+  return currentContract.value && account.value && (isImporter.value || isExporter.value)
+})
 </script>
 
 <template>
@@ -271,7 +275,7 @@ const handleRevoke = async (doc: DocType) => {
 
     <DocumentTypeSelector v-model="docType" />
 
-    <div v-if="currentContract">
+    <div v-if="canAttachAndMint">
       <FileUploadList
         :files="selectedFiles"
         :file-progresses="fileProgresses"
@@ -282,21 +286,20 @@ const handleRevoke = async (doc: DocType) => {
       <div v-if="selectedFiles.length" class="my-4 flex justify-center">
         <button 
           @click="handleAttachAndMint" 
-          :disabled="!selectedFiles.length || minting" 
+          :disabled="!selectedFiles.length || minting || !canAttachAndMint" 
           class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-500 disabled:opacity-50"
         >
           {{ minting ? 'Minting...' : 'Attach & Mint Documents' }}
         </button>
       </div>
-
-      <AttachedDocumentsGrid
-        :documents="documents"
-        @view="openViewer"
-        @review="handleReview"
-        @sign="handleSign"
-        @revoke="handleRevoke"
-      />
     </div>
+    <AttachedDocumentsGrid
+      :documents="documents"
+      @view="openViewer"
+      @review="handleReview"
+      @sign="handleSign"
+      @revoke="handleRevoke"
+    />
 
     <DocumentViewer
       v-if="selectedDocSrc"

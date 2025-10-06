@@ -1,34 +1,8 @@
 import { ref, reactive } from 'vue'
-import { useNuxtApp } from '#app'
+import { useApi } from './useApi'
+import type { ActivityItem, AggregatedFilters, FetchActivitiesResult } from '~/types/AggregatedActivity'
 
 export function useAggregatedActivity() {
-  // --- Types ---
-  interface ActivityItem {
-    id: string
-    timestamp: number
-    type: string
-    action: string
-    account: string
-    txHash?: string
-    contractAddress?: string
-    tags: string[]
-    extra?: Record<string, any>
-    onChainInfo?: Record<string, any>
-  }
-
-  interface AggregatedFilters {
-    account?: string | null
-    txHash?: string | null
-    contractAddress?: string | null
-    tags?: string[]
-    limit?: number
-  }
-
-  interface FetchActivitiesResult {
-    data: ActivityItem[]
-    nextStartAfterTimestamp: number | null
-  }
-
   // --- State ---
   const activities = ref<ActivityItem[]>([])
   const loading = ref(false)
@@ -44,8 +18,8 @@ export function useAggregatedActivity() {
     limit: 20,
   })
 
-  const { $apiBase } = useNuxtApp()
-  
+  const { request } = useApi()
+
   const normalizeActivity = (item: any): ActivityItem => {
     return {
       id: item.id || item.txHash || String(item.timestamp),
@@ -72,22 +46,19 @@ export function useAggregatedActivity() {
 
     try {
       const combinedFilters = { ...filters, ...customFilters }
-
       const queryParams: Record<string, string> = {}
+
       Object.entries(combinedFilters).forEach(([key, value]) => {
         if (value === null || value === '' || (Array.isArray(value) && value.length === 0)) return
         queryParams[key] = Array.isArray(value) ? value.join(',') : String(value)
       })
 
       if (startAfterTimestamp) queryParams['startAfterTimestamp'] = String(startAfterTimestamp)
-
       const query = new URLSearchParams(queryParams).toString()
-      const res = await fetch(`${$apiBase}/aggregated?${query}`)
-      if (!res.ok) throw new Error(await res.text())
 
-      const resJson = (await res.json()) as FetchActivitiesResult
-      const { data, nextStartAfterTimestamp } = resJson
-      
+      const res = await request<FetchActivitiesResult>(`/aggregated?${query}`)
+      const { data, nextStartAfterTimestamp } = res
+
       const normalizedData = data.map(normalizeActivity)
 
       if (startAfterTimestamp) {
@@ -101,7 +72,7 @@ export function useAggregatedActivity() {
 
       return { data, nextStartAfterTimestamp }
     } catch (err: any) {
-      error.value = err.message
+      error.value = err.message ?? String(err)
       console.error('Error fetching aggregated activities:', err)
       return { data: [], nextStartAfterTimestamp: null }
     } finally {
@@ -114,12 +85,10 @@ export function useAggregatedActivity() {
     loading.value = true
     error.value = null
     try {
-      const res = await fetch(`${$apiBase}/aggregated/${id}`)
-      if (!res.ok) throw new Error(await res.text())
-      const data = (await res.json()) as ActivityItem
+      const data = await request<ActivityItem>(`/aggregated/${id}`)
       return { ...data, tags: data.tags || [] }
     } catch (err: any) {
-      error.value = err.message
+      error.value = err.message ?? String(err)
       console.error('Error fetching activity by ID:', err)
       return null
     } finally {
@@ -131,12 +100,10 @@ export function useAggregatedActivity() {
   const addTag = async (id: string, tag: string) => {
     if (!tag) return
     try {
-      const res = await fetch(`${$apiBase}/aggregated/${id}/tag`, {
+      await request(`/aggregated/${id}/tag`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tag }),
       })
-      if (!res.ok) throw new Error(await res.text())
 
       const activity = activities.value.find(a => a.id === id)
       if (activity) {
@@ -153,10 +120,7 @@ export function useAggregatedActivity() {
   const removeTag = async (id: string, tag: string) => {
     if (!tag) return
     try {
-      const res = await fetch(`${$apiBase}/aggregated/${id}/tag?tag=${encodeURIComponent(tag)}`, {
-        method: 'DELETE',
-      })
-      if (!res.ok) throw new Error(await res.text())
+      await request(`/aggregated/${id}/tag?tag=${encodeURIComponent(tag)}`, { method: 'DELETE' })
 
       const activity = activities.value.find(a => a.id === id)
       if (activity && activity.tags) {

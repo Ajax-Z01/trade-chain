@@ -1,7 +1,8 @@
 import { ref, computed, watch, type Ref } from 'vue'
 import { useWallet } from '~/composables/useWallets'
 import { useRegistryDocument } from './useRegistryDocument'
-import { useContractActions } from '~/composables/useContractActions'
+import { useApi } from './useApi'
+import type { ContractDetails, ContractLogPayload } from '~/types/Contract'
 
 /**
  * Contract-based role helper (untuk importer/exporter + document minters)
@@ -9,8 +10,8 @@ import { useContractActions } from '~/composables/useContractActions'
  */
 export function useContractRole(selectedContract: Ref<string | null>) {
   const { account } = useWallet()
-  const { fetchContractDetails } = useContractActions()
   const { isMinter: isDocMinter } = useRegistryDocument()
+  const { request } = useApi()
 
   const adminAddress = ref<`0x${string}`>('0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266')
   const isAdmin = computed(() => account.value === adminAddress.value)
@@ -27,26 +28,29 @@ export function useContractRole(selectedContract: Ref<string | null>) {
   })
 
   // ---------------- Contract roles ----------------
-  const getContractRoles = async (contract: string) => {
+  const getContractRoles = async (contractAddress: string) => {
     try {
-      const data = await fetchContractDetails(contract as `0x${string}`)
-      const deployLog = data.history?.find((h: any) => h.action === 'deploy')
+      const data = await request<ContractDetails>(`/contract/${contractAddress}/details`)
+      const deployLog = data.history?.find((h: ContractLogPayload) => h.action === 'deploy')
       return {
         importer: deployLog?.extra?.importer || '',
         exporter: deployLog?.extra?.exporter || ''
       }
-    } catch {
+    } catch (err) {
+      console.error('[getContractRoles] Failed:', err)
       return { importer: '', exporter: '' }
     }
   }
 
   const refreshRole = async () => {
     if (!selectedContract.value || !account.value) return
+
     if (isAdmin.value) {
       isImporter.value = false
       isExporter.value = false
       return
     }
+
     const roles = await getContractRoles(selectedContract.value)
     isImporter.value = account.value === roles.importer
     isExporter.value = account.value === roles.exporter
@@ -60,6 +64,7 @@ export function useContractRole(selectedContract: Ref<string | null>) {
       return
     }
     if (!contract) return
+
     const roles = await getContractRoles(contract)
     isImporter.value = acc === roles.importer
     isExporter.value = acc === roles.exporter
@@ -68,6 +73,7 @@ export function useContractRole(selectedContract: Ref<string | null>) {
   // ---------------- Approved Document Minters ----------------
   const approvedMintersDoc = ref<string[]>([])
   const loadingMintersDoc = ref(false)
+
   const fetchApprovedMintersDoc = async (addresses: `0x${string}`[]) => {
     loadingMintersDoc.value = true
     try {

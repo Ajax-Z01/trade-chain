@@ -1,9 +1,9 @@
 import { reactive, readonly } from 'vue'
-import { useRuntimeConfig } from '#app'
+import { useApi } from './useApi'
 import type { ActivityLog, ActivityState } from '~/types/Activity'
 
 export function useActivityLogs() {
-  const config = useRuntimeConfig()
+  const { request } = useApi()
   const activityStates = reactive<Record<string, ActivityState>>({})
 
   /** Ambil atau buat state untuk account */
@@ -34,16 +34,15 @@ export function useActivityLogs() {
       if (state.lastTimestamp) params.append('startAfterTimestamp', state.lastTimestamp.toString())
       if (options?.txHash) params.append('txHash', options.txHash)
 
-      const res = await fetch(`${config.public.apiBase}/activity/${account}?${params.toString()}`)
-      const json = await res.json()
-      const data: ActivityLog[] = Array.isArray(json.data) ? json.data : []
+      const res = await request<{ data: ActivityLog[] }>(`/activity/${account}?${params.toString()}`)
+      const data: ActivityLog[] = res.data ?? []
 
       if (data.length < (options?.limit || 20)) state.finished = true
 
       state.logs.push(...data)
       if (data.length > 0) state.lastTimestamp = data[data.length - 1]?.timestamp ?? state.lastTimestamp
-    } catch (err) {
-      console.error(`Failed to fetch activity logs for ${account}:`, err)
+    } catch (err: any) {
+      console.error(`Failed to fetch activity logs for ${account}:`, err.message ?? err)
     } finally {
       state.loading = false
     }
@@ -55,24 +54,22 @@ export function useActivityLogs() {
     log: Omit<ActivityLog, 'timestamp' | 'account'> & { tags?: string[] }
   ): Promise<ActivityLog> => {
     try {
-      // Serialize BigInt to string
+      // Serialize BigInt ke string jika ada
       const safePayload = JSON.parse(JSON.stringify({ ...log, account }, (_, value) =>
         typeof value === 'bigint' ? value.toString() : value
       ))
 
-      console.log('Adding activity log:', safePayload)
-      const res = await fetch(`${config.public.apiBase}/activity`, {
+      const res = await request<{ data: ActivityLog }>('/activity', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(safePayload),
       })
-      const data: ActivityLog = await res.json()
+      const data = res.data
 
       // update state frontend
       getActivityState(account).logs.unshift(data)
       return data
-    } catch (err) {
-      console.error('Failed to add activity log:', err)
+    } catch (err: any) {
+      console.error('Failed to add activity log:', err.message ?? err)
       throw err
     }
   }
