@@ -1,18 +1,20 @@
 export type UserRole = 'admin' | 'user'
 
+export type KYCStatus = 'pending' | 'approved' | 'rejected'
+
+export interface UserMetadata {
+  name?: string
+  email?: string
+  kycStatus?: KYCStatus
+  [key: string]: unknown
+}
+
 export interface User {
   address: string
   role: UserRole
   createdAt: number
   lastLoginAt: number
   metadata?: UserMetadata
-}
-
-export interface UserMetadata {
-  name?: string
-  email?: string
-  kycStatus?: 'pending' | 'approved' | 'rejected'
-  [key: string]: any
 }
 
 export interface CreateUserDTO {

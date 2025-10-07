@@ -1,6 +1,6 @@
 import type { Request, Response } from "express"
 import UserDTO from "../dtos/UserDTO.js"
-import { UserModel } from "../models/UserModel.js"
+import { UserModel } from "../models/userModel.js"
 import type { User } from '../types/User.js'
 import type { AuthRequest } from '../middlewares/authMiddleware.js'
 import jwt from 'jsonwebtoken'

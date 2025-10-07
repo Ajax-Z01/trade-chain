@@ -6,7 +6,7 @@ import {
   getUserHandler,
   updateUserHandler,
   deleteUserHandler,
-} from "../controllers/UserController.js"
+} from "../controllers/userController.js"
 import { authMiddleware } from "../middlewares/authMiddleware.js"
 import { adminMiddleware } from "../middlewares/adminMiddleware.js"
 
@@ -19,15 +19,15 @@ router.post("/wallet-connect", walletConnectHandler)
 router.get("/me", authMiddleware, getCurrentUserHandler)
 
 // --- Get All Users (Admin only) ---
-router.get("/", adminMiddleware, getAllUsersHandler)
+router.get("/", authMiddleware, adminMiddleware, getAllUsersHandler)
 
 // --- Get Single User ---
 router.get("/:address", getUserHandler)
 
 // --- Update User (Admin only) ---
-router.patch("/:address", adminMiddleware, updateUserHandler)
+router.patch("/:address", authMiddleware, adminMiddleware, updateUserHandler)
 
 // --- Delete User (Admin only) ---
-router.delete("/:address", adminMiddleware, deleteUserHandler)
+router.delete("/:address", authMiddleware, adminMiddleware, deleteUserHandler)
 
 export default router

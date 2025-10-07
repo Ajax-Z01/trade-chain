@@ -32,6 +32,10 @@ export const logWalletDisconnect = async (req: Request, res: Response) => {
     dto.validate();
 
     await createWalletLog(dto);
+
+    // --- Hapus cookie ---
+    res.setHeader('Set-Cookie', 'token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; Secure');
+
     res.json({ success: true, log: dto.toJSON() });
   } catch (err) {
     res.status(500).json({ error: (err as Error).message });

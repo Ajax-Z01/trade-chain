@@ -1,42 +1,24 @@
-import { ref, readonly, onMounted, type Ref } from 'vue'
-import { useApi } from './useApi'
-import type { User, UpdateUserDTO } from '~/types/User'
+import { defineStore } from 'pinia'
+import { ref, readonly } from 'vue'
+import { useApi } from '~/composables/useApi'
 import { useActivityLogs } from '~/composables/useActivityLogs'
 import { useCookie } from '#app'
+import type { User, UpdateUserDTO } from '~/types/User'
 
-// --- Singleton global state ---
-const users = ref<User[]>([])
-const loading = ref(false)
-let globalCurrentUser: Ref<User | null> | null = null
-let _fetchingCurrentUser = false
+export const useUserStore = defineStore('user', () => {
+  const users = ref<User[]>([])
+  const loading = ref(false)
+  const currentUser = ref<User | null>(null)
+  const _fetchingCurrentUser = ref(false)
 
-function setCurrentUser(user: User | null) {
-  if (globalCurrentUser) globalCurrentUser.value = user
-}
-
-export function resetCurrentUser() {
-  if (globalCurrentUser) globalCurrentUser.value = null
-  _fetchingCurrentUser = false
-
-  const tokenCookie = useCookie('token')
-  tokenCookie.value = null
-  if (typeof window !== 'undefined') localStorage.removeItem('token')
-}
-
-export function useUsers(ssrUser?: User | null) {
   const { request } = useApi()
   const { addActivityLog } = useActivityLogs()
-
-  // --- Init singleton currentUser ---
-  if (!globalCurrentUser) globalCurrentUser = ref<User | null>(ssrUser || null)
-  const currentUser = globalCurrentUser
-
   const tokenCookie = useCookie('token')
 
   // --- Fetch current user ---
   async function fetchCurrentUser(): Promise<User | null> {
-    if (_fetchingCurrentUser) return currentUser.value
-    _fetchingCurrentUser = true
+    if (_fetchingCurrentUser.value) return currentUser.value
+    _fetchingCurrentUser.value = true
 
     try {
       if (!tokenCookie.value) {
@@ -55,11 +37,11 @@ export function useUsers(ssrUser?: User | null) {
       currentUser.value = null
       return null
     } finally {
-      _fetchingCurrentUser = false
+      _fetchingCurrentUser.value = false
     }
   }
 
-  // --- Wallet connect / auto-register ---
+  // --- Wallet connect ---
   async function walletConnect(address: string): Promise<User | null> {
     try {
       const res = await request<{ data: User; token: string }>('/user/wallet-connect', {
@@ -80,7 +62,15 @@ export function useUsers(ssrUser?: User | null) {
     }
   }
 
-  // --- Fetch all users (admin only) ---
+  // --- Reset current user ---
+  function resetCurrentUser() {
+    currentUser.value = null
+    _fetchingCurrentUser.value = false
+    tokenCookie.value = null
+    if (typeof window !== 'undefined') localStorage.removeItem('token')
+  }
+
+  // --- Admin: fetch all users ---
   async function fetchAll(): Promise<User[]> {
     loading.value = true
     try {
@@ -109,7 +99,6 @@ export function useUsers(ssrUser?: User | null) {
     }
   }
 
-  // --- Update user ---
   async function update(address: string, payload: UpdateUserDTO): Promise<User | null> {
     try {
       const data = await request<{ data: User }>(`/user/${address}`, {
@@ -133,13 +122,13 @@ export function useUsers(ssrUser?: User | null) {
     }
   }
 
-  // --- Delete user ---
   async function remove(address: string): Promise<boolean> {
     try {
       await request(`/user/${address}`, {
         method: 'DELETE',
         headers: tokenCookie.value ? { Authorization: `Bearer ${tokenCookie.value}` } : {},
       })
+
       users.value = users.value.filter(u => u.address !== address)
 
       await addActivityLog(address, {
@@ -155,22 +144,16 @@ export function useUsers(ssrUser?: User | null) {
     }
   }
 
-  // --- Auto-fetch current user (client-side) ---
-  if (typeof window !== 'undefined') {
-    onMounted(() => fetchCurrentUser().catch(() => null))
-  }
-
   return {
     users: readonly(users),
     loading: readonly(loading),
     currentUser: readonly(currentUser),
-    setCurrentUser,
-    resetCurrentUser,
     fetchCurrentUser,
     walletConnect,
+    resetCurrentUser,
     fetchAll,
     fetchByAddress,
     update,
     remove,
   }
-}
+})

@@ -1,9 +1,9 @@
 import { ref, readonly, onMounted } from 'vue'
 import { getAddress } from 'ethers'
 import { Chain } from '~/config/chain'
-import { useUsers } from './useUsers'
 import { useApi } from './useApi'
 import type { WalletLog } from '~/types/Wallet'
+import { useUserStore } from '~/stores/userStore'
 
 const account = ref<string | null>(null)
 const walletClient = ref<any>(null)
@@ -21,9 +21,7 @@ const handleAccountsChanged = (accounts: string[]) => {
   account.value = accounts.length > 0 ? getAddress(accounts[0] as string) : null
 }
 
-async function initWallet() {
-  const { walletConnect } = useUsers()
-  
+async function initWallet(userStore: ReturnType<typeof useUserStore>) {
   if (typeof window === 'undefined') return
   if (!window.ethereum) return
   await initActivityLogs()
@@ -35,7 +33,7 @@ async function initWallet() {
     // --- Token handling ---
     const token = localStorage.getItem('token')
     if (account.value && !token) {
-      await walletConnect(account.value)
+      await userStore.walletConnect(account.value)
     }
 
     if (!walletClient.value && account.value) {
@@ -57,10 +55,10 @@ async function initWallet() {
 
 export function useWallet() {
   const { request } = useApi()
-  const { walletConnect, setCurrentUser, currentUser } = useUsers()
+  const userStore = useUserStore()
 
   onMounted(() => {
-    initWallet()
+    initWallet(userStore)
   })
 
   async function connectWallet(): Promise<string | null> {
@@ -85,7 +83,7 @@ export function useWallet() {
     }
 
     if (account.value) {
-      await walletConnect(account.value).catch(err => console.warn('walletConnect failed:', err))
+      await userStore.walletConnect(account.value).catch(err => console.warn('walletConnect failed:', err))
       await addActivityLog?.(account.value, {
         type: 'backend',
         action: 'walletConnect',
@@ -119,8 +117,7 @@ export function useWallet() {
     // --- Reset state ---
     account.value = null
     walletClient.value = null
-    localStorage.removeItem('token')
-    setCurrentUser(null)
+    userStore.resetCurrentUser() // <-- Pinia store reset
   }
 
   async function fetchAllWalletLogs(): Promise<WalletLog[]> {
@@ -138,7 +135,7 @@ export function useWallet() {
   return {
     account: readonly(account),
     walletClient,
-    currentUser,
+    currentUser: userStore.currentUser,
     connectWallet,
     disconnectWallet,
     fetchAllWalletLogs,
