@@ -99,6 +99,7 @@ export const useUserStore = defineStore('user', () => {
     }
   }
 
+  // --- Admin: update any user ---
   async function update(address: string, payload: UpdateUserDTO): Promise<User | null> {
     try {
       const data = await request<{ data: User }>(`/user/${address}`, {
@@ -118,6 +119,36 @@ export const useUserStore = defineStore('user', () => {
       return data.data
     } catch (err: any) {
       console.warn(`Failed update user ${address}:`, err.message)
+      return null
+    }
+  }
+
+  // --- User: update own profile ---
+  async function updateMe(payload: Partial<UpdateUserDTO>): Promise<User | null> {
+    if (!currentUser.value) {
+      console.warn('No current user for updateMe')
+      return null
+    }
+
+    try {
+      const data = await request<{ data: User }>('/user/update/me', {
+        method: 'PATCH',
+        body: JSON.stringify(payload),
+        headers: tokenCookie.value ? { Authorization: `Bearer ${tokenCookie.value}` } : {},
+      })
+
+      currentUser.value = data.data
+
+      await addActivityLog(currentUser.value.address, {
+        type: 'backend',
+        action: `Update own profile`,
+        extra: { ...payload },
+        tags: ['user', 'update-me'],
+      })
+
+      return currentUser.value
+    } catch (err: any) {
+      console.warn('Failed updateMe:', err.message)
       return null
     }
   }
@@ -154,6 +185,7 @@ export const useUserStore = defineStore('user', () => {
     fetchAll,
     fetchByAddress,
     update,
+    updateMe,
     remove,
   }
 })

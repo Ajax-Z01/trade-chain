@@ -5,6 +5,7 @@ import {
   getAllUsersHandler,
   getUserHandler,
   updateUserHandler,
+  updateMeHandler,
   deleteUserHandler,
 } from "../controllers/userController.js"
 import { authMiddleware } from "../middlewares/authMiddleware.js"
@@ -23,6 +24,9 @@ router.get("/", authMiddleware, adminMiddleware, getAllUsersHandler)
 
 // --- Get Single User ---
 router.get("/:address", getUserHandler)
+
+// --- Update Current User ---
+router.patch("/update/me", authMiddleware, updateMeHandler)
 
 // --- Update User (Admin only) ---
 router.patch("/:address", authMiddleware, adminMiddleware, updateUserHandler)

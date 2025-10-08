@@ -1,20 +1,26 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useUserStore } from '~/stores/userStore'
 import { useToast } from '~/composables/useToast'
 import { Edit, Trash2, Loader2 } from 'lucide-vue-next'
 import type { User } from '~/types/User'
 
+// --- Store & Toast ---
 const userStore = useUserStore()
 const { addToast } = useToast()
 
+// --- Reactive states ---
 const editingUser = ref<User | null>(null)
 const editedName = ref('')
 const showEditModal = ref(false)
-
 const saving = ref(false)
 const deleting = ref<string | null>(null)
 
+// --- Destructure readonly store props ---
+const users = computed(() => userStore.users)
+const loading = computed(() => userStore.loading)
+
+// --- Modal handlers ---
 const openEditModal = (user: User) => {
   editingUser.value = { ...user }
   editedName.value = user.metadata?.name ?? ''
@@ -28,15 +34,14 @@ const closeEditModal = () => {
   showEditModal.value = false
 }
 
+// --- Delete handler ---
 const handleDelete = async (address: string) => {
   if (!confirm('Are you sure you want to delete this user?')) return
   deleting.value = address
   const ok = await userStore.remove(address)
   if (ok) {
     addToast('User deleted successfully', 'success')
-    if (editingUser.value?.address === address) {
-      closeEditModal()
-    }
+    if (editingUser.value?.address === address) closeEditModal()
     await userStore.fetchAll()
   } else {
     addToast('Failed to delete user', 'error')
@@ -44,12 +49,14 @@ const handleDelete = async (address: string) => {
   deleting.value = null
 }
 
+// --- Save handler (Admin update) ---
 const handleSave = async () => {
   if (!editingUser.value) return
   saving.value = true
-  const updated = await userStore.update(editingUser.value.address, {
-    metadata: { ...editingUser.value.metadata, name: editedName.value }
-  })
+
+  const payload = { metadata: { ...editingUser.value.metadata, name: editedName.value } }
+
+  const updated = await userStore.update(editingUser.value.address, payload)
   saving.value = false
 
   if (updated) {
@@ -61,6 +68,7 @@ const handleSave = async () => {
   }
 }
 
+// --- Fetch all users on mount ---
 onMounted(() => {
   userStore.fetchAll()
 })

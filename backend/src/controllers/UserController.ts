@@ -62,11 +62,32 @@ export async function getUserHandler(req: Request, res: Response) {
 export async function updateUserHandler(req: Request, res: Response) {
   try {
     const { address } = req.params
-    const dto = req.body // bisa juga pakai Zod / UserDTO khusus update
+    const dto = req.body
     const user = await UserModel.update(address, dto)
     if (!user) return res.status(404).json({ success: false, message: "User not found" })
 
     res.json({ success: true, data: user })
+  } catch (err: any) {
+    res.status(400).json({ success: false, message: err.message })
+  }
+}
+
+// --- Update current user's own profile ---
+export async function updateMeHandler(req: AuthRequest, res: Response) {
+  try {
+    const user = req.user
+    if (!user) return res.status(401).json({ success: false, message: 'Unauthorized' })
+
+    const { metadata } = req.body
+
+    if (!metadata || typeof metadata !== 'object') {
+      return res.status(400).json({ success: false, message: 'Invalid payload' })
+    }
+
+    const updated = await UserModel.update(user.address, { metadata })
+    if (!updated) return res.status(404).json({ success: false, message: 'User not found' })
+
+    res.json({ success: true, data: updated })
   } catch (err: any) {
     res.status(400).json({ success: false, message: err.message })
   }

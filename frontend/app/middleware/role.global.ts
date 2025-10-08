@@ -7,7 +7,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
     await userStore.fetchCurrentUser?.().catch(() => null)
   }
 
-  const publicRoutes = ['/wallets', '/forbidden', '/login']
+  const publicRoutes = ['/wallets', '/forbidden', '/']
   if (publicRoutes.includes(to.path)) return
 
   if (!userStore.currentUser) {
