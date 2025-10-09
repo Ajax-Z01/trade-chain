@@ -4,16 +4,20 @@ import {
   logContractAction,
   getContractDetails,
   getContractStep,
+  getUserContracts,
 } from '../controllers/contractController.js';
+import { authMiddleware } from "../middlewares/authMiddleware.js"
 
 const router = Router();
 
-router.get('/', fetchDeployedContracts);
+router.get('/', authMiddleware, fetchDeployedContracts);
 
-router.post('/log', logContractAction);
+router.post('/log', authMiddleware, logContractAction);
 
-router.get('/:address/details', getContractDetails);
+router.get('/:address/details', authMiddleware, getContractDetails);
 
-router.get('/:address/step', getContractStep);
+router.get('/my', authMiddleware, getUserContracts);
+
+router.get('/:address/step', authMiddleware, getContractStep);
 
 export default router;

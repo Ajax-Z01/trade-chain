@@ -1,24 +1,13 @@
 import { Router } from 'express';
 import { createActivity, getActivities, getActivityByAccountController } from '../controllers/activityController.js';
+import { authMiddleware } from "../middlewares/authMiddleware.js"
 
 const router = Router();
 
-/**
- * Tambah activity log
- * POST /activity
- */
-router.post('/', createActivity);
+router.post('/', authMiddleware, createActivity);
 
-/**
- * Ambil semua activity log
- * GET /activity?account=0x123&txHash=0xabc
- */
-router.get('/', getActivities);
+router.get('/', authMiddleware, getActivities);
 
-/**
- * Ambil activity log per account
- * GET /activity/:account
- */
-router.get('/:account', getActivityByAccountController);
+router.get('/:account', authMiddleware, getActivityByAccountController);
 
 export default router;

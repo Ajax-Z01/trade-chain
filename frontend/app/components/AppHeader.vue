@@ -52,7 +52,8 @@ const markNotifAsRead = async (id: string) => await markAsRead(id)
 /* 🔗 Role-based Nav Links */
 const navLinks = [
   { to: '/wallets', label: 'Wallets', roles: ['admin', 'user', 'guest'] },
-  { to: '/contracts', label: 'Contracts', roles: ['admin', 'user'] },
+  { to: '/admin/contracts', label: 'Contracts', roles: ['admin'] },
+  { to: '/dashboard/contracts', label: 'Contracts', roles: ['user'] },
   { to: '/documents', label: 'Documents', roles: ['admin', 'user'] },
   { to: '/kyc', label: 'KYC', roles: ['admin', 'user'] },
   { to: '/faucet', label: 'Faucet', roles: ['admin', 'user'] },

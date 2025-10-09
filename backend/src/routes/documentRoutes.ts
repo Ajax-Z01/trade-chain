@@ -9,31 +9,32 @@ import {
   deleteDocumentController,
   getAllDocuments,
 } from "../controllers/documentController.js"
+import { authMiddleware } from "../middlewares/authMiddleware.js"
 
 const router = Router()
 
 // --- POST /contract/:addr/docs
-router.post("/contract/:addr/docs", attachDocument)
+router.post("/contract/:addr/docs", authMiddleware, attachDocument)
 
 // --- GET /documents
-router.get("/", getAllDocuments)
+router.get("/", authMiddleware, getAllDocuments)
 
 // --- GET documents by owner
-router.get("/owner/:owner", getDocumentsOwner)
+router.get("/owner/:owner", authMiddleware, getDocumentsOwner)
 
 // --- GET documents by contract
-router.get("/contract/:addr", getDocumentsContract)
+router.get("/contract/:addr", authMiddleware, getDocumentsContract)
 
 // --- GET single document by tokenId
-router.get("/:tokenId", getDocument)
+router.get("/:tokenId", authMiddleware, getDocument)
 
 // --- GET document logs by tokenId
-router.get("/:tokenId/logs", getDocumentLogsController)
+router.get("/:tokenId/logs", authMiddleware, getDocumentLogsController)
 
 // --- PATCH /documents/:tokenId
-router.patch("/:tokenId", updateDocumentController)
+router.patch("/:tokenId", authMiddleware, updateDocumentController)
 
 // --- DELETE /documents/:tokenId
-router.delete("/:tokenId", deleteDocumentController)
+router.delete("/:tokenId", authMiddleware, deleteDocumentController)
 
 export default router

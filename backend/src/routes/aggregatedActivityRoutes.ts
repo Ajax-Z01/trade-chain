@@ -6,40 +6,19 @@ import {
   addAggregatedTag,
   removeAggregatedTag,
 } from '../controllers/aggregatedActivityController.js'
+import { authMiddleware } from "../middlewares/authMiddleware.js"
+import { adminMiddleware } from "../middlewares/adminMiddleware.js"
 
 const router = Router()
 
-/**
- * @route POST /aggregated
- * @desc Tambah aggregated activity log
- */
-router.post('/', addAggregatedActivity)
+router.post('/', authMiddleware, addAggregatedActivity)
 
-/**
- * @route GET /aggregated/:id
- * @desc Ambil aggregated activity log by ID
- */
-router.get('/:id', getAggregatedActivityById)
+router.get('/:id', authMiddleware, adminMiddleware, getAggregatedActivityById)
 
-/**
- * @route GET /aggregated
- * @desc Ambil semua aggregated activity log, dengan filter & pagination
- * query params: account, txHash, contractAddress, tags, limit, startAfterTimestamp
- */
-router.get('/', getAggregatedActivities)
+router.get('/', authMiddleware, adminMiddleware, getAggregatedActivities)
 
-/**
- * @route POST /aggregated/:id/tag
- * @desc Tambah tag ke aggregated log
- * body: { tag: string }
- */
-router.post('/:id/tag', addAggregatedTag)
+router.post('/:id/tag', authMiddleware, adminMiddleware, addAggregatedTag)
 
-/**
- * @route DELETE /aggregated/:id/tag
- * @desc Hapus tag dari aggregated log
- * query: ?tag=someTag
- */
-router.delete('/:id/tag', removeAggregatedTag)
+router.delete('/:id/tag', authMiddleware, adminMiddleware, removeAggregatedTag)
 
 export default router

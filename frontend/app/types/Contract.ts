@@ -26,6 +26,7 @@ export interface ContractState {
   loading: boolean
   finished: boolean
   lastTimestamp?: number
+  role?: 'Importer' | 'Exporter' | 'Guest'
 }
 
 export interface ContractDetails {
@@ -36,4 +37,10 @@ export interface ContractDetails {
   amount: string
   logs?: any
   [key: string]: any
+}
+
+export interface MyContractData {
+  contractAddress: string
+  history: ContractLogEntry[]
+  role?: 'Importer' | 'Exporter' | 'Guest'
 }

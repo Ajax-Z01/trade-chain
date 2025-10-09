@@ -19,6 +19,7 @@ export function useContractLogs() {
         loading: false,
         finished: false,
         lastTimestamp: undefined,
+        role: 'Guest',
       }
     }
     return contractStates[contract]
@@ -28,15 +29,23 @@ export function useContractLogs() {
   const fetchContracts = async () => {
     loading.value = true
     try {
-      const data = await request<{ chainContracts: string[]; backendLogs: ContractLogEntry[] }>('/contract')
-      logs.value = data.chainContracts
-      logs.value.forEach(c => getContractState(c))
+      // Response type sesuai backend
+      const res = await request<{ chainContracts: string[]; backendLogs: ContractLogEntry[] }>('/contract')
+      const chainContracts = res.chainContracts ?? []
+      const backend = res.backendLogs ?? []
 
-      data.backendLogs.forEach(log => {
+      logs.value = chainContracts
+      logs.value.forEach((c: string) => getContractState(c))
+
+      backend.forEach((log: ContractLogEntry) => {
         const addr = log.contractAddress
         if (!addr) return
         backendLogs.value[addr] = backendLogs.value[addr] || []
         backendLogs.value[addr].push(log)
+
+        const state = getContractState(addr)
+        state.history = backendLogs.value[addr]
+        state.lastTimestamp = backendLogs.value[addr][backendLogs.value[addr].length - 1]?.timestamp
       })
     } catch (err) {
       console.error('Failed to fetch contracts:', err)
@@ -52,13 +61,23 @@ export function useContractLogs() {
 
     state.loading = true
     try {
-      const data = await request<{ backendLogs: ContractLogEntry[] }>(`contract/${contract}/details`)
-      const backend = data.backendLogs
+      // Sesuaikan tipe response dengan backend
+      const res = await request<{ contractAddress: string; history: ContractLogEntry[] }>(`/contract/${contract}/details`)
+      const backend: ContractLogEntry[] = res.history ?? []
 
-      if (backend.length === 0) state.finished = true
+      console.log(`Fetched contract logs for ${contract}:`, res)
 
+      const lastAction = state.history[state.history.length - 1]?.action.toLowerCase()
+      if (['complete'].includes(lastAction as string)) {
+        state.finished = true
+      }
+
+      // update state dan backendLogs
       state.history.push(...backend)
-      if (backend.length > 0) state.lastTimestamp = backend[backend.length - 1]?.timestamp ?? state.lastTimestamp
+      if (backend.length > 0) {
+        state.lastTimestamp = backend[backend.length - 1]?.timestamp
+      }
+      backendLogs.value[contract] = state.history
     } catch (err) {
       console.error(`Failed to fetch contract logs for ${contract}:`, err)
     } finally {
@@ -74,11 +93,15 @@ export function useContractLogs() {
         timestamp: Date.now(),
         address: contract,
       }
-      const data = await request<ContractLogEntry>('/contract/log', {
+      const res = await request<ContractLogEntry>('/contract/log', {
         method: 'POST',
         body: JSON.stringify(payload),
       })
-      getContractState(contract).history.unshift(data)
+      const data: ContractLogEntry = res // sesuai tipe request
+
+      const state = getContractState(contract)
+      state.history.unshift(data)
+      backendLogs.value[contract] = state.history
       return data
     } catch (err) {
       console.error('Failed to add contract log:', err)

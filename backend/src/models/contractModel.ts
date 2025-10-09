@@ -81,6 +81,26 @@ export const getContractById = async (address: string) => {
   return doc.exists ? doc.data() : null
 }
 
+export const getContractsByUser = async (address: string) => {
+  const snapshot = await db.collection('contractLogs').get()
+  const contracts: Array<ContractLogs & { role: 'Exporter' | 'Importer' | 'Guest' }> = []
+
+  for (const doc of snapshot.docs) {
+    const data = doc.data() as ContractLogs
+    const roles = await getContractRoles(doc.id)
+
+    if (roles.exporter === address) {
+      contracts.push({ ...data, role: 'Exporter' })
+    } else if (roles.importer === address) {
+      contracts.push({ ...data, role: 'Importer' })
+    } else {
+      contracts.push({ ...data, role: 'Guest' })
+    }
+  }
+
+  return contracts
+}
+
 export const getContractStepStatus = async (contractAddress: string) => {
   const doc = await collection.doc(contractAddress).get()
   if (!doc.exists) return null

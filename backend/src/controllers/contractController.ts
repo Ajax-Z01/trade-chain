@@ -2,7 +2,8 @@ import { Request, Response } from 'express';
 import { createPublicClient, http } from 'viem';
 import { Chain } from '../config/chain.js';
 import ContractLogDTO from '../dtos/contractDTO.js';
-import { addContractLog, getAllContracts, getContractById, getContractStepStatus } from '../models/contractModel.js';
+import { addContractLog, getAllContracts, getContractById, getContractsByUser, getContractStepStatus } from '../models/contractModel.js';
+import type { AuthRequest } from '../middlewares/authMiddleware.js';
 
 // Public client untuk query blockchain
 const publicClient = createPublicClient({
@@ -112,3 +113,18 @@ export const getContractStep = async (req: Request, res: Response) => {
     res.status(500).json({ error: (err as Error).message });
   }
 };
+
+// GET /contracts/my
+export const getUserContracts = async (req: AuthRequest, res: Response) => {
+  try {
+    const user = req.user
+    if (!user) return res.status(401).json({ error: 'Unauthorized' })
+
+    const contracts = await getContractsByUser(user.address)
+
+    res.json({ success: true, data: contracts })
+  } catch (err) {
+    console.error('getUserContracts error:', err)
+    res.status(500).json({ error: (err as Error).message })
+  }
+}

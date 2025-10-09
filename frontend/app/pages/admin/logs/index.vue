@@ -13,12 +13,12 @@ interface LogCard {
 }
 
 const logCards = ref<LogCard[]>([
-  { title: 'Wallet Logs', description: 'View all wallet activity', icon: Wallet, link: '/logs/wallet', color: 'indigo-600' },
-  { title: 'Contract Logs', description: 'View deployed contract activity', icon: FileText, link: '/logs/contract', color: 'green-600' },
-  { title: 'Activity Logs', description: 'Detailed activity logs', icon: Activity, link: '/logs/activity', color: 'orange-600' },
-  { title: 'Aggregated Activity Logs', description: 'Summary of all activities', icon: Activity, link: '/logs/aggregatedactivity', color: 'purple-600' },
-  { title: 'KYC Logs', description: 'User KYC verification logs', icon: User, link: '/logs/kyc', color: 'teal-600' },
-  { title: 'Document Logs', description: 'Uploaded document activity', icon: FileText, link: '/logs/document', color: 'pink-600' },
+  { title: 'Wallet Logs', description: 'View all wallet activity', icon: Wallet, link: '/admin/logs/wallet', color: 'indigo-600' },
+  { title: 'Contract Logs', description: 'View deployed contract activity', icon: FileText, link: '/admin/logs/contract', color: 'green-600' },
+  { title: 'Activity Logs', description: 'Detailed activity logs', icon: Activity, link: '/admin/logs/activity', color: 'orange-600' },
+  { title: 'Aggregated Activity Logs', description: 'Summary of all activities', icon: Activity, link: '/admin/logs/aggregatedactivity', color: 'purple-600' },
+  { title: 'KYC Logs', description: 'User KYC verification logs', icon: User, link: '/admin/logs/kyc', color: 'teal-600' },
+  { title: 'Document Logs', description: 'Uploaded document activity', icon: FileText, link: '/admin/logs/document', color: 'pink-600' },
 ])
 </script>
 

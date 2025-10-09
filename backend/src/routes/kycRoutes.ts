@@ -8,28 +8,29 @@ import {
   deleteKYC,
   getKYCLogs,
 } from "../controllers/kycController.js"
+import { authMiddleware } from "../middlewares/authMiddleware.js"
 
 const router = Router()
 
 // --- Create new KYC ---
-router.post("/", createKYC)
+router.post("/", authMiddleware, createKYC)
 
 // --- Get all KYCs ---
-router.get("/", getAllKYCs)
+router.get("/", authMiddleware, getAllKYCs)
 
 // --- Get KYC by tokenId ---
-router.get("/:tokenId", getKYCById)
+router.get("/:tokenId", authMiddleware, getKYCById)
 
 // --- Get KYCs by owner ---
-router.get("/owner/:owner", getKYCsByOwner)
+router.get("/owner/:owner", authMiddleware, getKYCsByOwner)
 
 // --- Update KYC ---
-router.patch("/:tokenId", updateKYC)
+router.patch("/:tokenId", authMiddleware, updateKYC)
 
 // --- Delete KYC ---
-router.delete("/:tokenId", deleteKYC)
+router.delete("/:tokenId", authMiddleware, deleteKYC)
 
 // --- Get KYC Logs ---
-router.get("/:tokenId/logs", getKYCLogs)
+router.get("/:tokenId/logs", authMiddleware, getKYCLogs)
 
 export default router
