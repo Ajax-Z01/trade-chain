@@ -1,9 +1,19 @@
 <script setup lang="ts">
-import { Rocket, Loader2, Check, X, PenTool, DollarSign, Truck, CheckCircle2, Ban } from 'lucide-vue-next'
+import {
+  Rocket,
+  Loader2,
+  Check,
+  X,
+  PenTool,
+  DollarSign,
+  Truck,
+  CheckCircle2,
+  Ban
+} from 'lucide-vue-next'
 import Button from '~/components/ui/Button.vue'
 
 interface Props {
-  loading: 'deploy'|'deposit'|'sign'|'shipping'|'completed'|'cancel'|null
+  loading: 'deploy' | 'deposit' | 'sign' | 'shipping' | 'completed' | 'cancel' | null
   stepStatus: {
     deploy: boolean
     deposit: boolean
@@ -14,14 +24,14 @@ interface Props {
   }
   signCompleted: boolean
   isAdmin: boolean
+  isImporter: boolean
+  isExporter: boolean
   canDeploy: boolean
   canSign: boolean
   canDeposit: boolean
   canStartShipping: boolean
   canComplete: boolean
   canCancel: boolean
-  isImporter: boolean
-  isExporter: boolean
 }
 
 const props = defineProps<Props>()
@@ -38,9 +48,10 @@ const emit = defineEmits([
 
 <template>
   <div class="space-y-3 mt-4">
-    <!-- Deploy -->
+    <!-- Deploy: hanya Admin -->
     <Button
-      :disabled="props.loading==='deploy' || props.stepStatus.deploy || !props.canDeploy || !props.isAdmin"
+      v-if="props.isAdmin"
+      :disabled="props.loading==='deploy' || props.stepStatus.deploy || !props.canDeploy"
       class="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded py-3"
       @click="$emit('deploy')"
     >
@@ -50,8 +61,9 @@ const emit = defineEmits([
       <Check v-if="props.stepStatus.deploy" class="w-5 h-5 text-green-400"/>
     </Button>
 
-    <!-- Sign -->
+    <!-- Sign: hanya Importer & Exporter -->
     <Button
+      v-if="props.isImporter || props.isExporter"
       :disabled="!props.stepStatus.deploy || props.loading==='sign' || props.signCompleted || !props.canSign"
       class="w-full flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white rounded py-3"
       @click="$emit('sign')"
@@ -62,9 +74,10 @@ const emit = defineEmits([
       <Check v-if="props.signCompleted" class="w-5 h-5 text-purple-400"/>
     </Button>
 
-    <!-- Deposit -->
+    <!-- Deposit: hanya Importer -->
     <Button
-      :disabled="!props.isImporter || props.loading==='deposit' || props.stepStatus.deposit || !props.canDeposit"
+      v-if="props.isImporter"
+      :disabled="props.loading==='deposit' || props.stepStatus.deposit || !props.canDeposit"
       class="w-full flex items-center justify-center gap-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded py-3"
       @click="$emit('deposit')"
     >
@@ -74,9 +87,10 @@ const emit = defineEmits([
       <Check v-if="props.stepStatus.deposit" class="w-5 h-5 text-green-400"/>
     </Button>
 
-    <!-- Start Shipping -->
+    <!-- Start Shipping: hanya Exporter -->
     <Button
-      :disabled="!props.isExporter || props.loading==='shipping' || !props.stepStatus.deposit || props.stepStatus.shipping || !props.canStartShipping"
+      v-if="props.isExporter"
+      :disabled="props.loading==='shipping' || !props.stepStatus.deposit || props.stepStatus.shipping || !props.canStartShipping"
       class="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white rounded py-3"
       @click="$emit('start-shipping')"
     >
@@ -86,8 +100,9 @@ const emit = defineEmits([
       <Check v-if="props.stepStatus.shipping" class="w-5 h-5 text-green-400"/>
     </Button>
 
-    <!-- Complete -->
+    <!-- Complete: hanya Admin -->
     <Button
+      v-if="props.isImporter"
       :disabled="!props.stepStatus.shipping || props.loading==='completed' || props.stepStatus.completed || !props.canComplete"
       class="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white rounded py-3"
       @click="$emit('complete')"
@@ -98,9 +113,10 @@ const emit = defineEmits([
       <Check v-if="props.stepStatus.completed" class="w-5 h-5 text-green-400"/>
     </Button>
 
-    <!-- Cancel -->
+    <!-- Cancel: semua role yg punya izin -->
     <Button
-      :disabled="props.loading==='cancel' || props.stepStatus.completed || props.stepStatus.cancelled || !props.canCancel"
+      v-if="props.canCancel"
+      :disabled="props.loading==='cancel' || props.stepStatus.completed || props.stepStatus.cancelled"
       class="w-full flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white rounded py-3"
       @click="$emit('cancel')"
     >

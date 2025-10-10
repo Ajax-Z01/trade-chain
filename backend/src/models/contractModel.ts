@@ -93,8 +93,6 @@ export const getContractsByUser = async (address: string) => {
       contracts.push({ ...data, role: 'Exporter' })
     } else if (roles.importer === address) {
       contracts.push({ ...data, role: 'Importer' })
-    } else {
-      contracts.push({ ...data, role: 'Guest' })
     }
   }
 

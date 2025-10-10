@@ -30,24 +30,28 @@ export function useContracts() {
       const res = await request<{ success: boolean; data: MyContractData[] }>('/contract/my')
       const myContractsData = res.data ?? []
 
+      const validContracts: string[] = []
+
       myContractsData.forEach(contractData => {
         const addr = contractData.contractAddress
-        if (!addr) return
+        const role = contractData.role
+
+        if (!addr || !role) return
 
         const state = getContractState(addr)
         state.history = contractData.history ?? []
-        state.role = contractData.role ?? 'Guest'
+        state.role = role
         const lastAction = state.history[state.history.length - 1]?.action.toLowerCase()
-        if (['complete'].includes(lastAction as string)) {
-        state.finished = true
+        if (lastAction === 'complete') {
+          state.finished = true
         }
         state.loading = false
         state.lastTimestamp = contractData.history?.[contractData.history.length - 1]?.timestamp
+
+        validContracts.push(addr)
       })
 
-      contracts.value = myContractsData
-        .map(c => c.contractAddress ?? '')
-        .filter(Boolean) as string[]
+      contracts.value = validContracts
     } catch (err) {
       console.error('Failed to fetch my contracts:', err)
     } finally {

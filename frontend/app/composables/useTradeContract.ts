@@ -291,6 +291,42 @@ export function useTradeContract() {
       addToast('Failed to refresh contracts', 'error')
     }
   }
+  
+    // Load contract data manually (for direct page access)
+  const loadContractData = async (address: string) => {
+    if (!address) return
+    selectedContract.value = address
+
+    // Reset dulu semua value backend & input
+    importerAddress.value = ''
+    exporterAddress.value = ''
+    requiredAmount.value = ''
+    backendImporter.value = ''
+    backendExporter.value = ''
+    backendRequiredAmount.value = ''
+    backendToken.value = null
+
+    try {
+      const data = await fetchContractDetails(address as `0x${string}`)
+      const deployLog = data?.history?.find((h: any) => h.action === 'deploy')
+      if (deployLog) {
+        backendImporter.value = deployLog.extra?.importer || ''
+        backendExporter.value = deployLog.extra?.exporter || ''
+        backendRequiredAmount.value = deployLog.extra?.requiredAmount
+          ? (BigInt(deployLog.extra.requiredAmount)).toString()
+          : ''
+        const tokenAddr = deployLog.extra?.token
+        backendToken.value =
+          tokenAddr === '0x0000000000000000000000000000000000000000' ? 'ETH'
+          : tokenAddr === import.meta.env.VITE_MOCK_USDC_ADDRESS ? 'MUSDC'
+          : null
+      }
+      await mapStageToStepStatus(address as `0x${string}`)
+    } catch (err) {
+      console.error('Failed to load contract data:', err)
+      addToast('Failed to load contract data', 'error')
+    }
+  }
 
   return {
     // state
@@ -338,6 +374,8 @@ export function useTradeContract() {
     handleComplete,
     handleCancel,
     handleNewContract,
-    handleRefreshContracts
+    handleRefreshContracts,
+    
+    loadContractData
   }
 }

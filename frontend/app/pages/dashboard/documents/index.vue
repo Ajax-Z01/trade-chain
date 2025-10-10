@@ -27,7 +27,7 @@ const getRole = (contract: string) => contractStates[contract]?.role ?? 'Guest'
 
 <template>
   <div class="max-w-5xl mx-auto p-4 md:p-6">
-    <h1 class="text-2xl font-bold mb-6">My Contracts</h1>
+    <h1 class="text-2xl font-bold mb-6">My Contracts Lists</h1>
 
     <div v-if="loading" class="flex justify-center py-10">
       <Loader2 class="animate-spin w-6 h-6 text-gray-500" />
@@ -56,8 +56,8 @@ const getRole = (contract: string) => contractStates[contract]?.role ?? 'Guest'
           </p>
         </div>
         <div class="mt-4">
-          <NuxtLink :to="`/dashboard/contracts/${contract}`">
-            <Button class="w-full text-sm">View Details</Button>
+          <NuxtLink :to="`/dashboard/documents/${contract}`">
+            <Button class="w-full text-sm">View Documents</Button>
           </NuxtLink>
         </div>
       </div>

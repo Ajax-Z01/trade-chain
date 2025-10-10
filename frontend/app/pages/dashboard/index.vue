@@ -10,7 +10,7 @@ const {
   loading,
   totalWallets,
   fetchDashboard,
-} = useDashboard() // gunakan composable yang sama, tapi hanya ambil data user
+} = useDashboard()
 
 const animatedWallets = ref(0)
 const animatedTxs = ref(0)
