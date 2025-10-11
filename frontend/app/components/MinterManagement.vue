@@ -1,10 +1,8 @@
 <script setup lang="ts">
-import { ref } from 'vue'
 import { Loader2, Plus, Minus, Users } from 'lucide-vue-next'
-import { add } from 'date-fns';
 
 // Props dari parent
-const props = defineProps<{
+defineProps<{
   isAdmin: boolean
   minterAddress: string
   addingMinter: boolean
@@ -37,10 +35,10 @@ const onInput = (e: Event) => {
     <div class="flex flex-col sm:flex-row gap-2 items-stretch">
       <input
         :value="minterAddress"
-        @input="onInput"
         type="text"
         placeholder="Enter minter address"
         class="flex-1 border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus:ring-2 focus:ring-indigo-500 focus:outline-none transition"
+        @input="onInput"
       />
 
       <div class="flex gap-2 flex-shrink-0">

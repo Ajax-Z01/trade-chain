@@ -50,8 +50,8 @@ const getBgClass = (type: string) => {
         <!-- Close button -->
         <button
           class="ml-2 text-white/70 hover:text-white transition-opacity"
-          @click="removeToast(toast.id)"
           aria-label="Close toast"
+          @click="removeToast(toast.id)"
         >
           ✕
         </button>

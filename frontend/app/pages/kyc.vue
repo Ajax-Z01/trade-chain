@@ -280,55 +280,55 @@ const handleRemoveMinter = async () => {
     <!-- Wallet Info -->
     <WalletInfo
       :account="account"
-      :isAdmin="isAdmin"
-      :approvedMintersKYC="approvedMintersKYC"
-      :loadingMintersKYC="loadingMintersKYC"
+      :is-admin="isAdmin"
+      :approved-minters-k-y-c="approvedMintersKYC"
+      :loading-minters-k-y-c="loadingMintersKYC"
     />
 
     <!-- File Upload & Minting -->
     <FileUploadMint
-      :selectedFile="selectedFile"
+      :selected-file="selectedFile"
       :minting="minting"
-      :onFileChange="onFileChange"
-      :verifyAndMint="verifyAndMint"
+      :on-file-change="onFileChange"
+      :verify-and-mint="verifyAndMint"
     />
     
     <!-- User KYCs -->
     <UserKycs
       :account="account"
-      :approvedMintersKYC="approvedMintersKYC"
-      :isAdmin="isAdmin"
+      :approved-minters-k-y-c="approvedMintersKYC"
+      :is-admin="isAdmin"
     />
 
     <!-- Manage Minters -->
     <MinterManagement
-      v-model:minterAddress="minterAddress"
-      :addingMinter="addingMinter"
-      :removingMinter="removingMinter"
-      :approvedMintersKYC="approvedMintersKYC"
-      :loadingMintersKYC="loadingMintersKYC"
-      :isAdmin="isAdmin"
-      @addMinter="handleAddMinter"
-      @removeMinter="handleRemoveMinter"
+      v-model:minter-address="minterAddress"
+      :adding-minter="addingMinter"
+      :removing-minter="removingMinter"
+      :approved-minters-k-y-c="approvedMintersKYC"
+      :loading-minters-k-y-c="loadingMintersKYC"
+      :is-admin="isAdmin"
+      @add-minter="handleAddMinter"
+      @remove-minter="handleRemoveMinter"
     />
 
     <!-- Quick Check NFT -->
     <QuickCheckNFT
-      v-model:modelValue="tokenId"
-      :nftInfo="nftInfo"
-      :checkNFT="checkNFT"
-      :isAdmin="isAdmin"
+      v-model:model-value="tokenId"
+      :nft-info="nftInfo"
+      :check-n-f-t="checkNFT"
+      :is-admin="isAdmin"
     />
 
     <!-- Lifecycle Actions -->
     <LifecycleActions
       v-if="nftInfo"
-      :tokenId="tokenId"
+      :token-id="tokenId"
       :processing="processing"
-      :handleReview="handleReview"
-      :handleSign="handleSign"
-      :handleRevoke="handleRevoke"
-      :isAdmin="isAdmin"
+      :handle-review="handleReview"
+      :handle-sign="handleSign"
+      :handle-revoke="handleRevoke"
+      :is-admin="isAdmin"
     />
 
     <!-- Feedback -->

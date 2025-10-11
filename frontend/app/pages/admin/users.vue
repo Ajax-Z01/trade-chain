@@ -104,15 +104,15 @@ onMounted(() => {
             <td class="p-2 flex gap-2">
               <button 
                 class="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50"
-                @click="openEditModal(user)"
                 :disabled="deleting === user.address"
+                @click="openEditModal(user)"
               >
                 <Edit class="w-4 h-4" />
               </button>
               <button 
                 class="p-1 rounded hover:bg-red-100 dark:hover:bg-red-800 disabled:opacity-50"
-                @click="handleDelete(user.address)"
                 :disabled="deleting === user.address"
+                @click="handleDelete(user.address)"
               >
                 <Loader2 v-if="deleting === user.address" class="w-4 h-4 animate-spin text-red-600" />
                 <Trash2 v-else class="w-4 h-4 text-red-600" />
@@ -148,16 +148,16 @@ onMounted(() => {
 
           <div class="flex justify-end gap-2">
             <button 
-              @click="closeEditModal" 
-              class="px-3 py-1 bg-gray-200 rounded"
+              class="px-3 py-1 bg-gray-200 rounded" 
               :disabled="saving"
+              @click="closeEditModal"
             >
               Close
             </button>
             <button 
-              @click="handleSave" 
-              class="px-3 py-1 bg-indigo-600 text-white rounded flex items-center gap-2 disabled:opacity-50"
+              class="px-3 py-1 bg-indigo-600 text-white rounded flex items-center gap-2 disabled:opacity-50" 
               :disabled="saving"
+              @click="handleSave"
             >
               <Loader2 v-if="saving" class="w-4 h-4 animate-spin" />
               <span v-else>Save</span>

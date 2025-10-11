@@ -39,10 +39,10 @@ const trade = useTradeContract()
 
     <!-- Inputs Section -->
     <ContractInputs
-      v-model:importerValue="trade.importerValue.value"
-      v-model:exporterValue="trade.exporterValue.value"
-      v-model:requiredAmountValue="trade.requiredAmountValue.value"
-      v-model:paymentTokenValue="trade.paymentTokenValue.value"
+      v-model:importer-value="trade.importerValue.value"
+      v-model:exporter-value="trade.exporterValue.value"
+      v-model:required-amount-value="trade.requiredAmountValue.value"
+      v-model:payment-token-value="trade.paymentTokenValue.value"
       :is-auto-filled="trade.isAutoFilled.value"
       :is-token-auto-filled="trade.isTokenAutoFilled.value"
     />

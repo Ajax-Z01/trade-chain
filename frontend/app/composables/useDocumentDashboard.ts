@@ -20,9 +20,7 @@ export function useDocumentDashboard(initialContract: string | null = null) {
     userRole,
     isAdmin,
     isImporter,
-    isExporter,
-    fetchApprovedMintersDoc,
-    loadingMintersDoc: roleLoadingMinters
+    isExporter
   } = useContractRole(ref(initialContract))
 
   // --- State ---

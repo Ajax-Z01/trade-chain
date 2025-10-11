@@ -91,7 +91,7 @@ const refreshAll = async () => {
     />
 
     <!-- Contract Logs -->
-    <ContractLogs :contractAddress="contractAddress" />
+    <ContractLogs :contract-address="contractAddress" />
     
   </div>
 </template>

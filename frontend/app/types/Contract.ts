@@ -21,12 +21,14 @@ export interface ContractLogs {
 export type ContractLogPayload = Omit<ContractLogEntry, 'timestamp'>
 
 export interface ContractState {
+  name?: string
   isOpen: boolean
   history: ContractLogEntry[]
   loading: boolean
   finished: boolean
   lastTimestamp?: number
   role?: 'Importer' | 'Exporter' | 'Guest'
+  documentCount?: number
 }
 
 export interface ContractDetails {

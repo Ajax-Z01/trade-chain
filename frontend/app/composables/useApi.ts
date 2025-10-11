@@ -29,7 +29,9 @@ export function useApi() {
       try {
         const json = JSON.parse(errorText)
         if (json?.message) errorText = json.message
-      } catch (err) {}
+      } catch (err) {
+        console.error(err)
+      }
       throw new Error(errorText || `API request failed: ${res.statusText}`)
     }
 

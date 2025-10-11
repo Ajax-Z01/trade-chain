@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, onMounted } from 'vue'
+import { ref, watch, onMounted, onUnmounted } from 'vue'
 import type { KYC } from '~/types/Kyc'
 import { useKYC } from '~/composables/useKycs'
 
@@ -11,7 +11,7 @@ interface Props {
 
 const props = defineProps<Props>()
 
-const emit = defineEmits(['refresh-requested'])
+defineEmits(['refresh-requested'])
 
 const { getKycsByOwner } = useKYC()
 const userKycs = ref<KYC[]>([])

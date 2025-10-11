@@ -111,14 +111,15 @@ const formatDate = (ts: number) => new Date(ts).toLocaleString()
     <div class="flex items-center gap-3 md:gap-4">
 
       <!-- Dark Mode -->
-      <button @click="toggleDarkMode" class="p-2 rounded-lg transition-colors duration-200 hover:bg-gray-100 dark:hover:bg-gray-700"
-              :title="darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'">
+      <button
+class="p-2 rounded-lg transition-colors duration-200 hover:bg-gray-100 dark:hover:bg-gray-700" :title="darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'"
+              @click="toggleDarkMode">
         <Sun v-if="!darkMode" class="w-5 h-5 text-yellow-400"/>
         <Moon v-else class="w-5 h-5 text-gray-200"/>
       </button>
 
       <!-- Notifications -->
-      <div class="relative" ref="notifRef">
+      <div ref="notifRef" class="relative">
         <button class="relative p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700" @click="toggleNotif">
           <Bell class="w-6 h-6 text-gray-700 dark:text-gray-200"/>
           <span v-if="unreadCount" class="absolute -top-1 -right-1 text-xs bg-red-500 text-white rounded-full px-1">{{ unreadCount }}</span>
@@ -128,7 +129,8 @@ const formatDate = (ts: number) => new Date(ts).toLocaleString()
           <div v-if="notifOpen" class="absolute right-0 mt-2 w-80 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg rounded-lg z-50">
             <div class="p-3 font-semibold border-b border-gray-100 dark:border-gray-700 text-gray-800 dark:text-gray-200">Notifications</div>
             <ul class="max-h-64 overflow-y-auto">
-              <li v-for="n in latestNotifs" :key="n.id" 
+              <li
+v-for="n in latestNotifs" :key="n.id" 
                   class="flex flex-col p-3 rounded-lg hover:bg-indigo-50 dark:hover:bg-gray-700"
                   :class="{'bg-indigo-50 dark:bg-gray-700': !n.read}">
                 <div class="flex justify-between items-center">
@@ -143,7 +145,8 @@ const formatDate = (ts: number) => new Date(ts).toLocaleString()
               </li>
               <li v-if="!latestNotifs.length" class="p-3 text-center text-gray-400 dark:text-gray-500 text-sm">No notifications</li>
             </ul>
-            <NuxtLink to="/notifications" class="block text-center p-2 text-blue-600 dark:text-blue-400
+            <NuxtLink
+to="/notifications" class="block text-center p-2 text-blue-600 dark:text-blue-400
                                                  hover:bg-gray-100 dark:hover:bg-gray-700 border-t border-gray-100 dark:border-gray-700 rounded-b-lg text-sm">
               View All
             </NuxtLink>
@@ -153,7 +156,7 @@ const formatDate = (ts: number) => new Date(ts).toLocaleString()
 
       <!-- Wallet -->
       <div class="hidden md:block">
-        <Button v-if="!account" @click="handleConnect" class="px-3 py-2 text-sm">Connect Wallet</Button>
+        <Button v-if="!account" class="px-3 py-2 text-sm" @click="handleConnect">Connect Wallet</Button>
         <span v-else class="px-3 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg text-sm truncate max-w-[160px] block">{{ account }}</span>
       </div>
 
@@ -183,7 +186,7 @@ const formatDate = (ts: number) => new Date(ts).toLocaleString()
         <!-- Wallet -->
         <li class="pt-2 border-t border-gray-200 dark:border-gray-700">
           <div class="flex justify-center">
-            <Button v-if="!account" @click="handleConnect" class="px-4 py-2 w-full max-w-xs text-sm">Connect Wallet</Button>
+            <Button v-if="!account" class="px-4 py-2 w-full max-w-xs text-sm" @click="handleConnect">Connect Wallet</Button>
             <span v-else class="px-4 py-2 w-full max-w-xs bg-gray-100 dark:bg-gray-700 rounded-lg text-sm truncate block text-center">{{ account }}</span>
           </div>
         </li>

@@ -167,7 +167,8 @@ const statusBadge = computed(() => {
 
     <!-- Badge -->
     <div class="flex justify-center mt-4">
-      <span class="px-3 py-1 text-xs font-medium rounded-full"
+      <span
+class="px-3 py-1 text-xs font-medium rounded-full"
         :class="[
           isCancelled ? 'bg-red-100 text-red-700 dark:bg-red-700 dark:text-red-100' :
           props.currentStage === 6 ? 'bg-green-100 text-green-700 dark:bg-green-700 dark:text-green-100' :

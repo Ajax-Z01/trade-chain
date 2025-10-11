@@ -1,8 +1,9 @@
 <script setup lang="ts">
+import { ref } from 'vue'
 import type { PropType } from 'vue'
 import type { Document as DocType } from '~/types/Document'
 
-const props = defineProps({
+defineProps({
   documents: {
     type: Array as PropType<DocType[]>,
     required: true
@@ -13,7 +14,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits<{
+defineEmits<{
   (e: 'view', doc: DocType): void
   (e: 'review', doc: DocType): void
   (e: 'sign', doc: DocType): void

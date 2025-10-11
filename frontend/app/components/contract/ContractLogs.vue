@@ -53,7 +53,7 @@ onMounted(() => {
     <!-- Header -->
     <div class="flex justify-between items-center mb-3">
       <h3 class="text-lg font-semibold">Logs</h3>
-      <Button @click="refreshLogs" :disabled="state.loading">
+      <Button :disabled="state.loading" @click="refreshLogs">
         <span v-if="state.loading" class="flex items-center gap-2">
           <Loader2 class="w-4 h-4 animate-spin" /> Refreshing...
         </span>

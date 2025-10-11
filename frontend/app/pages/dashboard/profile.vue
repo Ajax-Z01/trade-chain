@@ -84,9 +84,9 @@ const handleSave = async () => {
       <!-- Save Button -->
       <div class="flex justify-end">
         <button
-          @click="handleSave"
           :disabled="saving"
           class="px-4 py-2 bg-indigo-600 text-white rounded flex items-center gap-2 disabled:opacity-50"
+          @click="handleSave"
         >
           <Loader2 v-if="saving" class="w-4 h-4 animate-spin" />
           <span v-else>Save</span>

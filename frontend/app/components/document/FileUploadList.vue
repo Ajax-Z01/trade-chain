@@ -8,7 +8,7 @@ export interface FileProgress {
   tokenId?: number
 }
 
-const props = defineProps({
+ defineProps({
   files: {
     type: Array as PropType<File[]>,
     required: true
@@ -19,7 +19,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits<{
+defineEmits<{
   (e: 'remove', index: number): void
   (e: 'change', event: Event): void
 }>()

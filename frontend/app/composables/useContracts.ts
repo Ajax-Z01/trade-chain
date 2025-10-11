@@ -1,5 +1,6 @@
 import { ref, reactive, onMounted } from 'vue'
 import { useApi } from './useApi'
+import { useDocuments } from './useDocuments'
 import type { MyContractData, ContractState } from '~/types/Contract'
 
 export function useContracts() {
@@ -8,6 +9,7 @@ export function useContracts() {
   const loading = ref(true)
 
   const { request } = useApi()
+  const { getDocumentsByContract } = useDocuments()
 
   const getContractState = (contract: string) => {
     if (!contractStates[contract]) {
@@ -18,7 +20,8 @@ export function useContracts() {
         finished: false,
         lastTimestamp: undefined,
         role: 'Guest',
-      }
+        documentCount: 0, // 👈 tambahkan field baru
+      } as ContractState & { documentCount: number }
     }
     return contractStates[contract]
   }
@@ -32,11 +35,12 @@ export function useContracts() {
 
       const validContracts: string[] = []
 
-      myContractsData.forEach(contractData => {
+      // Loop setiap contract user
+      for (const contractData of myContractsData) {
         const addr = contractData.contractAddress
         const role = contractData.role
 
-        if (!addr || !role) return
+        if (!addr || !role) continue
 
         const state = getContractState(addr)
         state.history = contractData.history ?? []
@@ -48,8 +52,17 @@ export function useContracts() {
         state.loading = false
         state.lastTimestamp = contractData.history?.[contractData.history.length - 1]?.timestamp
 
+        // 🔥 Ambil jumlah dokumen yang terhubung ke contract ini
+        try {
+          const docs = await getDocumentsByContract(addr)
+          state.documentCount = docs.length
+        } catch (e) {
+          console.error(`Failed to fetch documents for contract ${addr}:`, e)
+          state.documentCount = 0
+        }
+
         validContracts.push(addr)
-      })
+      }
 
       contracts.value = validContracts
     } catch (err) {

@@ -32,9 +32,9 @@ const handleConnect = async () => {
       <div class="mt-6">
         <Button 
           v-if="!account" 
-          @click="handleConnect" 
-          :disabled="loading"
+          :disabled="loading" 
           class="px-6 py-3 text-lg"
+          @click="handleConnect"
         >
           <span v-if="loading">Connecting...</span>
           <span v-else>Connect Wallet</span>

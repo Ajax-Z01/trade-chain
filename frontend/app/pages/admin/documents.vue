@@ -27,8 +27,6 @@ const {
   docType,
   userRole,
   isAdmin,
-  isImporter,
-  isExporter,
   userIsMinter,
   approvedMintersDoc,
   loadingDocs,
@@ -37,8 +35,6 @@ const {
   minterAddress,
   addingMinter,
   removingMinter,
-  error,
-  success,
   deployedContracts,
   selectedDoc,
   selectedDocSrc,
@@ -104,9 +100,9 @@ onMounted(async () => {
 
       <div v-if="selectedFiles.length" class="my-4 flex justify-center">
         <button 
-          @click="handleAttachAndMint" 
           :disabled="!selectedFiles.length || minting || !canAttachAndMint" 
-          class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-500 disabled:opacity-50"
+          class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-500 disabled:opacity-50" 
+          @click="handleAttachAndMint"
         >
           {{ minting ? 'Minting...' : 'Attach & Mint Documents' }}
         </button>
@@ -136,14 +132,14 @@ onMounted(async () => {
 
     <!-- Minter Management -->
     <MinterManagement
-      v-model:minterAddress="minterAddress"
-      :addingMinter="addingMinter"
-      :removingMinter="removingMinter"
-      :approvedMintersKYC="approvedMintersDoc"
-      :loadingMintersKYC="loadingMintersDoc"
-      :isAdmin="isAdmin"
-      :onAddMinter="handleAddMinter"
-      :onRemoveMinter="handleRemoveMinter"
+      v-model:minter-address="minterAddress"
+      :adding-minter="addingMinter"
+      :removing-minter="removingMinter"
+      :approved-minters-k-y-c="approvedMintersDoc"
+      :loading-minters-k-y-c="loadingMintersDoc"
+      :is-admin="isAdmin"
+      :on-add-minter="handleAddMinter"
+      :on-remove-minter="handleRemoveMinter"
     />
   </div>
 </template>

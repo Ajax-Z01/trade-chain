@@ -60,9 +60,9 @@ const goToDocumentsDashboard = () => {
     <div class="flex flex-wrap gap-2 items-center justify-start md:justify-end">
       <!-- Copy Button -->
       <button
-        @click="copyAddress"
         class="flex items-center gap-1 px-3 py-1 text-sm rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all shadow-sm hover:shadow-md"
         :title="copied ? 'Copied!' : 'Copy Address'"
+        @click="copyAddress"
       >
         <component :is="copied ? Check : Copy" class="w-4 h-4" />
         <span>{{ copied ? 'Copied' : 'Copy' }}</span>
@@ -82,9 +82,9 @@ const goToDocumentsDashboard = () => {
 
       <!-- Documents Dashboard Button -->
       <button
-        @click="goToDocumentsDashboard"
         class="flex items-center gap-1 px-3 py-1 text-sm rounded-lg bg-indigo-600 text-white hover:bg-indigo-500 shadow-md hover:shadow-lg transition-all"
         title="Go to Documents Dashboard"
+        @click="goToDocumentsDashboard"
       >
         <FileText class="w-4 h-4" />
         <span>Documents Dashboard</span>
