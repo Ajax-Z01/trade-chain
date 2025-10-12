@@ -1,8 +1,8 @@
 import type { Request, Response } from 'express';
-import * as companyModel from '../models/companyModel.js';
+import { CompanyModel } from '../models/companyModel.js';
 import CompanyDTO from '../dtos/companyDTO.js';
 
-// POST /company
+// POST /company (manual/admin)
 export const createCompany = async (req: Request, res: Response) => {
   try {
     const { executor, ...data } = req.body;
@@ -11,7 +11,7 @@ export const createCompany = async (req: Request, res: Response) => {
     const dto = new CompanyDTO(data);
     dto.validate();
 
-    const company = await companyModel.createCompany(dto.toJSON(), executor);
+    const company = await CompanyModel.createCompany(dto.toJSON(), executor);
     res.status(201).json({ success: true, data: company });
   } catch (err: any) {
     res.status(400).json({ success: false, message: err.message });
@@ -21,7 +21,7 @@ export const createCompany = async (req: Request, res: Response) => {
 // GET /company
 export const getCompanies = async (_req: Request, res: Response) => {
   try {
-    const companies = await companyModel.getCompanies();
+    const companies = await CompanyModel.getCompanies();
     res.json({ success: true, data: companies });
   } catch (err: any) {
     res.status(500).json({ success: false, message: err.message });
@@ -31,7 +31,7 @@ export const getCompanies = async (_req: Request, res: Response) => {
 // GET /company/:id
 export const getCompanyById = async (req: Request, res: Response) => {
   try {
-    const company = await companyModel.getCompanyById(req.params.id);
+    const company = await CompanyModel.getCompanyById(req.params.id);
     if (!company) return res.status(404).json({ success: false, message: 'Company not found' });
     res.json({ success: true, data: company });
   } catch (err: any) {
@@ -48,7 +48,7 @@ export const updateCompany = async (req: Request, res: Response) => {
     const dto = new CompanyDTO(data);
     dto.validate();
 
-    const updated = await companyModel.updateCompany(req.params.id, dto.toJSON(), executor);
+    const updated = await CompanyModel.updateCompany(req.params.id, dto.toJSON(), executor);
     if (!updated) return res.status(404).json({ success: false, message: 'Company not found' });
 
     res.json({ success: true, data: updated });
@@ -63,7 +63,7 @@ export const deleteCompany = async (req: Request, res: Response) => {
     const executor = req.body.executor || req.headers['x-executor']?.toString();
     if (!executor) return res.status(400).json({ success: false, message: 'Executor is required' });
 
-    const deleted = await companyModel.deleteCompany(req.params.id, executor);
+    const deleted = await CompanyModel.deleteCompany(req.params.id, executor);
     if (!deleted) return res.status(404).json({ success: false, message: 'Company not found' });
 
     res.json({ success: true, message: 'Company deleted successfully' });

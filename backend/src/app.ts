@@ -15,6 +15,7 @@ import activityRoutes from './routes/activityRoutes.js'
 import aggregatedActivityRoutes from './routes/aggregatedActivityRoutes.js'
 import notificationRoutes from './routes/notificationRoutes.js'
 import userRoutes from './routes/userRoutes.js'
+import userCompany from './routes/userCompanyRoutes.js'
 
 dotenv.config()
 
@@ -37,6 +38,7 @@ app.use('/api/activity', activityRoutes)
 app.use('/api/aggregated', aggregatedActivityRoutes)
 app.use('/api/notification', notificationRoutes)
 app.use('/api/user', userRoutes)
+app.use('/api/user-company', userCompany)
 
 // --- HTTP server & WebSocket ---
 const PORT = process.env.PORT || 5000

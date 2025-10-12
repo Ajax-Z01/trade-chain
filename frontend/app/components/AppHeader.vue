@@ -61,6 +61,7 @@ const navLinks = [
   { to: '/admin/logs', label: 'Logs', roles: ['admin'] },
   { to: '/admin/company', label: 'Company', roles: ['admin'] },
   { to: '/admin/users', label: 'Users', roles: ['admin'] },
+  { to: '/admin/usercompany', label: 'UsComp', roles: ['admin'] },
   { to: '/dashboard/profile', label: 'My Profile', roles: ['user'] },
 ]
 
