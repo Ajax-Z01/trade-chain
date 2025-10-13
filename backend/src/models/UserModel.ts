@@ -1,5 +1,6 @@
 import type { User, CreateUserDTO, UpdateUserDTO } from "../types/User.js"
 import { db } from "../config/firebase.js"
+import { notifyWithAdmins } from "../utils/notificationHelper.js"
 
 const collection = db.collection("users")
 
@@ -21,6 +22,12 @@ export class UserModel {
       createdAt: Date.now(),
       lastLoginAt: Date.now(),
     }
+    
+    await notifyWithAdmins(data.address, {
+      type: "user",
+      title: `User Created: ${data.address}`,
+      message: `User with address ${data.address} created by ${data.address}.`,
+    })
 
     await docRef.set(newUser)
     return newUser

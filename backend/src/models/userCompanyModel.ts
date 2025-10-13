@@ -4,6 +4,7 @@ import type {
   UpdateUserCompanyDTO,
 } from "../types/UserCompany.js"
 import { db } from "../config/firebase.js"
+import { notifyWithAdmins } from "../utils/notificationHelper.js"
 
 const collection = db.collection("userCompanies")
 
@@ -13,6 +14,7 @@ interface GetAllFilteredParams {
   search?: string
   role?: string
   status?: string
+  companyId?: string
 }
 
 export class UserCompanyModel {
@@ -41,6 +43,12 @@ export class UserCompanyModel {
       txHash: data.txHash,
       onchainJoinedAt: data.onchainJoinedAt,
     }
+    
+    await notifyWithAdmins(data.userAddress, {
+      type: "userCompany",
+      title: `UserCompany Created: ${data.userAddress}`,
+      message: `UserCompany with userAddress ${data.userAddress} and companyId ${data.companyId} created by ${data.userAddress}.`,
+    })
 
     const docRef = await collection.add(newRelation)
     return { id: docRef.id, ...newRelation }
@@ -48,34 +56,45 @@ export class UserCompanyModel {
 
   // --- Get All Filtered with pagination ---
   static async getAllFiltered(params: GetAllFilteredParams): Promise<{ data: UserCompany[]; total: number }> {
-    const { page, limit, search, role, status } = params
+    const { page, limit, search, role, status, companyId } = params
 
-    let query: FirebaseFirestore.Query<FirebaseFirestore.DocumentData> = collection
+    let query: FirebaseFirestore.Query<FirebaseFirestore.DocumentData> = db.collection('userCompanies')
 
-    // Apply filters
-    if (search) {
-      // Firestore tidak bisa partial search, kita pakai '>=', '<=' trick untuk string prefix
-      query = query.where('userAddress', '>=', search).where('userAddress', '<=', search + '\uf8ff')
-    }
+    // --- Equality filters dulu (companyId, role, status) ---
+    if (companyId) query = query.where('companyId', '==', companyId)
     if (role) query = query.where('role', '==', role)
     if (status) query = query.where('status', '==', status)
 
-    // Untuk pagination kita pakai offset
-    const snapshot = await query
-      .orderBy('joinedAt', 'desc')
-      .offset((page - 1) * limit)
-      .limit(limit)
-      .get()
+    // --- Search filter (prefix search) ---
+    if (search) {
+      // Firestore requires orderBy on the same field as >= / <= filter
+      query = query
+        .orderBy('userAddress')
+        .where('userAddress', '>=', search)
+        .where('userAddress', '<=', search + '\uf8ff')
+    } else {
+      // Default sorting
+      query = query.orderBy('joinedAt', 'desc')
+    }
 
-    const data: UserCompany[] = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as UserCompany))
-
-    // Hitung total (filter tanpa pagination)
+    // --- Get total count first (without pagination) ---
     const totalSnap = await query.get()
     const total = totalSnap.size
 
+    // --- Apply pagination ---
+    const snapshot = await query
+      .limit(limit)
+      .offset((page - 1) * limit)
+      .get()
+
+    const data: UserCompany[] = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as UserCompany[]
+
     return { data, total }
   }
-
+  
   // --- Get By ID ---
   static async getById(id: string): Promise<UserCompany | null> {
     const doc = await collection.doc(id).get()

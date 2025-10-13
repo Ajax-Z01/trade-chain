@@ -75,17 +75,20 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="p-6 max-w-5xl mx-auto">
+  <div class="p-6 max-w-5xl mx-auto bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 min-h-screen">
+
     <h1 class="text-2xl font-bold mb-4">User Management</h1>
 
+    <!-- Loading -->
     <div v-if="loading" class="flex justify-center p-6">
-      <Loader2 class="w-6 h-6 animate-spin text-gray-500" />
+      <Loader2 class="w-6 h-6 animate-spin text-gray-500 dark:text-gray-400" />
     </div>
 
-    <div v-else>
+    <!-- Table -->
+    <div v-else class="overflow-x-auto rounded-lg shadow bg-white dark:bg-gray-800">
       <table class="w-full border-collapse">
         <thead>
-          <tr class="bg-gray-100 dark:bg-gray-800 text-left">
+          <tr class="bg-gray-100 dark:bg-gray-700 text-left text-gray-700 dark:text-gray-200">
             <th class="p-2 border-b">Address</th>
             <th class="p-2 border-b">Name</th>
             <th class="p-2 border-b">Role</th>
@@ -96,33 +99,41 @@ onMounted(() => {
           <tr
             v-for="user in users"
             :key="user.address"
-            class="border-b hover:bg-gray-50 dark:hover:bg-gray-800/50"
+            class="border-b hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
           >
-            <td class="p-2 font-mono text-sm">{{ user.address }}</td>
-            <td class="p-2">{{ user.metadata?.name || '-' }}</td>
+            <td class="p-2 font-mono text-sm break-all">{{ user.address }}</td>
+            <td class="p-2 break-all">{{ user.metadata?.name || '-' }}</td>
             <td class="p-2 capitalize">{{ user.role }}</td>
             <td class="p-2 flex gap-2">
+
+              <!-- Edit Button -->
               <button 
-                class="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50"
+                class="flex items-center justify-center p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition disabled:opacity-50"
                 :disabled="deleting === user.address"
                 @click="openEditModal(user)"
+                title="Edit User"
               >
-                <Edit class="w-4 h-4" />
+                <Edit class="w-4 h-4 text-gray-700 dark:text-gray-200" />
               </button>
+
+              <!-- Delete Button -->
               <button 
-                class="p-1 rounded hover:bg-red-100 dark:hover:bg-red-800 disabled:opacity-50"
+                class="flex items-center justify-center p-2 rounded-lg hover:bg-red-100 dark:hover:bg-red-800 transition disabled:opacity-50"
                 :disabled="deleting === user.address"
                 @click="handleDelete(user.address)"
+                title="Delete User"
               >
                 <Loader2 v-if="deleting === user.address" class="w-4 h-4 animate-spin text-red-600" />
                 <Trash2 v-else class="w-4 h-4 text-red-600" />
               </button>
+
             </td>
           </tr>
         </tbody>
       </table>
 
-      <div v-if="users.length === 0" class="text-center text-gray-500 py-8">
+      <!-- Empty state -->
+      <div v-if="users.length === 0" class="text-center text-gray-500 dark:text-gray-400 py-6">
         No users found.
       </div>
     </div>
@@ -137,25 +148,28 @@ onMounted(() => {
           <h2 class="text-xl font-semibold mb-4">Edit User</h2>
           <p class="mb-4 font-mono text-sm break-all">{{ editingUser.address }}</p>
 
+          <!-- Name Input -->
           <div class="mb-4">
             <label class="block text-sm font-medium mb-1">Name</label>
             <input 
               v-model="editedName" 
               type="text" 
-              class="w-full p-2 rounded border dark:bg-gray-800"
+              placeholder="Enter user name"
+              class="w-full p-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
             />
           </div>
 
+          <!-- Modal Actions -->
           <div class="flex justify-end gap-2">
             <button 
-              class="px-3 py-1 bg-gray-200 rounded" 
+              class="px-4 py-2 bg-gray-200 dark:bg-gray-700 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition"
               :disabled="saving"
               @click="closeEditModal"
             >
               Close
             </button>
             <button 
-              class="px-3 py-1 bg-indigo-600 text-white rounded flex items-center gap-2 disabled:opacity-50" 
+              class="px-4 py-2 bg-indigo-600 text-white rounded-lg flex items-center gap-2 hover:bg-indigo-700 transition disabled:opacity-50" 
               :disabled="saving"
               @click="handleSave"
             >
@@ -163,9 +177,11 @@ onMounted(() => {
               <span v-else>Save</span>
             </button>
           </div>
+
         </div>
       </div>
     </transition>
+
   </div>
 </template>
 

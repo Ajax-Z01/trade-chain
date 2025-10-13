@@ -22,6 +22,7 @@ export class UserCompanyController {
       const search = (req.query.search as string) || ''
       const role = (req.query.role as string) || ''
       const status = (req.query.status as string) || ''
+      const companyId = (req.query.companyId as string) || ''
 
       const { data, total } = await UserCompanyModel.getAllFiltered({
         page,
@@ -29,6 +30,7 @@ export class UserCompanyController {
         search,
         role,
         status,
+        companyId,
       })
 
       return res.status(200).json({ success: true, data, total })

@@ -13,8 +13,9 @@ export function useUserCompany() {
   const limit = ref(10)
   const total = ref(0)
   const searchText = ref('')
-  const filterRole = ref<string | null>(null)
-  const filterStatus = ref<string | null>(null)
+  const filterRole = ref<string>('')
+  const filterStatus = ref<string>('')
+  const filterCompanyId = ref<string>('')
 
   const { account } = useWallet()
   const { request } = useApi()
@@ -27,6 +28,7 @@ export function useUserCompany() {
     if (searchText.value) params.append('search', searchText.value)
     if (filterRole.value) params.append('role', filterRole.value)
     if (filterStatus.value) params.append('status', filterStatus.value)
+    if (filterCompanyId.value) params.append('companyId', filterCompanyId.value) // 👈 Tambahan
     return params.toString()
   })
 
@@ -45,13 +47,13 @@ export function useUserCompany() {
     }
   }
 
-  // Reset page when filter/search changes
-  watch([searchText, filterRole, filterStatus], () => {
+  // Reset page when any filter/search changes
+  watch([searchText, filterRole, filterStatus, filterCompanyId], () => {
     page.value = 1
     fetchUserCompanies()
   })
 
-  // Fetch new page
+  // Fetch when page changes
   watch(page, () => fetchUserCompanies())
 
   const createUserCompany = async (payload: CreateUserCompanyDTO) => {
@@ -60,9 +62,9 @@ export function useUserCompany() {
     try {
       const res = await request<{ data: UserCompany }>('/user-company', {
         method: 'POST',
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
       })
-      userCompanies.value.unshift(res.data) // tambahkan paling atas
+      userCompanies.value.unshift(res.data)
       await addActivityLog(account.value, {
         type: 'backend',
         action: 'createUserCompany',
@@ -84,7 +86,7 @@ export function useUserCompany() {
     try {
       const res = await request<{ data: UserCompany }>(`/user-company/${id}`, {
         method: 'PUT',
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
       })
       const index = userCompanies.value.findIndex((uc) => uc.id === id)
       if (index !== -1) userCompanies.value[index] = res.data
@@ -95,7 +97,6 @@ export function useUserCompany() {
         tags: ['user-company', 'update'],
         extra: { ...payload, userCompanyId: id },
       })
-
       return res.data
     } catch (err: any) {
       error.value = err.message || 'Unknown error'
@@ -136,6 +137,7 @@ export function useUserCompany() {
     searchText,
     filterRole,
     filterStatus,
+    filterCompanyId,
     fetchUserCompanies,
     createUserCompany,
     updateUserCompany,
