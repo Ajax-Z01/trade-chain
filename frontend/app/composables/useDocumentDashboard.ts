@@ -15,7 +15,7 @@ export function useDocumentDashboard(initialContract: string | null = null) {
   const { attachDocument, getDocumentsByContract } = useDocuments()
   const { mintDocument, addMinter, removeMinter, reviewDocument, signDocument, revokeDocument, isMinter } = useRegistryDocument()
   const { deployedContracts, fetchDeployedContracts } = useContractActions()
-  const { wallets, fetchDashboard } = useDashboard()
+  const { wallets, fetchOnChainDashboard } = useDashboard()
   const {
     userRole,
     isAdmin,
@@ -217,7 +217,7 @@ export function useDocumentDashboard(initialContract: string | null = null) {
 
   // --- Lifecycle ---
   onMounted(async () => {
-    await fetchDashboard()
+    await fetchOnChainDashboard()
     await fetchDeployedContracts()
     fetchApprovedMinters()
     fetchDocuments()

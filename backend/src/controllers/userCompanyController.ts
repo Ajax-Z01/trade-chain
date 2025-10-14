@@ -1,5 +1,6 @@
 import { Request, Response } from "express"
 import { UserCompanyModel } from "../models/userCompanyModel.js"
+import { CompanyModel } from "../models/companyModel.js"
 import type { CreateUserCompanyDTO, UpdateUserCompanyDTO } from "../types/UserCompany.js"
 
 export class UserCompanyController {
@@ -94,6 +95,69 @@ export class UserCompanyController {
       if (!deleted) return res.status(404).json({ success: false, message: "Relation not found" })
       return res.status(200).json({ success: true, message: "Relation deleted" })
     } catch (error: any) {
+      return res.status(500).json({ success: false, message: error.message })
+    }
+  }
+
+  // --- Get the company of the currently logged-in user ---
+  static async getMyCompany(req: Request, res: Response) {
+    try {
+      const userAddress = (req as any).user?.address
+      if (!userAddress) {
+        return res.status(401).json({ success: false, message: "Unauthorized" })
+      }
+
+      const relations = await UserCompanyModel.getByUser(userAddress)
+      const relation = Array.isArray(relations) ? relations[0] : relations
+
+      if (!relation) {
+        return res.status(404).json({ success: false, message: "No company relation found" })
+      }
+
+      const company = await CompanyModel.getCompanyById(relation.companyId)
+      if (!company) {
+        return res.status(404).json({ success: false, message: "Company not found" })
+      }
+
+      return res.status(200).json({ success: true, data: company })
+    } catch (error: any) {
+      console.error(error)
+      return res.status(500).json({ success: false, message: error.message })
+    }
+  }
+
+  // --- Update the company owned by the currently logged-in user ---
+  static async updateMyCompany(req: Request, res: Response) {
+    try {
+      const userAddress = (req as any).user?.address
+      if (!userAddress) {
+        return res.status(401).json({ success: false, message: "Unauthorized" })
+      }
+
+      const relations = await UserCompanyModel.getByUser(userAddress)
+      const relation = Array.isArray(relations)
+        ? relations.find(r => r.userAddress === userAddress)
+        : relations
+
+      if (!relation) {
+        return res.status(404).json({ success: false, message: "User is not linked to any company" })
+      }
+
+      if (relation.role !== "owner") {
+        return res.status(403).json({ success: false, message: "Only company owner can update company data" })
+      }
+
+      const companyId = relation.companyId
+      const updatedData = req.body
+      const updatedCompany = await CompanyModel.updateCompany(companyId, updatedData, userAddress)
+
+      if (!updatedCompany) {
+        return res.status(404).json({ success: false, message: "Company not found" })
+      }
+
+      return res.status(200).json({ success: true, data: updatedCompany })
+    } catch (error: any) {
+      console.error(error)
       return res.status(500).json({ success: false, message: error.message })
     }
   }

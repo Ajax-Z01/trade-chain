@@ -110,8 +110,8 @@ onMounted(() => {
               <button 
                 class="flex items-center justify-center p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition disabled:opacity-50"
                 :disabled="deleting === user.address"
-                @click="openEditModal(user)"
                 title="Edit User"
+                @click="openEditModal(user)"
               >
                 <Edit class="w-4 h-4 text-gray-700 dark:text-gray-200" />
               </button>
@@ -120,8 +120,8 @@ onMounted(() => {
               <button 
                 class="flex items-center justify-center p-2 rounded-lg hover:bg-red-100 dark:hover:bg-red-800 transition disabled:opacity-50"
                 :disabled="deleting === user.address"
-                @click="handleDelete(user.address)"
                 title="Delete User"
+                @click="handleDelete(user.address)"
               >
                 <Loader2 v-if="deleting === user.address" class="w-4 h-4 animate-spin text-red-600" />
                 <Trash2 v-else class="w-4 h-4 text-red-600" />

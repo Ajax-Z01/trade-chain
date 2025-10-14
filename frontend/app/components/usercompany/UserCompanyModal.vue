@@ -71,10 +71,10 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleEsc))
       >
         <div class="flex justify-between items-center mb-4">
           <h2 class="text-2xl font-semibold">{{ props.editing ? 'Edit Relation' : 'Add Relation' }}</h2>
-          <button @click="close" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-2xl font-bold">&times;</button>
+          <button class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-2xl font-bold" @click="close">&times;</button>
         </div>
 
-        <form @submit.prevent="submit" class="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[70vh] overflow-y-auto">
+        <form class="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[70vh] overflow-y-auto" @submit.prevent="submit">
           <!-- User Address -->
           <div>
             <label class="block text-sm font-medium mb-1">User Address</label>
@@ -125,7 +125,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleEsc))
 
           <!-- Submit & Cancel Buttons -->
           <div class="col-span-2 flex justify-end gap-2 mt-4">
-            <button type="button" @click="close" class="btn btn-outline">Cancel</button>
+            <button type="button" class="btn btn-outline" @click="close">Cancel</button>
             <button type="submit" class="btn btn-primary flex items-center justify-center" :disabled="loading">
               <span v-if="loading" class="loader mr-2"></span>
               {{ props.editing ? 'Update' : 'Create' }}

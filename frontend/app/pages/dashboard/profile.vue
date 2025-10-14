@@ -1,24 +1,23 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { Loader2, User as UserIcon } from 'lucide-vue-next'
+import { Loader2, User as UserIcon, Building } from 'lucide-vue-next'
 import { useUserStore } from '~/stores/userStore'
 import { useToast } from '~/composables/useToast'
+import { useRouter } from 'vue-router'
 
 const userStore = useUserStore()
 const { addToast } = useToast()
+const router = useRouter()
 
-// ambil nama dari metadata user saat ini
 const editingName = ref(userStore.currentUser?.metadata?.name || '')
 const saving = ref(false)
 
 const handleSave = async () => {
   if (!userStore.currentUser) return
-
   if (!editingName.value.trim()) {
     addToast('Name cannot be empty', 'error')
     return
   }
-
   saving.value = true
   const ok = await userStore.updateMe({
     metadata: {
@@ -28,29 +27,45 @@ const handleSave = async () => {
   })
   saving.value = false
 
-  if (ok) {
-    addToast('Profile updated successfully', 'success')
-  } else {
-    addToast('Failed to update profile', 'error')
-  }
+  if (ok) addToast('Profile updated successfully', 'success')
+  else addToast('Failed to update profile', 'error')
+}
+
+const goToCompany = () => {
+  router.push('/dashboard/company')
 }
 </script>
 
 <template>
-  <div class="p-6 max-w-3xl mx-auto">
-    <h1 class="text-2xl font-bold mb-6 flex items-center gap-2">
-      <UserIcon class="w-6 h-6" />
-      Profile
-    </h1>
-
-    <div v-if="userStore.loading" class="flex justify-center py-10">
-      <Loader2 class="w-6 h-6 animate-spin text-gray-500" />
+  <div class="p-6 max-w-3xl mx-auto space-y-6">
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <h1 class="text-3xl font-bold flex items-center gap-3 text-gray-800 dark:text-gray-100">
+        <UserIcon class="w-7 h-7" />
+        Profile
+      </h1>
+      <button
+        class="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded shadow transition"
+        @click="goToCompany"
+      >
+        <Building class="w-4 h-4" />
+        My Company
+      </button>
     </div>
 
-    <div v-else-if="userStore.currentUser" class="bg-white dark:bg-gray-900 rounded-xl shadow p-6 space-y-4">
-      <!-- Address -->
+    <!-- Loading -->
+    <div v-if="userStore.loading" class="flex justify-center py-12">
+      <Loader2 class="w-8 h-8 animate-spin text-indigo-600" />
+    </div>
+
+    <!-- Profile Form -->
+    <div v-else-if="userStore.currentUser" class="bg-white dark:bg-gray-900 rounded-xl shadow-md p-6 space-y-5 border border-gray-200 dark:border-gray-700">
+      <!-- Address (Read-only) -->
       <div>
-        <label class="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Address</label>
+        <label class="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">
+          Address
+          <span class="text-xs text-gray-400 dark:text-gray-500 ml-1">(read-only)</span>
+        </label>
         <input
           type="text"
           :value="userStore.currentUser.address"
@@ -59,20 +74,23 @@ const handleSave = async () => {
         />
       </div>
 
-      <!-- Name -->
+      <!-- Name (Editable) -->
       <div>
         <label class="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Name</label>
         <input
           v-model="editingName"
           type="text"
-          class="w-full p-2 rounded border dark:bg-gray-800"
           placeholder="Your name"
+          class="w-full p-2 rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-indigo-500 transition"
         />
       </div>
 
-      <!-- Role -->
+      <!-- Role (Read-only) -->
       <div>
-        <label class="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Role</label>
+        <label class="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">
+          Role
+          <span class="text-xs text-gray-400 dark:text-gray-500 ml-1">(read-only)</span>
+        </label>
         <input
           type="text"
           :value="userStore.currentUser.role"
@@ -85,7 +103,7 @@ const handleSave = async () => {
       <div class="flex justify-end">
         <button
           :disabled="saving"
-          class="px-4 py-2 bg-indigo-600 text-white rounded flex items-center gap-2 disabled:opacity-50"
+          class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded flex items-center gap-2 shadow disabled:opacity-50 transition"
           @click="handleSave"
         >
           <Loader2 v-if="saving" class="w-4 h-4 animate-spin" />
@@ -94,7 +112,8 @@ const handleSave = async () => {
       </div>
     </div>
 
-    <div v-else class="text-center text-gray-500 py-10">
+    <!-- Error -->
+    <div v-else class="text-center text-gray-500 py-12">
       Failed to load profile.
     </div>
   </div>

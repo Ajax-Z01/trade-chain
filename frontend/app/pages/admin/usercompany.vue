@@ -77,10 +77,10 @@ const isEmpty = computed(() => !loading.value && userCompanies.value.length === 
     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
       <h1 class="text-3xl font-bold">User-Company Management</h1>
       <button
-        @click="openModal()"
         class="inline-flex items-center gap-2 px-4 py-2 rounded-full 
                bg-gradient-to-r from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700
                text-white font-semibold shadow-md hover:brightness-110 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400"
+        @click="openModal()"
       >
         <Plus class="w-5 h-5" /> Add Relation
       </button>
@@ -141,10 +141,10 @@ const isEmpty = computed(() => !loading.value && userCompanies.value.length === 
 
       <!-- Reset Filter Button -->
       <button
-        @click="() => { filterRole=''; filterStatus=''; filterCompanyId=''; searchText=''; fetchUserCompanies(); }"
         class="flex items-center gap-1 px-4 py-2 rounded-full 
               bg-gray-300 dark:bg-gray-600 hover:bg-gray-400 dark:hover:bg-gray-500
               text-gray-900 dark:text-gray-100 font-semibold shadow transition"
+        @click="() => { filterRole=''; filterStatus=''; filterCompanyId=''; searchText=''; fetchUserCompanies(); }"
       >
         Reset Filters
       </button>
@@ -175,18 +175,18 @@ const isEmpty = computed(() => !loading.value && userCompanies.value.length === 
             <td class="px-4 py-2">{{ formatDate(uc.joinedAt) }}</td>
             <td class="px-4 py-2 text-right flex justify-end gap-2">
               <button
-                @click="openModal(uc)"
                 class="flex items-center gap-1 px-3 py-1 rounded-full 
                        bg-yellow-300 hover:bg-yellow-400 dark:bg-yellow-400 dark:hover:bg-yellow-500
                        text-gray-900 font-semibold shadow transition"
+                @click="openModal(uc)"
               >
                 <Edit2 class="w-4 h-4" /> Edit
               </button>
               <button
-                @click="confirmDelete(uc.id)"
                 class="flex items-center gap-1 px-3 py-1 rounded-full 
                        bg-red-400 hover:bg-red-500 dark:bg-red-500 dark:hover:bg-red-600
                      text-gray-900 font-semibold shadow transition"
+                @click="confirmDelete(uc.id)"
               >
                 <Trash2 class="w-4 h-4" /> Delete
               </button>
@@ -209,18 +209,18 @@ const isEmpty = computed(() => !loading.value && userCompanies.value.length === 
           </div>
           <div class="flex justify-end gap-2 mt-2">
             <button
-              @click="openModal(uc)"
               class="flex items-center gap-1 px-3 py-1 rounded-full 
                      bg-yellow-400 hover:bg-yellow-500 dark:bg-yellow-500 dark:hover:bg-yellow-600
                        text-gray-900 font-semibold shadow transition"
+              @click="openModal(uc)"
             >
               <Edit2 class="w-4 h-4" /> Edit
             </button>
             <button
-              @click="confirmDelete(uc.id)"
               class="flex items-center gap-1 px-3 py-1 rounded-full 
                      bg-red-400 hover:bg-red-500 dark:bg-red-500 dark:hover:bg-red-600
                      text-gray-900 font-semibold shadow transition"
+              @click="confirmDelete(uc.id)"
             >
               <Trash2 class="w-4 h-4" /> Delete
             </button>
@@ -243,19 +243,19 @@ const isEmpty = computed(() => !loading.value && userCompanies.value.length === 
       <span class="text-gray-600 dark:text-gray-400">Total: {{ total }}</span>
       <div class="flex gap-2 items-center">
         <button
-          @click="prevPage"
           :disabled="page===1"
           class="flex items-center gap-1 px-3 py-1 rounded-full 
                  bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition"
+          @click="prevPage"
         >
           <ChevronLeft class="w-4 h-4" /> Prev
         </button>
         <span>Page {{ page }}</span>
         <button
-          @click="nextPage"
           :disabled="userCompanies.length<limit"
           class="flex items-center gap-1 px-3 py-1 rounded-full 
                  bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition"
+          @click="nextPage"
         >
           Next <ChevronRight class="w-4 h-4" />
         </button>

@@ -20,7 +20,7 @@ export function useContracts() {
         finished: false,
         lastTimestamp: undefined,
         role: 'Guest',
-        documentCount: 0, // 👈 tambahkan field baru
+        documentCount: 0,
       } as ContractState & { documentCount: number }
     }
     return contractStates[contract]
@@ -52,7 +52,6 @@ export function useContracts() {
         state.loading = false
         state.lastTimestamp = contractData.history?.[contractData.history.length - 1]?.timestamp
 
-        // 🔥 Ambil jumlah dokumen yang terhubung ke contract ini
         try {
           const docs = await getDocumentsByContract(addr)
           state.documentCount = docs.length

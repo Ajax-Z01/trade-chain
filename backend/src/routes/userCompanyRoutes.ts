@@ -9,7 +9,7 @@ const router = Router()
 router.post("/", authMiddleware, UserCompanyController.create)
 
 // --- Get All ---
-router.get("/", UserCompanyController.getAll)
+router.get("/", authMiddleware, UserCompanyController.getAll)
 
 // --- Get by User ---
 router.get("/user/:address", authMiddleware, UserCompanyController.getByUser)
@@ -17,13 +17,19 @@ router.get("/user/:address", authMiddleware, UserCompanyController.getByUser)
 // --- Get by Company ---
 router.get("/company/:companyId", authMiddleware, UserCompanyController.getByCompany)
 
+// --- Get My Company (by logged-in user) ---
+router.get("/my-company", authMiddleware, UserCompanyController.getMyCompany)
+
+// --- Update My Company ---
+router.put("/my-company", authMiddleware, UserCompanyController.updateMyCompany)
+
 // --- Get by ID ---
 router.get("/:id", authMiddleware, UserCompanyController.getById)
 
 // --- Update ---
-router.put("/:id", authMiddleware, UserCompanyController.update)
+router.put("/:id", authMiddleware, adminMiddleware, UserCompanyController.update)
 
 // --- Delete ---
-router.delete("/:id", authMiddleware, UserCompanyController.delete)
+router.delete("/:id", authMiddleware, adminMiddleware, UserCompanyController.delete)
 
 export default router
