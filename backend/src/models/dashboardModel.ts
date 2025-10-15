@@ -96,8 +96,8 @@ export class DashboardModel {
       const roles = await getContractRoles(doc.id)
 
       if (
-        roles.exporter?.toLowerCase() === normalizedAddress ||
-        roles.importer?.toLowerCase() === normalizedAddress
+        roles.exporter === normalizedAddress ||
+        roles.importer === normalizedAddress
       ) {
         userContracts.push({
           address: doc.id as `0x$string`,

@@ -1,20 +1,18 @@
-import { ref, computed, watch, type Ref } from 'vue'
+import { ref, computed, type Ref, watch } from 'vue'
 import { useWallet } from '~/composables/useWallets'
 import { useRegistryDocument } from './useRegistryDocument'
 import { useApi } from './useApi'
 import type { ContractDetails, ContractLogPayload } from '~/types/Contract'
 
-/**
- * Contract-based role helper (untuk importer/exporter + document minters)
- * Tidak ada KYC di sini
- */
 export function useContractRole(selectedContract: Ref<string | null>) {
   const { account } = useWallet()
   const { isMinter: isDocMinter } = useRegistryDocument()
   const { request } = useApi()
 
+  // Admin hardcoded (bisa diganti dinamis)
   const adminAddress = ref<`0x${string}`>('0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266')
   const isAdmin = computed(() => account.value === adminAddress.value)
+
   const isImporter = ref(false)
   const isExporter = ref(false)
 
@@ -42,22 +40,8 @@ export function useContractRole(selectedContract: Ref<string | null>) {
     }
   }
 
-  const refreshRole = async () => {
-    if (!selectedContract.value || !account.value) return
-
-    if (isAdmin.value) {
-      isImporter.value = false
-      isExporter.value = false
-      return
-    }
-
-    const roles = await getContractRoles(selectedContract.value)
-    isImporter.value = account.value === roles.importer
-    isExporter.value = account.value === roles.exporter
-  }
-
   watch([selectedContract, account], async ([contract, acc]) => {
-    if (!account.value) return
+    if (!acc) return
     if (isAdmin.value) {
       isImporter.value = false
       isExporter.value = false
@@ -92,8 +76,6 @@ export function useContractRole(selectedContract: Ref<string | null>) {
     isImporter,
     isExporter,
     userRole,
-    refreshRole,
-    getContractRoles,
     approvedMintersDoc,
     loadingMintersDoc,
     fetchApprovedMintersDoc,

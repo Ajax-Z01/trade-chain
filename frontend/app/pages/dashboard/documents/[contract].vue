@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useRoute } from 'vue-router'
-import { onMounted, watch } from 'vue'
+import { onMounted, watch, computed } from 'vue'
 import { useDocumentDashboard } from '~/composables/useDocumentDashboard'
 
 // Components
@@ -12,11 +12,9 @@ import DocumentViewer from '~/components/document/DocumentViewer.vue'
 // Icons
 import { FileUp } from 'lucide-vue-next'
 
-// --- Setup ---
 const route = useRoute()
 const contractAddress = route.params.contract as string
 
-// --- Composable Dashboard ---
 const {
   currentContract,
   documents,
@@ -24,26 +22,30 @@ const {
   fileProgresses,
   docType,
   userRole,
-  userIsMinter,
   loadingDocs,
   minting,
-  openViewer,
   selectedDoc,
   selectedDocSrc,
   showViewer,
-  handleAttachAndMint,
   canAttachAndMint,
   fetchDocuments,
-  fetchApprovedMinters
+  fetchApprovedMinters,
+  handleAttachAndMint,
+  openViewer,
+  approvedMintersDoc,
+  account,
 } = useDocumentDashboard(contractAddress)
 
-// --- Lifecycle ---
+const userIsMinter = computed(() => {
+  if (!account.value || !approvedMintersDoc.value.length) return false
+  return approvedMintersDoc.value.some(addr => addr.toLowerCase() === account.value!.toLowerCase())
+})
+
 onMounted(async () => {
   await fetchApprovedMinters()
   await fetchDocuments()
 })
 
-// Watch contract changes (optional if user navigates programmatically)
 watch(() => route.params.contract, async (newVal) => {
   if (newVal) {
     currentContract.value = newVal as string
@@ -52,7 +54,6 @@ watch(() => route.params.contract, async (newVal) => {
   }
 })
 
-// --- File handling (from composable state) ---
 const onFilesChange = (e: Event) => {
   const files = (e.target as HTMLInputElement).files
   if (!files) return
@@ -85,18 +86,15 @@ const removeFile = (index: number) => {
         <span v-else-if="userRole==='exporter'" class="px-2 py-1 rounded-full text-white text-xs bg-blue-600">Exporter</span>
         <span v-else-if="userRole==='admin'" class="px-2 py-1 rounded-full text-white text-xs bg-indigo-600">Admin</span>
         <span v-if="userIsMinter" class="px-2 py-1 rounded-full text-white text-xs bg-purple-600">Approved Minter</span>
-        <span v-if="!userIsMinter" class="px-2 py-1 rounded-full text-white text-xs bg-purple-600">Unapproved Minter</span>
-        <span v-if="!userRole && !userIsMinter" class="text-sm text-gray-500 dark:text-gray-400">No role assigned</span>
+        <span v-else class="px-2 py-1 rounded-full text-white text-xs bg-purple-400">Unapproved Minter</span>
       </div>
       <div class="text-sm text-gray-600 dark:text-gray-400">
         <span class="font-semibold">Contract:</span> {{ currentContract }}
       </div>
     </div>
 
-    <!-- Document Type -->
     <DocumentTypeSelector v-model="docType" />
 
-    <!-- File Upload & Attach/Mint -->
     <div v-if="canAttachAndMint">
       <FileUploadList
         :files="selectedFiles"
@@ -116,14 +114,12 @@ const removeFile = (index: number) => {
       </div>
     </div>
 
-    <!-- Documents Grid -->
     <AttachedDocumentsGrid
       :documents="documents"
       :loading="loadingDocs"
       @view="openViewer"
     />
 
-    <!-- Viewer -->
     <DocumentViewer
       v-if="selectedDocSrc"
       v-model="showViewer"

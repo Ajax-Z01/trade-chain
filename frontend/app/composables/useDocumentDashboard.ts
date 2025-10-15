@@ -2,10 +2,10 @@ import { ref, computed, watch, onMounted } from 'vue'
 import { useWallet } from '~/composables/useWallets'
 import { useDocuments } from '~/composables/useDocuments'
 import { useRegistryDocument } from '~/composables/useRegistryDocument'
-import { useContractRole } from '~/composables/useContractRole'
 import { useContractActions } from '~/composables/useContractActions'
 import { useDashboard } from '~/composables/useDashboard'
 import { useToast } from '~/composables/useToast'
+import { useContractRole } from '~/composables/useContractRole'
 import type { Document as DocType } from '~/types/Document'
 
 export function useDocumentDashboard(initialContract: string | null = null) {
@@ -13,15 +13,9 @@ export function useDocumentDashboard(initialContract: string | null = null) {
   const { addToast } = useToast()
   const { account } = useWallet()
   const { attachDocument, getDocumentsByContract } = useDocuments()
-  const { mintDocument, addMinter, removeMinter, reviewDocument, signDocument, revokeDocument, isMinter } = useRegistryDocument()
+  const { mintDocument, addMinter, removeMinter, reviewDocument, signDocument, revokeDocument } = useRegistryDocument()
   const { deployedContracts, fetchDeployedContracts } = useContractActions()
-  const { wallets, fetchOnChainDashboard } = useDashboard()
-  const {
-    userRole,
-    isAdmin,
-    isImporter,
-    isExporter
-  } = useContractRole(ref(initialContract))
+  const { wallets, fetchWalletsFromUsers } = useDashboard()
 
   // --- State ---
   const currentContract = ref<string | null>(initialContract)
@@ -30,87 +24,75 @@ export function useDocumentDashboard(initialContract: string | null = null) {
   const fileProgresses = ref<{ file: File; progress: number; status: string; tokenId?: number }[]>([])
   const docType = ref<'Invoice' | 'B/L' | 'COO' | 'PackingList' | 'Other'>('Invoice')
 
-  const userIsMinter = ref(false)
-  const approvedMintersDoc = ref<string[]>([])
-  const loadingDocs = ref(false)
-  const loadingMintersDoc = ref(false)
   const minting = ref(false)
-  const error = ref<string | null>(null)
-  const success = ref<string | null>(null)
   const minterAddress = ref<string>('')
   const addingMinter = ref(false)
   const removingMinter = ref(false)
+  const error = ref<string | null>(null)
+  const success = ref<string | null>(null)
 
   const showViewer = ref(false)
   const selectedDocSrc = ref<string | null>(null)
   const selectedDoc = ref<DocType | null>(null)
+  const loadingDocs = ref(false)
+
+  // --- Contract Roles ---
+  const { 
+    isAdmin, 
+    isImporter, 
+    isExporter, 
+    userRole, 
+    approvedMintersDoc, 
+    loadingMintersDoc, 
+    fetchApprovedMintersDoc 
+  } = useContractRole(currentContract)
 
   // --- Computed ---
   const canAttachAndMint = computed(() => {
     return currentContract.value && account.value && (isImporter.value || isExporter.value)
   })
+  
+  const userIsMinter = computed(() => {
+    if (!account.value) return false
+    return approvedMintersDoc.value.some(addr => addr.toLowerCase() === account.value!.toLowerCase())
+  })
 
   // --- Methods ---
-  const fetchApprovedMinters = async () => {
-    if (!currentContract.value || wallets.value.length === 0) return
-    loadingMintersDoc.value = true
-    try {
-      const minters: string[] = []
-      for (const w of wallets.value) {
-        if (w.address && await isMinter(w.address as `0x${string}`)) {
-          minters.push(w.address)
-        }
-      }
-      approvedMintersDoc.value = minters
-      // check if current account is minter
-      userIsMinter.value = account.value ? minters.includes(account.value) : false
-    } catch (err: any) {
-      addToast(err.message || 'Failed to fetch approved minters', 'error')
-    } finally {
-      loadingMintersDoc.value = false
-    }
-  }
-
   const fetchDocuments = async () => {
     if (!currentContract.value) return
     loadingDocs.value = true
     try {
       documents.value = await getDocumentsByContract(currentContract.value)
     } catch (err: any) {
-      addToast(err.message || 'Failed to fetch documents', 'error')
+      error.value = err.message || 'Failed to fetch documents'
+      addToast(error.value || 'Failed to fetch documents', 'error')
     } finally {
       loadingDocs.value = false
     }
   }
   
-  const fetchGlobalMinters = async () => {
-    if (wallets.value.length === 0) return
-    loadingMintersDoc.value = true
-    try {
-        const minters: string[] = []
-        for (const w of wallets.value) {
-        if (w.address && await isMinter(w.address as `0x${string}`)) {
-            minters.push(w.address)
-        }
-        }
-        approvedMintersDoc.value = minters
-        userIsMinter.value = account.value ? minters.includes(account.value) : false
-    } catch (err: any) {
-        addToast(err.message || 'Failed to fetch global minters', 'error')
-    } finally {
-        loadingMintersDoc.value = false
-    }
-    }
+  const fetchApprovedMinters = async () => {
+    if (!wallets.value?.length) return
+    const addresses = wallets.value.map(w => w.address as `0x${string}`)
+    if (addresses.length === 0) return
+
+    await fetchApprovedMintersDoc(addresses)
+  }
 
   const handleAttachAndMint = async () => {
     if (!selectedFiles.value.length || !currentContract.value || !account.value) {
-      addToast('Select files, connect wallet, and choose a contract', 'error')
+      error.value = 'Select files, connect wallet, and choose a contract'
+      addToast(error.value, 'error')
       return
     }
     if (!userRole.value) {
-      addToast('You are not authorized for this contract', 'error')
+      error.value = 'You are not authorized for this contract'
+      addToast(error.value, 'error')
       return
     }
+
+    minting.value = true
+    fileProgresses.value = selectedFiles.value.map(f => ({ file: f, progress: 0, status: 'pending' }))
 
     for (let i = 0; i < selectedFiles.value.length; i++) {
       const fp = fileProgresses.value[i]
@@ -127,29 +109,33 @@ export function useDocumentDashboard(initialContract: string | null = null) {
           tokenId: Number(tokenId),
           owner: account.value,
           fileHash,
-          uri: `uploaded://fake-url/${fp.file.name}`, // replace with actual upload method
+          uri: `uploaded://fake-url/${fp.file.name}`,
           docType: docType.value,
           linkedContracts: [currentContract.value],
           createdAt: Date.now(),
           signer: account.value,
           name: fp.file.name,
           description: `Attached & minted document ${fp.file.name}`,
-          metadataUrl
+          metadataUrl,
         }, account.value, txHash)
 
         documents.value.push(uploadedDoc)
         fp.progress = 100
         fp.status = 'success'
         fp.tokenId = Number(tokenId)
+        success.value = `Document minted & attached: ${fp.file.name}`
+        addToast(success.value, 'success')
       } catch (err: any) {
         console.error(err)
         fp.progress = 100
         fp.status = 'error'
-        addToast(`Failed to mint ${fp.file.name}`, 'error')
+        error.value = err.message || `Failed to mint ${fp.file.name}`
+        addToast(error.value || `Failed to mint ${fp.file.name}`, 'error')
       }
     }
+
     selectedFiles.value = []
-    addToast('All files processed!', 'success')
+    minting.value = false
   }
 
   const handleAddMinter = async () => {
@@ -157,11 +143,10 @@ export function useDocumentDashboard(initialContract: string | null = null) {
     addingMinter.value = true
     try {
       await addMinter(minterAddress.value as `0x${string}`)
+      addToast(`Minter added: ${minterAddress.value}`, 'success')
       minterAddress.value = ''
-      await fetchApprovedMinters()
-    } finally {
-      addingMinter.value = false
-    }
+      await fetchApprovedMintersDoc(wallets.value.map(w => w.address as `0x${string}`))
+    } finally { addingMinter.value = false }
   }
 
   const handleRemoveMinter = async () => {
@@ -169,11 +154,10 @@ export function useDocumentDashboard(initialContract: string | null = null) {
     removingMinter.value = true
     try {
       await removeMinter(minterAddress.value as `0x${string}`)
+      addToast(`Minter removed: ${minterAddress.value}`, 'success')
       minterAddress.value = ''
-      await fetchApprovedMinters()
-    } finally {
-      removingMinter.value = false
-    }
+      await fetchApprovedMintersDoc(wallets.value.map(w => w.address as `0x${string}`))
+    } finally { removingMinter.value = false }
   }
 
   const handleReview = async (doc: DocType) => {
@@ -181,9 +165,9 @@ export function useDocumentDashboard(initialContract: string | null = null) {
     try {
       await reviewDocument(BigInt(doc.tokenId))
       doc.status = 'Reviewed'
-      addToast(`Document ${doc.name} marked as Reviewed (on-chain)`, 'success')
+      addToast(`Document ${doc.name} marked Reviewed`, 'success')
     } catch (err: any) {
-      addToast(err.message || 'Failed to review on-chain', 'error')
+      addToast(err.message || 'Failed to review document', 'error')
     }
   }
 
@@ -192,9 +176,9 @@ export function useDocumentDashboard(initialContract: string | null = null) {
     try {
       await signDocument(BigInt(doc.tokenId))
       doc.status = 'Signed'
-      addToast(`Document ${doc.name} signed (on-chain)`, 'success')
+      addToast(`Document ${doc.name} signed`, 'success')
     } catch (err: any) {
-      addToast(err.message || 'Failed to sign on-chain', 'error')
+      addToast(err.message || 'Failed to sign document', 'error')
     }
   }
 
@@ -203,9 +187,9 @@ export function useDocumentDashboard(initialContract: string | null = null) {
     try {
       await revokeDocument(BigInt(doc.tokenId))
       doc.status = 'Revoked'
-      addToast(`Document ${doc.name} revoked (on-chain)`, 'success')
+      addToast(`Document ${doc.name} revoked`, 'success')
     } catch (err: any) {
-      addToast(err.message || 'Failed to revoke on-chain', 'error')
+      addToast(err.message || 'Failed to revoke document', 'error')
     }
   }
 
@@ -217,26 +201,25 @@ export function useDocumentDashboard(initialContract: string | null = null) {
 
   // --- Lifecycle ---
   onMounted(async () => {
-    await fetchOnChainDashboard()
+    await fetchWalletsFromUsers()
     await fetchDeployedContracts()
-    fetchApprovedMinters()
-    fetchDocuments()
-    fetchGlobalMinters()
+    await fetchApprovedMinters()
+    await fetchDocuments()
   })
 
   // watchers
   watch([currentContract, account], async ([contract, acc]) => {
     if (!contract || !acc) {
       documents.value = []
-      userIsMinter.value = false
       return
     }
-    fetchApprovedMinters()
+    await fetchApprovedMinters()
     await fetchDocuments()
   })
 
   return {
     // state
+    account,
     currentContract,
     documents,
     selectedFiles,
@@ -262,8 +245,9 @@ export function useDocumentDashboard(initialContract: string | null = null) {
     selectedDocSrc,
     showViewer,
     // methods
-    fetchApprovedMinters,
     fetchDocuments,
+    fetchApprovedMinters,
+    fetchApprovedMintersDoc,
     handleAttachAndMint,
     handleAddMinter,
     handleRemoveMinter,

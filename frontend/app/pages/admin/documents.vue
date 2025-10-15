@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useDocumentDashboard } from '~/composables/useDocumentDashboard'
 
@@ -53,7 +53,14 @@ const {
 
 // --- Fetch on mount ---
 onMounted(async () => {
-  // load minters segera agar MinterManagement bisa langsung render
+  await fetchApprovedMinters()
+  await fetchDocuments()
+  console.log('Approved Minters:', approvedMintersDoc.value)
+})
+
+// --- Watch current contract and account ---
+watch(currentContract, async (contract) => {
+  if (!contract) return
   await fetchApprovedMinters()
   await fetchDocuments()
 })
@@ -138,8 +145,8 @@ onMounted(async () => {
       :approved-minters-k-y-c="approvedMintersDoc"
       :loading-minters-k-y-c="loadingMintersDoc"
       :is-admin="isAdmin"
-      :on-add-minter="handleAddMinter"
-      :on-remove-minter="handleRemoveMinter"
+      @addMinter="async () => { await handleAddMinter(); await fetchApprovedMinters(); }"
+      @removeMinter="async () => { await handleRemoveMinter(); await fetchApprovedMinters(); }"
     />
   </div>
 </template>

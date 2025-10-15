@@ -19,11 +19,11 @@ router.post("/wallet-connect", walletConnectHandler)
 // --- Get Current User ---
 router.get("/me", authMiddleware, getCurrentUserHandler)
 
-// --- Get All Users (Admin only) ---
-router.get("/", authMiddleware, adminMiddleware, getAllUsersHandler)
+// --- Get All Users ---
+router.get("/", authMiddleware, getAllUsersHandler)
 
 // --- Get Single User ---
-router.get("/:address", getUserHandler)
+router.get("/:address", authMiddleware, getUserHandler)
 
 // --- Update Current User ---
 router.patch("/update/me", authMiddleware, updateMeHandler)

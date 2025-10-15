@@ -64,7 +64,7 @@ const onInput = (e: Event) => {
 
     <!-- Approved Minters List -->
     <div class="mt-2">
-      <p class="text-sm font-medium text-gray-700 dark:text-gray-300">Approved Minters (KYC):</p>
+      <p class="text-sm font-medium text-gray-700 dark:text-gray-300">Approved Minters:</p>
       <div class="flex flex-wrap gap-2 mt-1 max-h-36 overflow-y-auto">
         <span
           v-for="addr in approvedMintersKYC"
