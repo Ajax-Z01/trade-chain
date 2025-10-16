@@ -117,14 +117,21 @@ export class DashboardModel {
     for (const doc of docSnap.docs) {
       const docData = doc.data()
       const logsSnap = await documentLogsCollection.doc(doc.id).get()
-      const history = logsSnap.exists ? (logsSnap.data()?.history ?? []) : []
+      const history = logsSnap.exists ? logsSnap.data()?.history ?? [] : []
       const lastAction = history[history.length - 1] ?? null
 
       const isOwner = docData.owner === normalizedAddress
-      const linkedToUser = docData.linkedContracts?.some(async (c: string) => {
-        const roles = await getContractRoles(c)
-        return roles.exporter === normalizedAddress || roles.importer === normalizedAddress
-      })
+
+      let linkedToUser = false
+      if (docData.linkedContracts?.length) {
+        for (const c of docData.linkedContracts) {
+          const roles = await getContractRoles(c)
+          if (roles.exporter === normalizedAddress || roles.importer === normalizedAddress) {
+            linkedToUser = true
+            break
+          }
+        }
+      }
 
       if (isOwner || linkedToUser) {
         userDocuments.push({

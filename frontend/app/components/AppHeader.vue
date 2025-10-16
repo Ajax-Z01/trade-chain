@@ -73,7 +73,7 @@ const role = computed(() => currentUser.value?.role ?? 'guest')
 const homeLink = computed(() => {
   if (role.value === 'admin') return { to: '/admin/', label: 'TradeChain' }
   if (role.value === 'user') return { to: '/dashboard/', label: 'TradeChain' }
-  return { to: '/', label: 'Home' }
+  return { to: '/', label: 'TradeChain' }
 })
 
 /* Filtered links selain Home */

@@ -3,6 +3,7 @@ import { ref, watch, onMounted, computed } from 'vue'
 import { useUserCompany } from '~/composables/useUserCompany'
 import type { UserCompany } from '~/types/UserCompany'
 import UserCompanyModal from '~/components/usercompany/UserCompanyModal.vue'
+import { useToast } from '~/composables/useToast'
 
 // Lucide icons
 import { Plus, Edit2, Trash2, Loader2, ChevronLeft, ChevronRight, Search } from 'lucide-vue-next'
@@ -23,6 +24,7 @@ const {
   deleteUserCompany,
 } = useUserCompany()
 
+const { addToast } = useToast()
 const showModal = ref(false)
 const editing = ref(false)
 const selectedUC = ref<UserCompany | null>(null)
@@ -39,6 +41,7 @@ const handleSubmit = async (formData: Partial<UserCompany>) => {
       role: formData.role!,
       status: formData.status!,
     })
+    addToast('User-Company relation updated successfully', 'success')
   } else {
     await createUserCompany({
       userAddress: formData.userAddress!,
@@ -47,6 +50,7 @@ const handleSubmit = async (formData: Partial<UserCompany>) => {
       status: formData.status!,
       joinedAt: Date.now(),
     })
+    addToast('User-Company relation created successfully', 'success')
   }
   showModal.value = false
   fetchUserCompanies()
@@ -57,6 +61,7 @@ const confirmDelete = async (id: string) => {
     await deleteUserCompany(id)
     fetchUserCompanies()
   }
+  addToast('User-Company relation deleted successfully', 'success')
 }
 
 const prevPage = () => { if (page.value > 1) page.value-- }

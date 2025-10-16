@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { Wallet, FileText, FileArchive, Loader2 } from 'lucide-vue-next'
 import { countUp } from '~/utils/animations'
 import { useDashboard } from '~/composables/useDashboard'
@@ -103,18 +103,16 @@ onMounted(async () => {
           <tr>
             <th class="p-3 text-gray-600 dark:text-gray-300">Address</th>
             <th class="p-3 text-gray-600 dark:text-gray-300">Last Action</th>
+            <th class="p-3 text-gray-600 dark:text-gray-300">Account</th>
             <th class="p-3 text-gray-600 dark:text-gray-300">Timestamp</th>
           </tr>
         </thead>
         <tbody>
-          <tr
-            v-for="c in adminDashboard.recentContracts"
-            :key="c.address"
-            class="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 transition"
-          >
+          <tr v-for="c in adminDashboard.recentContracts" :key="c.address" class="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 transition">
             <td class="p-3 font-mono text-sm truncate dark:text-white">{{ c.address }}</td>
-            <td class="p-3 dark:text-white">{{ c.lastAction?.type || '-' }}</td>
-            <td class="p-3 dark:text-white">{{ new Date(c.createdAt).toLocaleString() }}</td>
+            <td class="p-3 dark:text-white">{{ c.lastAction?.action || '-' }}</td>
+            <td class="p-3 font-mono text-sm truncate dark:text-white">{{ c.lastAction?.account || '-' }}</td>
+            <td class="p-3 dark:text-white">{{ c.lastAction ? new Date(c.lastAction.timestamp).toLocaleString() : '-' }}</td>
           </tr>
         </tbody>
       </table>
@@ -128,31 +126,30 @@ onMounted(async () => {
       <table class="w-full table-auto text-left">
         <thead class="bg-gray-100 dark:bg-gray-800">
           <tr>
-            <th class="p-3 text-gray-600 dark:text-gray-300">Title</th>
+            <th class="p-3 text-gray-600 dark:text-gray-300">Token ID</th>
             <th class="p-3 text-gray-600 dark:text-gray-300">Owner</th>
             <th class="p-3 text-gray-600 dark:text-gray-300">Type</th>
             <th class="p-3 text-gray-600 dark:text-gray-300">Status</th>
+            <th class="p-3 text-gray-600 dark:text-gray-300">Last Action</th>
+            <th class="p-3 text-gray-600 dark:text-gray-300">Performed By</th>
+            <th class="p-3 text-gray-600 dark:text-gray-300">Linked Contract</th>
+            <th class="p-3 text-gray-600 dark:text-gray-300">Timestamp</th>
           </tr>
         </thead>
         <tbody>
-          <tr
-            v-for="d in adminDashboard.recentDocuments"
-            :key="d.id"
-            class="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 transition"
-          >
-            <td class="p-3 dark:text-white">{{ d.title }}</td>
+          <tr v-for="d in adminDashboard.recentDocuments" :key="d.id" class="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 transition">
+            <td class="p-3 dark:text-white">{{ d.tokenId }}</td>
             <td class="p-3 font-mono text-sm truncate dark:text-white">{{ d.owner }}</td>
             <td class="p-3 dark:text-white">{{ d.docType }}</td>
             <td class="p-3 dark:text-white">
-              <span
-                class="px-2 py-1 rounded-full text-sm"
-                :class="d.status === 'active'
-                  ? 'bg-green-100 text-green-700 dark:bg-green-800 dark:text-green-100'
-                  : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'"
-              >
+              <span class="px-2 py-1 rounded-full text-sm" :class="d.status === 'active' ? 'bg-green-100 text-green-700 dark:bg-green-800 dark:text-green-100' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'">
                 {{ d.status }}
               </span>
             </td>
+            <td class="p-3 dark:text-white">{{ d.lastAction?.action || '-' }}</td>
+            <td class="p-3 font-mono text-sm truncate dark:text-white">{{ d.lastAction?.signer || d.lastAction?.account || '-' }}</td>
+            <td class="p-3 font-mono text-sm truncate dark:text-white">{{ d.lastAction?.linkedContract || '-' }}</td>
+            <td class="p-3 dark:text-white">{{ d.lastAction ? new Date(d.lastAction.timestamp).toLocaleString() : '-' }}</td>
           </tr>
         </tbody>
       </table>

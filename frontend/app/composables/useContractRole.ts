@@ -76,6 +76,7 @@ export function useContractRole(selectedContract: Ref<string | null>) {
     isImporter,
     isExporter,
     userRole,
+    getContractRoles,
     approvedMintersDoc,
     loadingMintersDoc,
     fetchApprovedMintersDoc,

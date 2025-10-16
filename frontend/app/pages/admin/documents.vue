@@ -120,6 +120,7 @@ watch(currentContract, async (contract) => {
     <AttachedDocumentsGrid
       :documents="documents"
       :loading="loadingDocs"
+      :user-role="userRole"
       @view="openViewer"
       @review="handleReview"
       @sign="handleSign"
@@ -145,8 +146,8 @@ watch(currentContract, async (contract) => {
       :approved-minters-k-y-c="approvedMintersDoc"
       :loading-minters-k-y-c="loadingMintersDoc"
       :is-admin="isAdmin"
-      @addMinter="async () => { await handleAddMinter(); await fetchApprovedMinters(); }"
-      @removeMinter="async () => { await handleRemoveMinter(); await fetchApprovedMinters(); }"
+      @add-minter="async () => { await handleAddMinter(); await fetchApprovedMinters(); }"
+      @remove-minter="async () => { await handleRemoveMinter(); await fetchApprovedMinters(); }"
     />
   </div>
 </template>

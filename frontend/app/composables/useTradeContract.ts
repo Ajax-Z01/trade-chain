@@ -77,14 +77,23 @@ export function useTradeContract() {
 
   const requiredAmountValue = computed({
     get: () => {
-      let amountStr: string = requiredAmount.value || ''
+      let amountStr = requiredAmount.value
+        ? String(requiredAmount.value) 
+        : ''
+
       if (!amountStr && backendRequiredAmount.value) {
-        const amount = BigInt(backendRequiredAmount.value)
-        amountStr = paymentTokenValue.value === 'ETH'
-          ? (Number(amount) / 1e18).toFixed(4)
-          : (Number(amount) / 1e6).toFixed(4)
+        try {
+          const amountBig = BigInt(backendRequiredAmount.value)
+          amountStr = paymentTokenValue.value === 'ETH'
+            ? (Number(amountBig) / 1e18).toFixed(4)
+            : (Number(amountBig) / 1e6).toFixed(4)
+        } catch (err) {
+          console.warn('Failed to parse backendRequiredAmount:', backendRequiredAmount.value)
+          amountStr = ''
+        }
       }
-      return amountStr.replace(/\.?0+$/, '')
+
+      return amountStr ? String(amountStr).replace(/\.?0+$/, '') : ''
     },
     set: (val: string) => { requiredAmount.value = val }
   })
