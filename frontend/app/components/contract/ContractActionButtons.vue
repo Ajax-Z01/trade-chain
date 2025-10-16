@@ -56,6 +56,7 @@ defineEmits([
       @click="$emit('deploy')"
     >
       <Rocket class="w-5 h-5"/>
+      <span v-if="props.loading==='deploy'">Waiting for Wallet...</span>
       <span v-if="props.loading!=='deploy'">Deploy Contract</span>
       <Loader2 v-else class="w-5 h-5 animate-spin"/>
       <Check v-if="props.stepStatus.deploy" class="w-5 h-5 text-green-400"/>
@@ -69,6 +70,7 @@ defineEmits([
       @click="$emit('sign')"
     >
       <PenTool class="w-5 h-5"/>
+      <span v-if="props.loading==='sign'">Waiting for Wallet...</span>
       <span v-if="props.loading!=='sign'">Sign Agreement</span>
       <Loader2 v-else class="w-5 h-5 animate-spin"/>
       <Check v-if="props.signCompleted" class="w-5 h-5 text-purple-400"/>
@@ -82,6 +84,7 @@ defineEmits([
       @click="$emit('deposit')"
     >
       <DollarSign class="w-5 h-5"/>
+      <span v-if="props.loading==='deposit'">Waiting for Wallet...</span>
       <span v-if="props.loading!=='deposit'">Deposit</span>
       <Loader2 v-else class="w-5 h-5 animate-spin"/>
       <Check v-if="props.stepStatus.deposit" class="w-5 h-5 text-green-400"/>
@@ -95,6 +98,7 @@ defineEmits([
       @click="$emit('start-shipping')"
     >
       <Truck class="w-5 h-5"/>
+      <span v-if="props.loading==='shipping'">Waiting for Wallet...</span>
       <span v-if="props.loading!=='shipping'">Start Shipping</span>
       <Loader2 v-else class="w-5 h-5 animate-spin"/>
       <Check v-if="props.stepStatus.shipping" class="w-5 h-5 text-green-400"/>
@@ -108,6 +112,7 @@ defineEmits([
       @click="$emit('complete')"
     >
       <CheckCircle2 class="w-5 h-5"/>
+      <span v-if="props.loading==='completed'">Waiting for Wallet...</span>
       <span v-if="props.loading!=='completed'">Complete Contract</span>
       <Loader2 v-else class="w-5 h-5 animate-spin"/>
       <Check v-if="props.stepStatus.completed" class="w-5 h-5 text-green-400"/>
@@ -121,6 +126,7 @@ defineEmits([
       @click="$emit('cancel')"
     >
       <Ban class="w-5 h-5"/>
+      <span v-if="props.loading==='cancel'">Waiting for Wallet...</span>
       <span v-if="props.loading!=='cancel'">Cancel Contract</span>
       <Loader2 v-else class="w-5 h-5 animate-spin"/>
       <X v-if="props.stepStatus.cancelled" class="w-5 h-5 text-white"/>

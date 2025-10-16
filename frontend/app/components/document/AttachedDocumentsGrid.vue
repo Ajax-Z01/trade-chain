@@ -11,6 +11,10 @@ defineProps({
   loading: {
     type: Boolean,
     default: false
+  },
+  userRole: {
+    type: String as PropType<'admin' | 'importer' | 'exporter' | null>,
+    default: 'viewer'
   }
 })
 
@@ -104,22 +108,27 @@ const openViewer = (doc: DocType) => {
           </div>
 
           <div class="flex gap-2 mt-1">
+            <!-- Review button hanya untuk admin & importer -->
             <button
-              v-if="doc.status==='Draft'"
+              v-if="doc.status==='Draft' && (userRole==='admin' || userRole==='importer')"
               class="flex-1 bg-blue-500 hover:bg-blue-600 text-white text-xs py-1 rounded-lg"
               @click="$emit('review', doc)"
             >
               Review
             </button>
+
+            <!-- Sign button hanya untuk admin & exporter -->
             <button
-              v-if="doc.status==='Reviewed'"
+              v-if="doc.status==='Reviewed' && (userRole==='admin' || userRole==='exporter')"
               class="flex-1 bg-green-500 hover:bg-green-600 text-white text-xs py-1 rounded-lg"
               @click="$emit('sign', doc)"
             >
               Sign
             </button>
+
+            <!-- Revoke hanya untuk admin -->
             <button
-              v-if="doc.status!=='Revoked' && doc.status!=='Draft' && doc.status!=='Signed'"
+              v-if="doc.status!=='Revoked' && doc.status!=='Draft' && doc.status!=='Signed' && userRole==='admin'"
               class="flex-1 bg-red-500 hover:bg-red-600 text-white text-xs py-1 rounded-lg"
               @click="$emit('revoke', doc)"
             >

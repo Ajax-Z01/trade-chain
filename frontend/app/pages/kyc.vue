@@ -22,7 +22,26 @@ const approvedMintersKYC = computed(() => kyc.approvedMintersKYC.value)
 const loadingMintersKYC = computed(() => kyc.loadingMintersKYC.value)
 const selectedFile = computed(() => kyc.selectedFile.value)
 const minting = computed(() => kyc.minting.value)
-const tokenId = computed(() => kyc.tokenId.value)
+const tokenId = computed({
+  get: () => kyc.tokenId.value,
+  set: (val: string | number) => {
+    if (val === null || val === undefined || val === '') {
+      kyc.tokenId.value = null
+    } else if (typeof val === 'bigint') {
+      kyc.tokenId.value = val
+    } else if (typeof val === 'number' && !isNaN(val)) {
+      kyc.tokenId.value = BigInt(val)
+    } else if (typeof val === 'string' && val.trim() !== '' && !isNaN(Number(val))) {
+      try {
+        kyc.tokenId.value = BigInt(val)
+      } catch {
+        kyc.tokenId.value = null
+      }
+    } else {
+      kyc.tokenId.value = null
+    }
+  },
+})
 const nftInfo = computed(() => kyc.nftInfo.value)
 const processing = computed(() => kyc.processing.value)
 const minterAddress = computed({

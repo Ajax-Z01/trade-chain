@@ -28,14 +28,13 @@ const state = computed(() => contractStates[contractAddress] ?? getContractState
 
 // Role detection
 const selectedContract = ref<string | null>(contractAddress)
-const { userRole, refreshRole } = useContractRole(selectedContract)
+const { userRole } = useContractRole(selectedContract)
 
 // Lifecycle: Fetch logs, role, and contract data on mount
 onMounted(async () => {
   if (!state.value.history.length && !state.value.loading) {
     await fetchContractLogs(contractAddress)
   }
-  await refreshRole()
   await trade.loadContractData(contractAddress)
 })
 
@@ -46,7 +45,6 @@ const refreshAll = async () => {
   state.value.lastTimestamp = undefined
   await fetchContractLogs(contractAddress)
   await trade.loadContractData(contractAddress)
-  await refreshRole()
 }
 </script>
 

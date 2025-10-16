@@ -32,6 +32,9 @@ const {
   fetchApprovedMinters,
   handleAttachAndMint,
   openViewer,
+  handleReview,
+  handleSign,
+  handleRevoke,
   approvedMintersDoc,
   account,
 } = useDocumentDashboard(contractAddress)
@@ -117,7 +120,11 @@ const removeFile = (index: number) => {
     <AttachedDocumentsGrid
       :documents="documents"
       :loading="loadingDocs"
+      :user-role="userRole"
       @view="openViewer"
+      @review="handleReview"
+      @sign="handleSign"
+      @revoke="handleRevoke"
     />
 
     <DocumentViewer
